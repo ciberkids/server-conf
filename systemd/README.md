@@ -1,6 +1,6 @@
 # Intro
 
-We suppose to use always podman, qualets and systemd
+We suppose to use always podman, quadlets and systemd
 
 # to enable the containers
 
