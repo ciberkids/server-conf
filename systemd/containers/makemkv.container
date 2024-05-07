@@ -1,0 +1,23 @@
+[Unit]
+Description=Make MKV container
+Requires=network-online.target
+
+[Container]
+ContainerName=makemkv
+Image=docker.io/jlesage/makemkv:latest
+PublishPort=7900:5800
+PublishPort=8900:5900
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/makemkv:/config:rw
+Volume=/mnt/MovieAndTvShows/ToFix:/storage:ro
+Volume=/mnt/MovieAndTvShows/ToFix/makemkvOutput:/output:rw
+
+Environment="TZ=/etc/localtime"
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=Service for monitoring the Movie folder
+After=mnt-MovieAndTvShows.mount
+
+[Service]
+Type=simple
+# Another Type option: forking
+User=matteo
+WorkingDirectory=/home/matteo
+Environment='EXECUTABLE=/mnt/data/docker_persistent/iwatchFS/watchMovieTvShows.sh'
+Environment='FOLDER=/mnt/MovieAndTvShows/Movies/'
+ExecStart=/mnt/data/docker_persistent/iwatchFS/systemctl_watch_folder.sh $EXECUTABLE $FOLDER
+
+#Restart=on-failure
+# Other Restart options: or always, on-abort, etc
+
+[Install]
+WantedBy=multi-user.target

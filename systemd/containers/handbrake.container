@@ -1,0 +1,23 @@
+[Unit]
+Description= Handbrake Container
+Requires=network-online.target
+
+[Container]
+ContainerName=handbrake
+Image=docker.io/jlesage/handbrake:latest
+PublishPort=6800:5800
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/handbrake:/config:rw
+Volume=/mnt/MovieAndTvShows/ToFix:/storage:ro
+Volume=/mnt/downloads/handbreakAutoConvert:/watch:rw
+Volume=/mnt/MovieAndTvShows/ToFix/handbreakOutput:/output:rw
+
+Environment="TZ=/etc/localtime"
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
