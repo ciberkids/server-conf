@@ -6,18 +6,18 @@ Requires=network-online.target
 ContainerName=plex
 Image=docker.io/plexinc/pms-docker:latest
 
-PublishPort=32400:32400/tcp
-PublishPort=3005:3005/tcp
-PublishPort=8324:8324/tcp
-PublishPort=32469:32469/tcp
-PublishPort=1900:1900/udp
-PublishPort=32410:32410/udp
-PublishPort=32412:32412/udp
-PublishPort=32413:32413/udp
-PublishPort=32414:32414/udp
+PublishPort=32401:32400/tcp
+PublishPort=3006:3005/tcp
+PublishPort=8325:8324/tcp
+PublishPort=32470:32469/tcp
+PublishPort=1901:1900/udp
+PublishPort=32411:32410/udp
+PublishPort=32415:32412/udp
+PublishPort=32416:32413/udp
+PublishPort=32417:32414/udp
 
 Volume=/etc/localtime:/etc/localtime:ro
-Volume=/mnt/docker_persistent/plex-data:/config
+Volume=/mnt/local_container_persist/plex-data:/config:rw
 Volume=/mnt/TvShows:/data/tvshows
 Volume=/mnt/Movies:/data/movies
 Volume=/mnt/Matteo_And_Manu_Pictures:/data/photos
@@ -26,12 +26,14 @@ Volume=/mnt/transcode:/transcode
 Environment="TZ=/etc/localtime"
 Environment="PGID=1000"
 Environment="PUID=1000"
-Environment="PLEX_CLAIM="claim-BSPNHvxh4GPunoENuQZ_"
-Environment="ADVERTISE_IP=http://192.168.1.14:32400/"
+Environment="PLEX_CLAIM="claim-y6jS8hiRehMzoH5f-SD1"
+Environment="ADVERTISE_IP=http://192.168.1.14:32401/"
 
 HostName=bumblebee
 
-AddDevice=/dev/dri
+AddDevice=nvidia.com/gpu=all
+SecurityLabelDisable=true
+
 
 AutoUpdate=registry
 
