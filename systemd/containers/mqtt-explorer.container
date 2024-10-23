@@ -1,0 +1,21 @@
+[Unit]
+Description=MQTT Explorer container
+Requires=network-online.target
+
+[Container]
+ContainerName=mqtt-explorer
+Image=docker.io/smeagolworms4/mqtt-explorer:latest
+PublishPort=4000:4000
+
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/mqtt-explorer/config:/mqtt-explorer/config:rw
+
+Environment="TZ=/etc/localtime"
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,26 @@
+[Unit]
+Description=JDownloader 2 container
+Requires=network-online.target
+
+[Container]
+ContainerName=jdownloader2
+
+Image=docker.io/jlesage/jdownloader-2:latest
+
+PublishPort=5800:5800
+PublishPort=5900:5900
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/jdownloader-data:/config:rw
+Volume=/mnt/downloads:/output:rw
+Environment="TZ=/etc/localtime"
+Environment="PGID=1000"
+Environment="PUID=1000"
+
+AutoUpdate=registry
+
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

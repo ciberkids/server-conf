@@ -1,0 +1,35 @@
+[Unit]
+Description=Portainer container
+Requires=network-online.target
+
+[Container]
+ContainerName=portainer
+Image=docker.io/portainer/portainer-ce:latest
+
+PublishPort=8000:8000/tcp
+PublishPort=9443:9443/tcp
+
+Volume=/var/run/podman/podman.sock:/var/run/docker.sock:Z
+Volume=/mnt/local_container_persist/portainer:/data
+
+Environment="TZ=/etc/localtime"
+Environment="PGID=1000"
+Environment="PUID=1000"
+
+HostName=bumblebee
+
+AutoUpdate=registry
+# --privileged equivalent
+Unmask=all
+SecurityLabelDisable=true
+AddCapability=all
+SeccompProfile=unconfined
+
+#Or you can do
+#PodmanArgs=--privileged
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
