@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Podman id the GPU is loaded in case try to fix, send message in case of failure
+
+[Service]
+#adjust the path to location where the virtual env lives
+ExecStart=/root/python_virtual_envs/nvidia-checks/venv/bin/python /root/python_virtual_envs/nvidia-checks/check_nvidia_podman
+
+[Install]
+WantedBy=multi-user.target
