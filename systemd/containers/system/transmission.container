@@ -1,0 +1,25 @@
+[Unit]
+Description=Transmission Torrent Downloader Container
+Requires=network-online.target
+
+[Container]
+ContainerName=transmission
+Image=docker.io/linuxserver/transmission:latest
+PublishPort=9091:9091
+PublishPort=51413:51413
+PublishPort=51413:51413/udp
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/transmision:/config:rw
+Volume=/mnt/downloads/transmission:/downloads:rw
+Volume=/mnt/downloads/torrent:/watch:rw
+Environment="TZ=/etc/localtime"
+Environment="PGID=1000"
+Environment="PUID=1000"
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
