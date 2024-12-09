@@ -1,0 +1,8 @@
+[Unit]
+Description=Nextcloud AIO master container volume
+
+[Volume]
+User=1000
+Group=1000
+Device=/mnt/docker_persistent/nextcloud
+VolumeName=nextcloud_aio_mastercontainer
