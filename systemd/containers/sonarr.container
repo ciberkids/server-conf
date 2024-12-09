@@ -17,6 +17,8 @@ Environment="PUID=1000"
 
 AutoUpdate=registry
 
+Label="traefik.http.routers.sonarr.rule=PathPrefix(`/sonarr`)"
+
 [Service]
 Restart=always
 

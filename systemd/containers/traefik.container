@@ -1,0 +1,23 @@
+[Unit]
+Description=Traefik for giving dns to different containers
+Requires=network-online.target
+
+[Container]
+ContainerName=traefik
+Image=docker.io/traefik:latest
+PublishPort=80:80
+PublishPort=8080:8080
+
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/traefik/traefik.yml:/etc/traefik/traefik.yml
+Volume=/var/run/podman/podman.sock:/var/run/docker.sock
+
+
+Environment="TZ=/etc/localtime"
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

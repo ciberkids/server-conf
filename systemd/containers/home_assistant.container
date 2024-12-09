@@ -1,6 +1,9 @@
 [Unit]
 Description=Home Assistant (HA) container
+
 Requires=network-online.target
+Requires=timescaledb.service
+After=timescaledb.service
 
 [Container]
 ContainerName=home_assistant
