@@ -1,0 +1,13 @@
+[Unit]
+Description=Systemd volume test for podman
+
+[Volume]
+#User=1000
+#Group=1000
+Device=optimusprime.localdomain:/mnt/data/docker_persistent/volumetest
+Options=async
+Options=rw
+Type=nfs4
+#Type=bind
+
+VolumeName=volumetest
