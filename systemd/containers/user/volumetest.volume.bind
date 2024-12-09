@@ -1,0 +1,12 @@
+[Unit]
+Description=Systemd volume test for podman
+
+[Volume]
+User=1000
+Group=1000
+Device=/mnt/volumetest/
+Options=bind
+#Type=nfs4
+#Type=bind
+
+VolumeName=volumetest
