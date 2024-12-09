@@ -1,8 +1,0 @@
-[Unit]
-Description=Systemd volume test for podman
-
-[Volume]
-User=1000
-Group=1000
-Device=/mnt/docker_persistent/volumetest
-VolumeName=volumetest
