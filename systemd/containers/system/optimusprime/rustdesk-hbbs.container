@@ -1,0 +1,12 @@
+[Container]
+AutoUpdate=registry
+Image=ghcr.io/rustdesk/rustdesk-server:latest
+Exec=hbbs
+Volume=/mnt/data/docker_persistent/rustdesk-server:/root
+Network=host
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

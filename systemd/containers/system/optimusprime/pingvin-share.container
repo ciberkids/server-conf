@@ -1,0 +1,11 @@
+[Container]
+Environment=TRUST_PROXY=false
+Image=docker.io/stonith404/pingvin-share:latest
+PublishPort=5000:3000
+Volume=/mnt/data/docker_persistent/pingvin-share:/opt/app/backend/data
+Volume=/mnt/data/docker_persistent/pingvin-share/images:/opt/app/frontend/public/img
+#Volume=/mnt/data/docker_persistent/pingvin-share/config/config.yaml:/opt/app/config.yaml
+AutoUpdate=registry
+
+[Service]
+Restart=always
