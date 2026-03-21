@@ -1,0 +1,18 @@
+[Unit]
+Description=Immich Redis
+
+[Container]
+ContainerName=immich-redis
+Pod=immich.pod
+Image=docker.io/valkey/valkey:9
+Volume=/etc/localtime:/etc/localtime:ro
+HealthCmd=redis-cli ping || exit 1
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,24 @@
+[Unit]
+Description=Immich PostgreSQL Database
+
+[Container]
+ContainerName=immich-database
+Pod=immich.pod
+Image=ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/immich/db:/var/lib/postgresql/data:rw
+ShmSize=128m
+Environment="POSTGRES_DB=immich"
+Environment="POSTGRES_USER=postgres"
+Environment="POSTGRES_PASSWORD=immich_db_password"
+Environment="POSTGRES_INITDB_ARGS=--data-checksums"
+HealthCmd=pg_isready --dbname=immich --username=postgres || exit 1
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
