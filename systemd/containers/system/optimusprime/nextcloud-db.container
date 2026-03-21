@@ -1,0 +1,23 @@
+[Unit]
+Description=Nextcloud PostgreSQL Database
+
+[Container]
+ContainerName=nextcloud-db
+Pod=nextcloud.pod
+Image=docker.io/library/postgres:16
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/nextcloud/db:/var/lib/postgresql/data:rw
+ShmSize=128m
+Environment="POSTGRES_DB=nextcloud"
+Environment="POSTGRES_USER=nextcloud"
+Environment="POSTGRES_PASSWORD=nextcloud_db_password"
+HealthCmd=pg_isready -U nextcloud || exit 1
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

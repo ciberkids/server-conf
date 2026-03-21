@@ -1,0 +1,22 @@
+[Unit]
+Description=Nextcloud container
+Requires=nextcloud-db.service
+
+[Container]
+ContainerName=nextcloud-app
+Pod=nextcloud.pod
+Image=docker.io/linuxserver/nextcloud:latest
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/nextcloud:/config:rw
+Volume=/mnt/data/docker_persistent/nextcloud/data:/data:rw
+Environment="TZ=/etc/localtime"
+Environment="PGID=1000"
+Environment="PUID=1000"
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
