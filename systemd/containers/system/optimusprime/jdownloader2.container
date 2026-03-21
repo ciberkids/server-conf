@@ -19,6 +19,11 @@ Environment="PUID=1000"
 AutoUpdate=registry
 
 
+Label=traefik.enable=true
+Label=traefik.http.routers.jdownloader2.rule=Host(`jdownloader.optimusprime.favarohome.com`)
+Label=traefik.http.routers.jdownloader2.entrypoints=websecure
+Label=traefik.http.routers.jdownloader2.tls.certresolver=cloudflare
+Label=traefik.http.services.jdownloader2.loadbalancer.server.port=5800
 [Service]
 Restart=always
 

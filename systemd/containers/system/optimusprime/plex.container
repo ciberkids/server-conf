@@ -35,6 +35,17 @@ AddDevice=/dev/dri
 
 AutoUpdate=registry
 
+Label=traefik.enable=true
+Label=traefik.http.routers.plex.rule=Host(`plex.optimusprime.favarohome.com`)
+Label=traefik.http.routers.plex.entrypoints=websecure
+Label=traefik.http.routers.plex.tls.certresolver=cloudflare
+Label=traefik.http.services.plex.loadbalancer.server.port=32400
+Label=traefik.http.services.plex.loadbalancer.server.scheme=https
+Label=traefik.http.services.plex.loadbalancer.serversTransport=insecureTransport@file
+Label=traefik.http.routers.plex-public.rule=Host(`plex.public.favarohome.com`)
+Label=traefik.http.routers.plex-public.entrypoints=websecure
+Label=traefik.http.routers.plex-public.tls.certresolver=cloudflare
+Label=traefik.http.routers.plex-public.service=plex
 [Service]
 Restart=always
 

@@ -23,6 +23,11 @@ Environment="MQTT_PROTOCOL_VERSION=5"
 
 AutoUpdate=registry
 
+Label=traefik.enable=true
+Label=traefik.http.routers.mqtt_dashboard.rule=Host(`mqtt-dashboard.optimusprime.favarohome.com`)
+Label=traefik.http.routers.mqtt_dashboard.entrypoints=websecure
+Label=traefik.http.routers.mqtt_dashboard.tls.certresolver=cloudflare
+Label=traefik.http.services.mqtt_dashboard.loadbalancer.server.port=3333
 [Service]
 Restart=always
 

@@ -1,0 +1,27 @@
+[Unit]
+Description=Heimdall Application Dashboard
+Requires=network-online.target
+
+[Container]
+ContainerName=heimdall
+Image=docker.io/linuxserver/heimdall:latest
+PublishPort=8880:80
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/heimdall:/config:rw
+Environment="TZ=/etc/localtime"
+Environment="PGID=1000"
+Environment="PUID=1000"
+
+AutoUpdate=registry
+
+Label=traefik.enable=true
+Label=traefik.http.routers.heimdall.rule=Host(`heimdall.optimusprime.favarohome.com`)
+Label=traefik.http.routers.heimdall.entrypoints=websecure
+Label=traefik.http.routers.heimdall.tls.certresolver=cloudflare
+Label=traefik.http.services.heimdall.loadbalancer.server.port=80
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

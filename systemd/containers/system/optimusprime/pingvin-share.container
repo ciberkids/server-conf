@@ -1,3 +1,7 @@
+[Unit]
+Description=File sharing with links Pingvin-share
+Requires=network-online.target
+
 [Container]
 Environment=TRUST_PROXY=false
 Image=docker.io/stonith404/pingvin-share:latest
@@ -7,5 +11,17 @@ Volume=/mnt/data/docker_persistent/pingvin-share/images:/opt/app/frontend/public
 #Volume=/mnt/data/docker_persistent/pingvin-share/config/config.yaml:/opt/app/config.yaml
 AutoUpdate=registry
 
+Label=traefik.enable=true
+Label=traefik.http.routers.pingvin_share.rule=Host(`pingvin.optimusprime.favarohome.com`)
+Label=traefik.http.routers.pingvin_share.entrypoints=websecure
+Label=traefik.http.routers.pingvin_share.tls.certresolver=cloudflare
+Label=traefik.http.services.pingvin_share.loadbalancer.server.port=3000
+Label=traefik.http.routers.pingvin-public.rule=Host(`pingvin.public.favarohome.com`)
+Label=traefik.http.routers.pingvin-public.entrypoints=websecure
+Label=traefik.http.routers.pingvin-public.tls.certresolver=cloudflare
+Label=traefik.http.routers.pingvin-public.service=pingvin_share
 [Service]
 Restart=always
+
+[Install]
+WantedBy=default.target

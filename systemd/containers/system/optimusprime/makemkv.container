@@ -16,6 +16,11 @@ Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
 
+Label=traefik.enable=true
+Label=traefik.http.routers.makemkv.rule=Host(`makemkv.optimusprime.favarohome.com`)
+Label=traefik.http.routers.makemkv.entrypoints=websecure
+Label=traefik.http.routers.makemkv.tls.certresolver=cloudflare
+Label=traefik.http.services.makemkv.loadbalancer.server.port=5800
 [Service]
 Restart=always
 

@@ -24,6 +24,11 @@ SecurityLabelDisable=true
 AddCapability=all  
 SeccompProfile=unconfined
 
+Label=traefik.enable=true
+Label=traefik.http.routers.home_assistant.rule=Host(`homeassistant.optimusprime.favarohome.com`)
+Label=traefik.http.routers.home_assistant.entrypoints=websecure
+Label=traefik.http.routers.home_assistant.tls.certresolver=cloudflare
+Label=traefik.http.services.home_assistant.loadbalancer.server.port=8123
 [Service]
 Restart=always
 

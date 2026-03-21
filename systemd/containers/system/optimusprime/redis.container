@@ -1,0 +1,19 @@
+[Unit]
+Description=redis container
+Requires=network-online.target
+
+[Container]
+ContainerName=redis
+Image=docker.io/library/redis:latest
+PublishPort=6379:6379
+Volume=/etc/localtime:/etc/localtime:ro
+
+Environment="TZ=/etc/localtime"
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
