@@ -1,0 +1,25 @@
+[Unit]
+Description=Ollama LLM Server
+Requires=network-online.target
+
+[Container]
+ContainerName=ollama
+Image=docker.io/ollama/ollama:latest
+PublishPort=11434:11434
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/home/matteo/docker_persistent/ollama:/root/.ollama:rw,Z
+AddDevice=nvidia.com/gpu=all
+
+AutoUpdate=registry
+
+Label=traefik.enable=true
+Label=traefik.http.routers.ollama.rule=Host(`ollama.bumblebee.favarohome.com`)
+Label=traefik.http.routers.ollama.entrypoints=websecure
+Label=traefik.http.routers.ollama.tls.certresolver=cloudflare
+Label=traefik.http.services.ollama.loadbalancer.server.port=11434
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
