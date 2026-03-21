@@ -1,0 +1,18 @@
+[Unit]
+Description=Immich Machine Learning
+
+[Container]
+ContainerName=immich-machine-learning
+Pod=immich.pod
+Image=ghcr.io/immich-app/immich-machine-learning:v2.6.1
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/immich/model-cache:/cache:rw
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
