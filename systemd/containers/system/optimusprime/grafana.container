@@ -15,6 +15,11 @@ AutoUpdate=registry
 Environment="PGID=1000"
 Environment="PUID=1000"
 
+Label=traefik.enable=true
+Label=traefik.http.routers.grafana.rule=Host(`grafana.optimusprime.favarohome.com`)
+Label=traefik.http.routers.grafana.entrypoints=websecure
+Label=traefik.http.routers.grafana.tls.certresolver=cloudflare
+Label=traefik.http.services.grafana.loadbalancer.server.port=3000
 [Service]
 Restart=always
 

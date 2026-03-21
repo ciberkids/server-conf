@@ -16,6 +16,11 @@ Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
 
+Label=traefik.enable=true
+Label=traefik.http.routers.handbrake.rule=Host(`handbrake.optimusprime.favarohome.com`)
+Label=traefik.http.routers.handbrake.entrypoints=websecure
+Label=traefik.http.routers.handbrake.tls.certresolver=cloudflare
+Label=traefik.http.services.handbrake.loadbalancer.server.port=5800
 [Service]
 Restart=always
 

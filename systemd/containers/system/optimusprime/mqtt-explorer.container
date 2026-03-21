@@ -14,6 +14,11 @@ Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
 
+Label=traefik.enable=true
+Label=traefik.http.routers.mqtt_explorer.rule=Host(`mqtt-explorer.optimusprime.favarohome.com`)
+Label=traefik.http.routers.mqtt_explorer.entrypoints=websecure
+Label=traefik.http.routers.mqtt_explorer.tls.certresolver=cloudflare
+Label=traefik.http.services.mqtt_explorer.loadbalancer.server.port=4000
 [Service]
 Restart=always
 
