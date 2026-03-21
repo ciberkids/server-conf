@@ -25,6 +25,10 @@ Label=traefik.http.routers.jellyfin.rule=Host(`jellyfin.optimusprime.favarohome.
 Label=traefik.http.routers.jellyfin.entrypoints=websecure
 Label=traefik.http.routers.jellyfin.tls.certresolver=cloudflare
 Label=traefik.http.services.jellyfin.loadbalancer.server.port=8096
+Label=traefik.http.routers.jellyfin-public.rule=Host(`jellyfin.public.favarohome.com`)
+Label=traefik.http.routers.jellyfin-public.entrypoints=websecure
+Label=traefik.http.routers.jellyfin-public.tls.certresolver=cloudflare
+Label=traefik.http.routers.jellyfin-public.service=jellyfin
 
 [Service]
 Restart=always
