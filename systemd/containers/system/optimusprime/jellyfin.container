@@ -17,6 +17,7 @@ Environment="PUID=1000"
 Environment="JELLYFIN_PublishedServerUrl=https://jellyfin.optimusprime.favarohome.com"
 
 AddDevice=/dev/dri
+AddDevice=/dev/kfd
 
 AutoUpdate=registry
 
