@@ -21,6 +21,10 @@ Label=traefik.http.routers.nextcloud.tls.certresolver=cloudflare
 Label=traefik.http.services.nextcloud.loadbalancer.server.port=443
 Label=traefik.http.services.nextcloud.loadbalancer.server.scheme=https
 Label=traefik.http.services.nextcloud.loadbalancer.serversTransport=insecureTransport@file
+Label=traefik.http.routers.nextcloud-public.rule=Host(`nextcloud.public.favarohome.com`)
+Label=traefik.http.routers.nextcloud-public.entrypoints=websecure
+Label=traefik.http.routers.nextcloud-public.tls.certresolver=cloudflare
+Label=traefik.http.routers.nextcloud-public.service=nextcloud
 
 [Service]
 Restart=always
