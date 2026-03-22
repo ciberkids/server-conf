@@ -11,6 +11,9 @@ PublishPort=3000:8080
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/open-webui:/app/backend/data:rw,Z
 Environment="OLLAMA_BASE_URL=http://192.168.1.14:11434"
+Environment="ENABLE_RAG_WEB_SEARCH=true"
+Environment="RAG_WEB_SEARCH_ENGINE=searxng"
+Environment="SEARXNG_QUERY_URL=http://192.168.1.14:8888/search?q=<query>&format=json"
 
 AutoUpdate=registry
 

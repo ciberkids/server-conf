@@ -1,0 +1,24 @@
+[Unit]
+Description=SearXNG Meta Search Engine
+Requires=network-online.target
+
+[Container]
+ContainerName=searxng
+Image=docker.io/searxng/searxng:latest
+PublishPort=8888:8080
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/home/matteo/docker_persistent/searxng/settings.yml:/etc/searxng/settings.yml:Z
+
+AutoUpdate=registry
+
+Label=traefik.enable=true
+Label=traefik.http.routers.searxng.rule=Host(`search.bumblebee.favarohome.com`)
+Label=traefik.http.routers.searxng.entrypoints=websecure
+Label=traefik.http.routers.searxng.tls.certresolver=cloudflare
+Label=traefik.http.services.searxng.loadbalancer.server.port=8080
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
