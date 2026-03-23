@@ -8,21 +8,20 @@ After=ollama.service
 ContainerName=openclaw
 Image=ghcr.io/openclaw/openclaw:latest
 PublishPort=18789:18789
+SecurityLabelDisable=true
+PodmanArgs=--group-add 0
 Volume=/etc/localtime:/etc/localtime:ro
-Volume=/home/matteo/docker_persistent/openclaw/config:/home/node/.openclaw:rw,Z
-Volume=/home/matteo/docker_persistent/openclaw/workspace:/home/node/.openclaw/workspace:rw,Z
+Volume=/run/podman/podman.sock:/var/run/docker.sock
+Volume=/home/matteo/openclaw-workspace:/home/node/.openclaw/workspace:rw
+Volume=/home/matteo/docker_persistent/openclaw/config:/home/node/.openclaw:rw
 Environment="LLM_MODEL=ollama/qwen2.5-coder:7b"
 Environment="LLM_BASE_URL=http://192.168.1.14:11434"
 Environment="OLLAMA_BASE_URL=http://192.168.1.14:11434"
 Environment="OPENCLAW_HOST=0.0.0.0"
+Environment="TZ=Europe/Zurich"
 
 AutoUpdate=registry
 
-Label=traefik.enable=true
-Label=traefik.http.routers.openclaw.rule=Host(`openclaw.bumblebee.favarohome.com`)
-Label=traefik.http.routers.openclaw.entrypoints=websecure
-Label=traefik.http.routers.openclaw.tls.certresolver=cloudflare
-Label=traefik.http.services.openclaw.loadbalancer.server.port=18789
 
 [Service]
 Restart=always
