@@ -1,0 +1,23 @@
+[Unit]
+Description=Prometheus SMART Disk Exporter
+Requires=network-online.target
+
+[Container]
+ContainerName=smartctl-exporter
+Image=quay.io/prometheuscommunity/smartctl-exporter:latest
+PublishPort=9633:9633
+Volume=/etc/localtime:/etc/localtime:ro
+PodmanArgs=--privileged
+Volume=/dev:/dev:rw
+SecurityLabelDisable=true
+User=root
+AddCapability=SYS_RAWIO SYS_ADMIN
+Exec=--smartctl.device-exclude=^(loop|ram|nbd)
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

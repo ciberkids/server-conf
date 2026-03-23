@@ -1,0 +1,21 @@
+[Unit]
+Description=Prometheus Node Exporter
+Requires=network-online.target
+
+[Container]
+ContainerName=node-exporter
+Image=quay.io/prometheus/node-exporter:latest
+PublishPort=9100:9100
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/:/host:ro,rslave
+PodmanArgs=--pid=host
+Environment=NODE_ID=optimusprime
+Exec=--path.rootfs=/host --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/) --collector.textfile.directory=/host/tmp/node_exporter
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
