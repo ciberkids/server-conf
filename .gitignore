@@ -1,0 +1,13 @@
+# Claude Code project files
+.claude/
+
+# Large reports
+duplicates_report.md
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets (should not be committed)
+*.env
+.secrets

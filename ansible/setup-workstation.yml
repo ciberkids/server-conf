@@ -1,0 +1,242 @@
+---
+- name: Setup AlmaLinux 9 workstation
+  hosts: workstations
+  become: yes
+  vars:
+    target_user: matteo
+    nfs_server: "{{ nfs_server | default('192.168.1.10') }}"
+    ssh_key_source: "{{ ssh_key_source | default('/mnt/downloads/ssh/optimus-prime') }}"
+    nfs_mounts:
+      - src: "{{ nfs_server }}:/mnt/downloads"
+        path: /mnt/downloads
+        opts: defaults,_netdev
+      - src: "{{ nfs_server }}:/mnt/data"
+        path: /mnt/data
+        opts: defaults,_netdev
+      - src: "{{ nfs_server }}:/mnt/MovieAndTvShows"
+        path: /mnt/MovieAndTvShows
+        opts: defaults,_netdev
+      - src: "{{ nfs_server }}:/mnt/MovieAndTvShows/Movies"
+        path: /mnt/MovieAndTvShows/Movies
+        opts: defaults,_netdev,ro
+      - src: "{{ nfs_server }}:/mnt/MovieAndTvShows/TvShows"
+        path: /mnt/MovieAndTvShows/TvShows
+        opts: defaults,_netdev,ro
+      - src: "{{ nfs_server }}:/mnt/data/docker_persistent/immich"
+        path: /mnt/data/docker_persistent/immich
+        opts: defaults,_netdev
+      - src: "{{ nfs_server }}:/mnt/data/docker_persistent/nextcloud"
+        path: /mnt/data/docker_persistent/nextcloud
+        opts: defaults,_netdev
+      - src: "{{ nfs_server }}:/mnt/data/docker_persistent/volumetest"
+        path: /mnt/data/docker_persistent/volumetest
+        opts: defaults,_netdev
+      - src: "{{ nfs_server }}:/mnt/data/Matteo_And_Manu/Pictures"
+        path: /mnt/data/Matteo_And_Manu/Pictures
+        opts: defaults,_netdev,ro
+    packages:
+      - podman
+      - samba
+      - samba-client
+      - nfs-utils
+      - cockpit
+      - cockpit-podman
+      - cockpit-storaged
+      - cockpit-networkmanager
+      - cockpit-packagekit
+      - policycoreutils-python-utils
+      - fastfetch
+      - btop
+      - nvtop
+      - epel-release
+
+  tasks:
+    # =========================================================
+    # 1. Add user to sudoers (wheel group)
+    # =========================================================
+    - name: Add {{ target_user }} to wheel group for sudo access
+      user:
+        name: "{{ target_user }}"
+        groups: wheel
+        append: yes
+
+    # =========================================================
+    # 2. Enable cockpit
+    # =========================================================
+    - name: Enable and start cockpit socket
+      systemd:
+        name: cockpit.socket
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 3. Install EPEL repository
+    # =========================================================
+    - name: Install EPEL release
+      dnf:
+        name: epel-release
+        state: present
+
+    # =========================================================
+    # 4. Install packages
+    # =========================================================
+    - name: Install required packages
+      dnf:
+        name: "{{ packages }}"
+        state: present
+
+    # =========================================================
+    # 5. NVIDIA driver (580 legacy for GTX 1080 Ti)
+    # =========================================================
+    - name: Add NVIDIA CUDA repository
+      yum_repository:
+        name: cuda-rhel9
+        description: NVIDIA CUDA repository for RHEL 9
+        baseurl: https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/
+        gpgcheck: yes
+        gpgkey: https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/D42D0685.pub
+        enabled: yes
+
+    - name: Install NVIDIA 580 legacy DKMS driver
+      dnf:
+        name: "@nvidia-driver:580-dkms"
+        state: present
+      notify: reboot required
+
+    # =========================================================
+    # 6. NFS mounts
+    # =========================================================
+    - name: Create NFS mount directories
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ nfs_mounts }}"
+
+    - name: Mount NFS shares and add to fstab
+      mount:
+        src: "{{ item.src }}"
+        path: "{{ item.path }}"
+        fstype: nfs
+        opts: "{{ item.opts }}"
+        state: mounted
+      loop: "{{ nfs_mounts }}"
+
+    # =========================================================
+    # 7. SSH keys setup
+    # =========================================================
+    - name: Create .ssh directory for {{ target_user }}
+      file:
+        path: "/home/{{ target_user }}/.ssh"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0700"
+
+    - name: Copy SSH private key
+      copy:
+        src: "{{ ssh_key_source }}/optimusprime_id_rsa"
+        dest: "/home/{{ target_user }}/.ssh/id_rsa"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0600"
+        remote_src: yes
+
+    - name: Copy SSH public key
+      copy:
+        src: "{{ ssh_key_source }}/optimusprime_id_rsa.pub"
+        dest: "/home/{{ target_user }}/.ssh/id_rsa.pub"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0644"
+        remote_src: yes
+
+    - name: Add public key to authorized_keys
+      authorized_key:
+        user: "{{ target_user }}"
+        key: "{{ lookup('file', ssh_key_source + '/optimusprime_id_rsa.pub') }}"
+        state: present
+
+    # =========================================================
+    # 8. Fastfetch for all users on login
+    # =========================================================
+    - name: Enable fastfetch on login for all users
+      copy:
+        content: "fastfetch\n"
+        dest: /etc/profile.d/fastfetch.sh
+        mode: "0755"
+
+    # =========================================================
+    # 9. OpenClaw workspace directory
+    # =========================================================
+    - name: Create OpenClaw workspace directory
+      file:
+        path: "/home/{{ target_user }}/openclaw-workspace"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Create OpenClaw persistent config directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/openclaw/config"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0700"
+
+    # =========================================================
+    # 10. Node Exporter for Prometheus monitoring
+    # =========================================================
+    - name: Create node-exporter quadlet
+      copy:
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          Requires=network-online.target
+
+          [Container]
+          ContainerName=node-exporter
+          Image=quay.io/prometheus/node-exporter:latest
+          PublishPort=9100:9100
+          SecurityLabelDisable=true
+          Volume=/etc/localtime:/etc/localtime:ro
+          Volume=/:/host:ro,rslave
+          PodmanArgs=--pid=host
+          Exec=--path.rootfs=/host --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+
+          AutoUpdate=registry
+
+          [Service]
+          Restart=always
+
+          [Install]
+          WantedBy=default.target
+        dest: /etc/containers/systemd/node-exporter.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start node-exporter
+      systemd:
+        name: node-exporter.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 11. Open firewall port for node-exporter
+    # =========================================================
+    - name: Allow node-exporter port in firewall
+      firewalld:
+        port: 9100/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+    - name: reboot required
+      debug:
+        msg: "NVIDIA driver installed - a reboot is required for the driver to load. Run 'reboot' when ready."
