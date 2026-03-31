@@ -1,0 +1,27 @@
+[Unit]
+Description=OpenSign Web Client
+Requires=network-online.target
+After=opensign-server.service
+
+[Container]
+ContainerName=opensign-client
+Image=docker.io/opensign/opensign:main
+PublishPort=3001:3000
+Volume=/etc/localtime:/etc/localtime:ro
+
+Environment=SERVER_URL=https://opensign-api.optimusprime.favarohome.com/app
+Environment=PUBLIC_URL=https://opensign.optimusprime.favarohome.com
+
+AutoUpdate=registry
+
+Label=traefik.enable=true
+Label=traefik.http.routers.opensign.rule=Host(`opensign.optimusprime.favarohome.com`)
+Label=traefik.http.routers.opensign.entrypoints=websecure
+Label=traefik.http.routers.opensign.tls.certresolver=cloudflare
+Label=traefik.http.services.opensign.loadbalancer.server.port=3000
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

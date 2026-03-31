@@ -1,0 +1,18 @@
+[Unit]
+Description=OpenSign MongoDB
+Requires=network-online.target
+
+[Container]
+ContainerName=opensign-db
+Image=docker.io/library/mongo:latest
+PublishPort=27018:27017
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/opensign/data:/data/db:rw
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
