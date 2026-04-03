@@ -1,0 +1,12 @@
+[Unit]
+Description=Send Telegram notification on boot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/telegram-send "[optimus-prime] System has rebooted and is starting services."
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
