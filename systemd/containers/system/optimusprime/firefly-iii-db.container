@@ -1,0 +1,28 @@
+[Unit]
+Description=Firefly III MariaDB database
+Requires=network-online.target
+
+[Container]
+ContainerName=firefly-iii-db
+Network=firefly-iii.network
+Image=docker.io/library/mariadb:lts
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/firefly-iii/db:/var/lib/mysql:rw
+
+Environment=MYSQL_RANDOM_ROOT_PASSWORD=yes
+Environment=MYSQL_DATABASE=firefly
+Environment=MYSQL_USER=firefly
+Environment=MYSQL_PASSWORD=f1r3fly_db_2026
+
+HealthCmd=healthcheck.sh --connect --innodb_initialized
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=5
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
