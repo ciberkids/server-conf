@@ -1,6 +1,8 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Ollama LLM Server
 Requires=network-online.target
+After=nvidia-cdi-refresh.service
 
 [Container]
 ContainerName=ollama
