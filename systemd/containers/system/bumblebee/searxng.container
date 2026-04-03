@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=SearXNG Meta Search Engine
 Requires=network-online.target
 
@@ -8,6 +9,9 @@ Image=docker.io/searxng/searxng:latest
 PublishPort=8888:8080
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/searxng/settings.yml:/etc/searxng/settings.yml:Z
+
+Environment=SEARXNG_LIMITER=false
+Environment=SEARXNG_SECRET=searxng_bumblebee_secret_key_2026
 
 AutoUpdate=registry
 
