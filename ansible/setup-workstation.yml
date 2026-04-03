@@ -330,6 +330,67 @@
         enabled: yes
         state: started
 
+    # =========================================================
+    # 13. File Browser
+    # =========================================================
+    - name: Create File Browser persistent directories
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/filebrowser/{{ item }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+      loop:
+        - database
+        - config
+
+    - name: Create File Browser quadlet
+      copy:
+        content: |
+          [Unit]
+          OnFailure=notify-failure@%n.service
+          Description=File Browser container
+          Requires=network-online.target
+
+          [Container]
+          ContainerName=filebrowser
+          Image=docker.io/filebrowser/filebrowser:s6
+          PublishPort=8585:80
+          Volume=/etc/localtime:/etc/localtime:ro
+          Volume=/home/{{ target_user }}/docker_persistent/filebrowser/database:/database:Z
+          Volume=/home/{{ target_user }}/docker_persistent/filebrowser/config:/config:Z
+          Volume=/mnt/data:/srv/data:Z
+          Volume=/mnt/downloads:/srv/downloads:Z
+          Volume=/mnt/MovieAndTvShows:/srv/media:Z
+
+          Environment=TZ=/etc/localtime
+          Environment=PGID=1000
+          Environment=PUID=1000
+
+          AutoUpdate=registry
+
+          Label=traefik.enable=true
+          Label=traefik.http.routers.filebrowser.rule=Host(`filebrowser.bumblebee.favarohome.com`)
+          Label=traefik.http.routers.filebrowser.entrypoints=websecure
+          Label=traefik.http.routers.filebrowser.tls.certresolver=cloudflare
+          Label=traefik.http.services.filebrowser.loadbalancer.server.port=80
+
+          [Service]
+          Restart=always
+
+          [Install]
+          WantedBy=default.target
+        dest: /etc/containers/systemd/filebrowser.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start File Browser
+      systemd:
+        name: filebrowser.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
   handlers:
     - name: reload systemd
       systemd:
