@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Stirling PDF - PDF manipulation tool
 Requires=network-online.target
 
