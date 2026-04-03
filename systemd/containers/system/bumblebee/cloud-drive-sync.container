@@ -1,0 +1,20 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Cloud Drive Sync - Google Drive sync daemon
+Requires=network-online.target
+
+[Container]
+ContainerName=cloud-drive-sync
+Image=ghcr.io/ciberkids/cloud-drive-sync:latest
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/home/matteo/docker_persistent/cloud-drive-sync/config:/root/.config/cloud-drive-sync:Z
+Volume=/home/matteo/docker_persistent/cloud-drive-sync/data:/root/.local/share/cloud-drive-sync:Z
+Volume=/home/matteo/gdrive-sync:/data/gdrive-sync:Z
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
