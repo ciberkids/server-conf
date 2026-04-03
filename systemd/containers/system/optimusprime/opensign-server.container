@@ -5,6 +5,7 @@ After=opensign-db.service
 
 [Container]
 ContainerName=opensign-server
+Network=opensign.network
 Image=docker.io/opensign/opensignserver:main
 PublishPort=8081:8080
 Volume=/etc/localtime:/etc/localtime:ro

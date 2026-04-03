@@ -4,6 +4,7 @@ Requires=network-online.target
 
 [Container]
 ContainerName=opensign-db
+Network=opensign.network
 Image=docker.io/library/mongo:latest
 PublishPort=27018:27017
 Volume=/etc/localtime:/etc/localtime:ro
