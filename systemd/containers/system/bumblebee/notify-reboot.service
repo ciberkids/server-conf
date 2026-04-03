@@ -1,0 +1,11 @@
+[Unit]
+Description=Send Telegram notification on system reboot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/telegram-send --config /etc/telegram-send.conf "[bumblebee] System has rebooted and is starting services"
+
+[Install]
+WantedBy=multi-user.target

@@ -233,6 +233,103 @@
         state: enabled
         immediate: yes
 
+    # =========================================================
+    # 12. Telegram notifications (telegram-send)
+    # =========================================================
+    - name: Install telegram-send dependencies
+      pip:
+        name:
+          - python-telegram-bot==21.10
+          - httpx==0.28.1
+          - telegram-send
+        state: present
+        executable: pip3
+
+    - name: Deploy notify-failure@ template service
+      copy:
+        content: |
+          [Unit]
+          Description=Send Telegram notification on service failure
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] Service %i FAILED"
+        dest: /etc/systemd/system/notify-failure@.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy reboot notification service
+      copy:
+        content: |
+          [Unit]
+          Description=Send Telegram notification on system reboot
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] System has rebooted and is starting services"
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/notify-reboot.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable reboot notification service
+      systemd:
+        name: notify-reboot.service
+        daemon_reload: yes
+        enabled: yes
+
+    - name: Deploy podman auto-update notification service
+      copy:
+        content: |
+          [Unit]
+          Description=Podman auto-update with Telegram notification
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/bash -c '\
+            output=$(/usr/bin/podman auto-update 2>&1); \
+            rc=$$?; \
+            updated=$$(echo "$$output" | grep -c "true" || true); \
+            if [ "$$updated" -gt 0 ]; then \
+              /usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] podman auto-update: $$updated container(s) updated"; \
+            else \
+              /usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] podman auto-update: all containers up to date"; \
+            fi; \
+            exit $$rc'
+        dest: /etc/systemd/system/podman-auto-update-notify.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy podman auto-update notification timer
+      copy:
+        content: |
+          [Unit]
+          Description=Podman auto-update with notification timer
+
+          [Timer]
+          OnCalendar=daily
+          RandomizedDelaySec=900
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+        dest: /etc/systemd/system/podman-auto-update-notify.timer
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable podman auto-update notification timer
+      systemd:
+        name: podman-auto-update-notify.timer
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
   handlers:
     - name: reload systemd
       systemd:
