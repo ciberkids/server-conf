@@ -1,0 +1,6 @@
+[Unit]
+Description=Send Telegram notification on service failure
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/telegram-send "[optimus-prime] Service %i FAILED"
