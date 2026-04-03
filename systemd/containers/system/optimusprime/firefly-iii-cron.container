@@ -1,0 +1,16 @@
+[Unit]
+Description=Firefly III cron jobs
+Requires=network-online.target
+After=firefly-iii.service
+
+[Container]
+ContainerName=firefly-iii-cron
+Network=firefly-iii.network
+Image=docker.io/library/alpine:latest
+Exec=sh -c "echo '0 3 * * * wget -qO- http://firefly-iii:8080/api/v1/cron/***REDACTED***' | crontab - && crond -f -L /dev/stdout"
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

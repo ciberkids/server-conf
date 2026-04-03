@@ -1,0 +1,3 @@
+[Network]
+NetworkName=firefly-iii
+Driver=bridge
