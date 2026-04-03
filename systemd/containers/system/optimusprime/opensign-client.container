@@ -5,11 +5,12 @@ After=opensign-server.service
 
 [Container]
 ContainerName=opensign-client
+Network=opensign.network
 Image=docker.io/opensign/opensign:main
 PublishPort=3001:3000
 Volume=/etc/localtime:/etc/localtime:ro
 
-Environment=SERVER_URL=https://opensign-api.optimusprime.favarohome.com/app
+Environment=REACT_APP_SERVERURL=https://opensign-api.optimusprime.favarohome.com/app
 Environment=PUBLIC_URL=https://opensign.optimusprime.favarohome.com
 
 AutoUpdate=registry
