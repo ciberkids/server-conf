@@ -1,0 +1,27 @@
+[Unit]
+Description=Warracker PostgreSQL database
+Requires=network-online.target
+
+[Container]
+ContainerName=warracker-db
+Network=warracker.network
+Image=docker.io/library/postgres:15-alpine
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/warracker/postgres:/var/lib/postgresql/data:rw
+
+Environment=POSTGRES_DB=warranty_db
+Environment=POSTGRES_USER=warranty_user
+Environment=POSTGRES_PASSWORD=***REDACTED***
+
+HealthCmd=pg_isready -U warranty_user -d warranty_db
+HealthInterval=5s
+HealthTimeout=5s
+HealthRetries=5
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
