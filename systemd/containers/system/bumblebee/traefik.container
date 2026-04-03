@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Traefik reverse proxy with HTTPS
 Requires=network-online.target
 
