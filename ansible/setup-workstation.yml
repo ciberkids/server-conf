@@ -362,6 +362,8 @@
           Volume=/mnt/data:/srv/data:Z
           Volume=/mnt/downloads:/srv/downloads:Z
           Volume=/mnt/MovieAndTvShows:/srv/media:Z
+          Volume=/home/{{ target_user }}:/srv/home:Z
+          Volume=/home/{{ target_user }}/openclaw-workspace:/srv/openclaw-workspace:Z
 
           Environment=TZ=/etc/localtime
           Environment=PGID=1000
@@ -387,6 +389,121 @@
     - name: Enable and start File Browser
       systemd:
         name: filebrowser.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 14. Stirling PDF
+    # =========================================================
+    - name: Create Stirling PDF persistent directories
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/stirling-pdf/{{ item }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+      loop:
+        - data
+        - config
+        - logs
+
+    - name: Create Stirling PDF quadlet
+      copy:
+        content: |
+          [Unit]
+          OnFailure=notify-failure@%n.service
+          Description=Stirling PDF - PDF manipulation tool
+          Requires=network-online.target
+
+          [Container]
+          ContainerName=stirling-pdf
+          Image=docker.io/stirlingtools/stirling-pdf:latest
+          PublishPort=8484:8080
+          Volume=/etc/localtime:/etc/localtime:ro
+          Volume=/home/{{ target_user }}/docker_persistent/stirling-pdf/data:/usr/share/tessdata:Z
+          Volume=/home/{{ target_user }}/docker_persistent/stirling-pdf/config:/configs:Z
+          Volume=/home/{{ target_user }}/docker_persistent/stirling-pdf/logs:/logs:Z
+
+          Environment=SECURITY_ENABLELOGIN=false
+          Environment=SYSTEM_DEFAULTLOCALE=en-US
+
+          AutoUpdate=registry
+
+          Label=traefik.enable=true
+          Label=traefik.http.routers.stirling-pdf.rule=Host(`stirling-pdf.bumblebee.favarohome.com`)
+          Label=traefik.http.routers.stirling-pdf.entrypoints=websecure
+          Label=traefik.http.routers.stirling-pdf.tls.certresolver=cloudflare
+          Label=traefik.http.services.stirling-pdf.loadbalancer.server.port=8080
+
+          [Service]
+          Restart=always
+
+          [Install]
+          WantedBy=default.target
+        dest: /etc/containers/systemd/stirling-pdf.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start Stirling PDF
+      systemd:
+        name: stirling-pdf.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 15. Cloud Drive Sync
+    # =========================================================
+    - name: Create Cloud Drive Sync persistent directories
+      file:
+        path: "/home/{{ target_user }}/{{ item }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+      loop:
+        - docker_persistent/cloud-drive-sync/config
+        - docker_persistent/cloud-drive-sync/data
+        - gdrive-sync
+
+    - name: Create Cloud Drive Sync quadlet
+      copy:
+        content: |
+          [Unit]
+          OnFailure=notify-failure@%n.service
+          Description=Cloud Drive Sync - Google Drive sync daemon
+          Requires=network-online.target
+
+          [Container]
+          ContainerName=cloud-drive-sync
+          Image=ghcr.io/ciberkids/cloud-drive-sync:latest
+          PublishPort=8090:8080
+          Volume=/etc/localtime:/etc/localtime:ro
+          Volume=/home/{{ target_user }}/docker_persistent/cloud-drive-sync/config:/root/.config/cloud-drive-sync:Z
+          Volume=/home/{{ target_user }}/docker_persistent/cloud-drive-sync/data:/root/.local/share/cloud-drive-sync:Z
+          Volume=/home/{{ target_user }}/gdrive-sync:/data/gdrive-sync:Z
+
+          AutoUpdate=registry
+
+          Label=traefik.enable=true
+          Label=traefik.http.routers.cloud-drive-sync.rule=Host(`cloud-drive-sync.bumblebee.favarohome.com`)
+          Label=traefik.http.routers.cloud-drive-sync.entrypoints=websecure
+          Label=traefik.http.routers.cloud-drive-sync.tls.certresolver=cloudflare
+          Label=traefik.http.services.cloud-drive-sync.loadbalancer.server.port=8080
+
+          [Service]
+          Restart=always
+
+          [Install]
+          WantedBy=default.target
+        dest: /etc/containers/systemd/cloud-drive-sync.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start Cloud Drive Sync
+      systemd:
+        name: cloud-drive-sync.service
         daemon_reload: yes
         enabled: yes
         state: started
