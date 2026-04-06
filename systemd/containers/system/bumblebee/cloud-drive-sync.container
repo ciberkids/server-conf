@@ -1,5 +1,6 @@
 [Unit]
 OnFailure=notify-failure@%n.service
+OnSuccess=notify-success@%n.service
 Description=Cloud Drive Sync - Google Drive sync daemon
 Requires=network-online.target
 

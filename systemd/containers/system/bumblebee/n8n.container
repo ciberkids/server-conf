@@ -1,5 +1,6 @@
 [Unit]
 OnFailure=notify-failure@%n.service
+OnSuccess=notify-success@%n.service
 Description=n8n Workflow Automation
 Requires=network-online.target
 

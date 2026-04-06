@@ -1,5 +1,6 @@
 [Unit]
 OnFailure=notify-failure@%n.service
+OnSuccess=notify-success@%n.service
 Description=Ollama LLM Server
 Requires=network-online.target
 After=nvidia-cdi-refresh.service

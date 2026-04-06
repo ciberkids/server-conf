@@ -1,5 +1,6 @@
 [Unit]
 OnFailure=notify-failure@%n.service
+OnSuccess=notify-success@%n.service
 Description=Open WebUI (ChatGPT-like interface for Ollama)
 Requires=network-online.target
 Requires=ollama.service
