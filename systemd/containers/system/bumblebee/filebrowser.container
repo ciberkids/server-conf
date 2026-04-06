@@ -1,5 +1,6 @@
 [Unit]
 OnFailure=notify-failure@%n.service
+OnSuccess=notify-success@%n.service
 Description=File Browser container
 Requires=network-online.target
 

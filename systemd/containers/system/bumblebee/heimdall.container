@@ -1,5 +1,6 @@
 [Unit]
 OnFailure=notify-failure@%n.service
+OnSuccess=notify-success@%n.service
 Description=Heimdall Application Dashboard
 Requires=network-online.target
 
