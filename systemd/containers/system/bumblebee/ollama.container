@@ -13,6 +13,11 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/ollama:/root/.ollama:rw,Z
 AddDevice=nvidia.com/gpu=all
 
+Environment=OLLAMA_GPU_OVERHEAD=0
+Environment=OLLAMA_FLASH_ATTENTION=1
+Environment=OLLAMA_NUM_PARALLEL=1
+Environment=OLLAMA_MAX_LOADED_MODELS=1
+
 AutoUpdate=registry
 
 Label=traefik.enable=true

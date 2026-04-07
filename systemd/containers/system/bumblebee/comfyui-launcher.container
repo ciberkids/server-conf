@@ -1,0 +1,27 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+OnSuccess=notify-success@%n.service
+Description=ComfyUI Launcher - on-demand starter page
+Requires=network-online.target
+
+[Container]
+ContainerName=comfyui-launcher
+Image=docker.io/library/python:3.12-alpine
+PublishPort=8189:8080
+Volume=/home/matteo/docker_persistent/comfyui-launcher:/app:Z
+PodmanArgs=--pid=host --privileged
+Exec=python3 /app/server.py
+
+AutoUpdate=registry
+
+Label=traefik.enable=true
+Label=traefik.http.routers.comfyui-launcher.rule=Host(`comfyui-launcher.bumblebee.favarohome.com`)
+Label=traefik.http.routers.comfyui-launcher.entrypoints=websecure
+Label=traefik.http.routers.comfyui-launcher.tls.certresolver=cloudflare
+Label=traefik.http.services.comfyui-launcher.loadbalancer.server.port=8080
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
