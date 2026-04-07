@@ -15,8 +15,7 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/opencode/home:/home/opencode:rw,Z
 Volume=/home/matteo/docker_persistent/opencode/repos:/repos:rw,Z
 Volume=/home/matteo/docker_persistent/opencode/local-bin:/usr/local/bin:rw,Z
-Environment="OPENAI_API_KEY=sk-b6a7de9570a144ba89649f59f2222c8d"
-Environment="OPENAI_BASE_URL=http://192.168.1.14:3000/api"
+Environment="OLLAMA_HOST=http://192.168.1.14:11434"
 
 AutoUpdate=registry
 
