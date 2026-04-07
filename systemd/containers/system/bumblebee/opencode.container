@@ -16,6 +16,8 @@ Volume=/home/matteo/docker_persistent/opencode/home:/home/opencode:rw,Z
 Volume=/home/matteo/docker_persistent/opencode/repos:/repos:rw,Z
 Volume=/home/matteo/docker_persistent/opencode/local-bin:/usr/local/bin:rw,Z
 Environment="OLLAMA_HOST=http://192.168.1.14:11434"
+Environment="OLLAMA_API_KEY=ollama-local"
+Environment="OLLAMA_API_BASE=http://192.168.1.14:11434/v1"
 
 AutoUpdate=registry
 
