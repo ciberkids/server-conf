@@ -29,4 +29,5 @@ Restart=always
 TimeoutStartSec=900
 
 [Install]
-WantedBy=default.target
+# Disabled auto-start - start manually: sudo systemctl start comfyui
+# WantedBy=default.target
