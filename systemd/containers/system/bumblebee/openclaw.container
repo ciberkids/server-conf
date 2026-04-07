@@ -16,11 +16,6 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/run/podman/podman.sock:/var/run/docker.sock
 Volume=/home/matteo/openclaw-workspace:/home/node/.openclaw/workspace:rw
 Volume=/home/matteo/docker_persistent/openclaw/config:/home/node/.openclaw:rw
-Environment="LLM_MODEL=ollama/qwen2.5-coder:7b"
-Environment="LLM_BASE_URL=http://192.168.1.14:11434"
-Environment="OLLAMA_BASE_URL=http://192.168.1.14:11434"
-Environment="OPENAI_API_KEY=sk-b6a7de9570a144ba89649f59f2222c8d"
-Environment="OPENAI_API_BASE=http://192.168.1.14:3000/api"
 Environment="OPENCLAW_HOST=0.0.0.0"
 Environment="TZ=Europe/Zurich"
 
