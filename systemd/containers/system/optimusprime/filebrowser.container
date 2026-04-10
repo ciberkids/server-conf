@@ -12,6 +12,7 @@ Volume=/mnt/data/docker_persistent/filebrowser/config:/config:rw
 Volume=/mnt/data:/srv/data:rw
 Volume=/mnt/downloads:/srv/downloads:rw
 Volume=/mnt/MovieAndTvShows:/srv/media:rw
+Volume=/home/matteo:/srv/home:rw
 Environment="TZ=/etc/localtime"
 Environment="PGID=1000"
 Environment="PUID=1000"
