@@ -14,7 +14,7 @@ Volume=/home/matteo/docker_persistent/filebrowser/config:/config:Z
 Volume=/mnt/data:/srv/data:Z
 Volume=/mnt/downloads:/srv/downloads:Z
 Volume=/mnt/MovieAndTvShows:/srv/media:Z
-Volume=/home/matteo:/srv/home:Z
+Volume=/home/matteo:/srv/home:z
 Volume=/home/matteo/openclaw-workspace:/srv/openclaw-workspace:Z
 
 Environment=TZ=/etc/localtime
