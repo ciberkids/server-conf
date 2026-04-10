@@ -16,6 +16,7 @@ Environment="N8N_HOST=n8n.bumblebee.favarohome.com"
 Environment="N8N_PROTOCOL=https"
 Environment="WEBHOOK_URL=https://n8n.bumblebee.favarohome.com/"
 Environment="N8N_PROXY_HOPS=1"
+EnvironmentFile=/etc/containers/secrets/n8n.env
 
 AutoUpdate=registry
 
