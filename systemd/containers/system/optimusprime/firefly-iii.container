@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Firefly III personal finance manager
 Requires=network-online.target
 After=firefly-iii-db.service

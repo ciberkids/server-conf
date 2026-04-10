@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Warracker warranty tracker
 Requires=network-online.target
 After=warracker-db.service

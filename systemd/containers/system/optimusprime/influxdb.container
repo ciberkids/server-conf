@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=InfluxDB 2.7 Time-Series Database
 Requires=network-online.target
 

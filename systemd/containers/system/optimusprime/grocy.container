@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Grocy - grocery & household management
 Requires=network-online.target
 

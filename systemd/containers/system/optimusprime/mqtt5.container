@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=eclipse-mosquitto MQTT broker container
 Requires=network-online.target
 

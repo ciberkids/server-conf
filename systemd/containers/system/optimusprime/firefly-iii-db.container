@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Firefly III MariaDB database
 Requires=network-online.target
 

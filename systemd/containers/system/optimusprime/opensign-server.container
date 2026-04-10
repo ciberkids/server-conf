@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=OpenSign API Server
 Requires=network-online.target
 After=opensign-db.service
