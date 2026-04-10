@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Immich PostgreSQL Database
 
 [Container]

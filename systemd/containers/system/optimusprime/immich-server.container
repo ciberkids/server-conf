@@ -1,4 +1,5 @@
 [Unit]
+OnFailure=notify-failure@%n.service
 Description=Immich Server
 Requires=immich-redis.service
 Requires=immich-database.service
