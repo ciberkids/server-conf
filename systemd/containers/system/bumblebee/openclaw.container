@@ -20,8 +20,7 @@ Volume=/home/matteo/docker_persistent/openclaw/bin:/opt/agents:rw
 Environment="OPENCLAW_HOST=0.0.0.0"
 Environment="PATH=/opt/agents:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="TZ=Europe/Zurich"
-Environment="ANTHROPIC_API_KEY=REDACTED_ANTHROPIC_KEY"
-Environment="OPENROUTER_API_KEY=REDACTED_OPENROUTER_KEY"
+EnvironmentFile=/etc/containers/secrets/openclaw.env
 
 AutoUpdate=registry
 
