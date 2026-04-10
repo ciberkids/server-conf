@@ -11,12 +11,11 @@ Volume=/mnt/data/docker_persistent/timescaledb/data:/home/postgres/pgdata/data:r
 ShmSize=1g
 
 Environment="TZ=/etc/localtime"
-
-AutoUpdate=registry
 Environment="PGID=1000"
 Environment="PUID=1000"
-Environment="POSTGRES_USER=timescaledb"
-Environment="POSTGRES_PASSWORD=timescaledb"
+EnvironmentFile=/etc/containers/secrets/timescaledb.env
+
+AutoUpdate=registry
 
 [Service]
 Restart=always

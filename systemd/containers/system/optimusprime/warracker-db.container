@@ -11,7 +11,7 @@ Volume=/mnt/data/docker_persistent/warracker/postgres:/var/lib/postgresql/data:r
 
 Environment=POSTGRES_DB=warranty_db
 Environment=POSTGRES_USER=warranty_user
-Environment=POSTGRES_PASSWORD=***REDACTED***
+EnvironmentFile=/etc/containers/secrets/warracker.env
 
 HealthCmd=pg_isready -U warranty_user -d warranty_db
 HealthInterval=5s

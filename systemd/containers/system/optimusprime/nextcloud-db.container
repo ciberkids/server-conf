@@ -10,7 +10,7 @@ Volume=/mnt/data/docker_persistent/nextcloud/db:/var/lib/postgresql/data:rw
 ShmSize=128m
 Environment="POSTGRES_DB=nextcloud"
 Environment="POSTGRES_USER=nextcloud"
-Environment="POSTGRES_PASSWORD=***REDACTED***"
+EnvironmentFile=/etc/containers/secrets/nextcloud.env
 HealthCmd=pg_isready -U nextcloud || exit 1
 
 AutoUpdate=registry

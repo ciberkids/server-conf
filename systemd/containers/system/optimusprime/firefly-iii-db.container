@@ -12,7 +12,7 @@ Volume=/mnt/data/docker_persistent/firefly-iii/db:/var/lib/mysql:rw
 Environment=MYSQL_RANDOM_ROOT_PASSWORD=yes
 Environment=MYSQL_DATABASE=firefly
 Environment=MYSQL_USER=firefly
-Environment=MYSQL_PASSWORD=***REDACTED***
+EnvironmentFile=/etc/containers/secrets/firefly-iii.env
 
 HealthCmd=healthcheck.sh --connect --innodb_initialized
 HealthInterval=10s

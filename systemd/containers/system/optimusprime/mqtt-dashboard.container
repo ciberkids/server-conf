@@ -11,15 +11,13 @@ PublishPort=3333:3333
 Volume=/etc/localtime:/etc/localtime:ro
 
 Environment="TZ=/etc/localtime"
-
 Environment="REDIS_HOST=192.168.1.10"
 Environment="REDIS_PORT=6379"
 Environment="MQTT_HOST=192.168.1.10"
 Environment="MQTT_PORT=1883"
-Environment="MQTT_USERNAME=dashboard"
-Environment="MQTT_PASSWORD=dashboard"
 Environment="MQTT_PROTOCOL=mqtt"
 Environment="MQTT_PROTOCOL_VERSION=5"
+EnvironmentFile=/etc/containers/secrets/mqtt-dashboard.env
 
 AutoUpdate=registry
 
@@ -28,6 +26,7 @@ Label=traefik.http.routers.mqtt_dashboard.rule=Host(`mqtt-dashboard.optimusprime
 Label=traefik.http.routers.mqtt_dashboard.entrypoints=websecure
 Label=traefik.http.routers.mqtt_dashboard.tls.certresolver=cloudflare
 Label=traefik.http.services.mqtt_dashboard.loadbalancer.server.port=3333
+
 [Service]
 Restart=always
 
