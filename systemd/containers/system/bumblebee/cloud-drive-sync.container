@@ -11,7 +11,7 @@ PublishPort=8090:8080
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/cloud-drive-sync/config:/root/.config/cloud-drive-sync:Z
 Volume=/home/matteo/docker_persistent/cloud-drive-sync/data:/root/.local/share/cloud-drive-sync:Z
-Volume=/home/matteo/gdrive-sync:/data/gdrive-sync:Z
+Volume=/home/matteo/gdrive-sync:/data/gdrive-sync:z
 
 AutoUpdate=registry
 
