@@ -14,13 +14,12 @@ Volume=/mnt/data/docker_persistent/warracker/uploads:/data/uploads:rw
 Environment=DB_HOST=warracker-db
 Environment=DB_NAME=warranty_db
 Environment=DB_USER=warranty_user
-Environment=DB_PASSWORD=***REDACTED***
-Environment=SECRET_KEY=***REDACTED***s
 Environment=FRONTEND_URL=https://warracker.optimusprime.favarohome.com
 Environment=APP_BASE_URL=https://warracker.optimusprime.favarohome.com
 Environment=FLASK_ENV=production
 Environment=WARRACKER_MEMORY_MODE=optimized
 Environment=MAX_UPLOAD_MB=32
+EnvironmentFile=/etc/containers/secrets/warracker.env
 
 AutoUpdate=registry
 

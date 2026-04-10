@@ -11,11 +11,10 @@ Volume=/mnt/data/docker_persistent/influxdb/data:/var/lib/influxdb2:rw
 Volume=/mnt/data/docker_persistent/influxdb/config:/etc/influxdb2:rw
 Environment=DOCKER_INFLUXDB_INIT_MODE=setup
 Environment=DOCKER_INFLUXDB_INIT_USERNAME=admin
-Environment=DOCKER_INFLUXDB_INIT_PASSWORD=***REDACTED***
 Environment=DOCKER_INFLUXDB_INIT_ORG=favarohome
 Environment=DOCKER_INFLUXDB_INIT_BUCKET=homeassistant
 Environment=DOCKER_INFLUXDB_INIT_RETENTION=0
-Environment=DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=***REDACTED***
+EnvironmentFile=/etc/containers/secrets/influxdb.env
 
 AutoUpdate=registry
 

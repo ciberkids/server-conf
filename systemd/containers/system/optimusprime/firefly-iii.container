@@ -14,7 +14,6 @@ Volume=/mnt/data/docker_persistent/firefly-iii/upload:/var/www/html/storage/uplo
 Environment=APP_ENV=production
 Environment=APP_DEBUG=false
 Environment=SITE_OWNER=matteo@favarohome.com
-Environment=APP_KEY=***REDACTED***
 Environment=DEFAULT_LANGUAGE=en_US
 Environment=DEFAULT_LOCALE=equal
 Environment=TZ=Europe/Zurich
@@ -25,8 +24,7 @@ Environment=DB_HOST=firefly-iii-db
 Environment=DB_PORT=3306
 Environment=DB_DATABASE=firefly
 Environment=DB_USERNAME=firefly
-Environment=DB_PASSWORD=***REDACTED***
-Environment=STATIC_CRON_TOKEN=***REDACTED***
+EnvironmentFile=/etc/containers/secrets/firefly-iii.env
 
 AutoUpdate=registry
 
