@@ -1,0 +1,5 @@
+# Node-RED encrypted credentials — never commit
+flows_cred.json
+# Node-RED runtime files
+.config.runtime.json
+.config.nodes.json
