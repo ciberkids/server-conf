@@ -6,7 +6,7 @@ Requires=network-online.target
 
 [Container]
 ContainerName=cloud-drive-sync
-Image=ghcr.io/ciberkids/cloud-drive-sync:1.3.0
+Image=ghcr.io/ciberkids/cloud-drive-sync:latest
 PublishPort=8090:8080
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/cloud-drive-sync/config:/root/.config/cloud-drive-sync:Z
