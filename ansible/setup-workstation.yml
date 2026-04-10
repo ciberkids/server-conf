@@ -1,11 +1,12 @@
 ---
-- name: Setup AlmaLinux 9 workstation
+- name: Setup AlmaLinux 9 workstation (Bumblebee)
   hosts: workstations
   become: yes
   vars:
     target_user: matteo
     nfs_server: "{{ nfs_server | default('192.168.1.10') }}"
     ssh_key_source: "{{ ssh_key_source | default('/mnt/downloads/ssh/optimus-prime') }}"
+    quadlets_src: "{{ playbook_dir }}/../systemd/containers/system/bumblebee"
     nfs_mounts:
       - src: "{{ nfs_server }}:/mnt/downloads"
         path: /mnt/downloads
@@ -167,74 +168,7 @@
         mode: "0755"
 
     # =========================================================
-    # 9. OpenClaw workspace directory
-    # =========================================================
-    - name: Create OpenClaw workspace directory
-      file:
-        path: "/home/{{ target_user }}/openclaw-workspace"
-        state: directory
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: "0755"
-
-    - name: Create OpenClaw persistent config directory
-      file:
-        path: "/home/{{ target_user }}/docker_persistent/openclaw/config"
-        state: directory
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: "0700"
-
-    # =========================================================
-    # 10. Node Exporter for Prometheus monitoring
-    # =========================================================
-    - name: Create node-exporter quadlet
-      copy:
-        content: |
-          [Unit]
-          Description=Prometheus Node Exporter
-          Requires=network-online.target
-
-          [Container]
-          ContainerName=node-exporter
-          Image=quay.io/prometheus/node-exporter:latest
-          PublishPort=9100:9100
-          SecurityLabelDisable=true
-          Volume=/etc/localtime:/etc/localtime:ro
-          Volume=/:/host:ro,rslave
-          PodmanArgs=--pid=host
-          Exec=--path.rootfs=/host --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
-
-          AutoUpdate=registry
-
-          [Service]
-          Restart=always
-
-          [Install]
-          WantedBy=default.target
-        dest: /etc/containers/systemd/node-exporter.container
-        mode: "0644"
-      notify: reload systemd
-
-    - name: Enable and start node-exporter
-      systemd:
-        name: node-exporter.service
-        daemon_reload: yes
-        enabled: yes
-        state: started
-
-    # =========================================================
-    # 11. Open firewall port for node-exporter
-    # =========================================================
-    - name: Allow node-exporter port in firewall
-      firewalld:
-        port: 9100/tcp
-        permanent: yes
-        state: enabled
-        immediate: yes
-
-    # =========================================================
-    # 12. Telegram notifications (telegram-send)
+    # 9. Telegram notifications (telegram-send)
     # =========================================================
     - name: Install telegram-send dependencies
       pip:
@@ -247,31 +181,21 @@
 
     - name: Deploy notify-failure@ template service
       copy:
-        content: |
-          [Unit]
-          Description=Send Telegram notification on service failure
-
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] Service %i FAILED"
+        src: "{{ quadlets_src }}/notify-failure@.service"
         dest: /etc/systemd/system/notify-failure@.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy notify-success@ template service
+      copy:
+        src: "{{ quadlets_src }}/notify-success@.service"
+        dest: /etc/systemd/system/notify-success@.service
         mode: "0644"
       notify: reload systemd
 
     - name: Deploy reboot notification service
       copy:
-        content: |
-          [Unit]
-          Description=Send Telegram notification on system reboot
-          After=network-online.target
-          Wants=network-online.target
-
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] System has rebooted and is starting services"
-
-          [Install]
-          WantedBy=multi-user.target
+        src: "{{ quadlets_src }}/notify-reboot.service"
         dest: /etc/systemd/system/notify-reboot.service
         mode: "0644"
       notify: reload systemd
@@ -284,41 +208,14 @@
 
     - name: Deploy podman auto-update notification service
       copy:
-        content: |
-          [Unit]
-          Description=Podman auto-update with Telegram notification
-          Wants=network-online.target
-          After=network-online.target
-
-          [Service]
-          Type=oneshot
-          ExecStart=/bin/bash -c '\
-            output=$(/usr/bin/podman auto-update 2>&1); \
-            rc=$$?; \
-            updated=$$(echo "$$output" | grep -c "true" || true); \
-            if [ "$$updated" -gt 0 ]; then \
-              /usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] podman auto-update: $$updated container(s) updated"; \
-            else \
-              /usr/local/bin/telegram-send --config /etc/telegram-send.conf "[{{ inventory_hostname }}] podman auto-update: all containers up to date"; \
-            fi; \
-            exit $$rc'
+        src: "{{ quadlets_src }}/podman-auto-update-notify.service"
         dest: /etc/systemd/system/podman-auto-update-notify.service
         mode: "0644"
       notify: reload systemd
 
     - name: Deploy podman auto-update notification timer
       copy:
-        content: |
-          [Unit]
-          Description=Podman auto-update with notification timer
-
-          [Timer]
-          OnCalendar=daily
-          RandomizedDelaySec=900
-          Persistent=true
-
-          [Install]
-          WantedBy=timers.target
+        src: "{{ quadlets_src }}/podman-auto-update-notify.timer"
         dest: /etc/systemd/system/podman-auto-update-notify.timer
         mode: "0644"
       notify: reload systemd
@@ -331,7 +228,189 @@
         state: started
 
     # =========================================================
-    # 13. File Browser
+    # 10. Secrets directory
+    # =========================================================
+    - name: Create secrets directory for container env files
+      file:
+        path: /etc/containers/secrets
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    # =========================================================
+    # 11. Node Exporter
+    # =========================================================
+    - name: Deploy node-exporter quadlet
+      copy:
+        src: "{{ quadlets_src }}/node-exporter.container"
+        dest: /etc/containers/systemd/node-exporter.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start node-exporter
+      systemd:
+        name: node-exporter.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    - name: Allow node-exporter port in firewall
+      firewalld:
+        port: 9100/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    # =========================================================
+    # 12. Traefik
+    # =========================================================
+    - name: Create Traefik persistent directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/traefik"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Create Traefik acme.json if not present
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/traefik/acme.json"
+        state: touch
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0600"
+
+    - name: Deploy Traefik quadlet
+      copy:
+        src: "{{ quadlets_src }}/traefik.container"
+        dest: /etc/containers/systemd/traefik.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start Traefik
+      systemd:
+        name: traefik.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    - name: Allow HTTP in firewall
+      firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    - name: Allow HTTPS in firewall
+      firewalld:
+        service: https
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    # =========================================================
+    # 13. Heimdall
+    # =========================================================
+    - name: Create Heimdall persistent directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/heimdall"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Deploy Heimdall quadlet
+      copy:
+        src: "{{ quadlets_src }}/heimdall.container"
+        dest: /etc/containers/systemd/heimdall.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start Heimdall
+      systemd:
+        name: heimdall.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 14. Ollama
+    # =========================================================
+    - name: Create Ollama persistent directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/ollama"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Deploy Ollama quadlet
+      copy:
+        src: "{{ quadlets_src }}/ollama.container"
+        dest: /etc/containers/systemd/ollama.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start Ollama
+      systemd:
+        name: ollama.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 15. Open WebUI
+    # =========================================================
+    - name: Create Open WebUI persistent directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/open-webui"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Deploy Open WebUI quadlet
+      copy:
+        src: "{{ quadlets_src }}/open-webui.container"
+        dest: /etc/containers/systemd/open-webui.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start Open WebUI
+      systemd:
+        name: open-webui.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 16. SearXNG
+    # =========================================================
+    - name: Create SearXNG persistent directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/searxng"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Deploy SearXNG quadlet
+      copy:
+        src: "{{ quadlets_src }}/searxng.container"
+        dest: /etc/containers/systemd/searxng.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start SearXNG
+      systemd:
+        name: searxng.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 17. File Browser
     # =========================================================
     - name: Create File Browser persistent directories
       file:
@@ -344,44 +423,9 @@
         - database
         - config
 
-    - name: Create File Browser quadlet
+    - name: Deploy File Browser quadlet
       copy:
-        content: |
-          [Unit]
-          OnFailure=notify-failure@%n.service
-          Description=File Browser container
-          Requires=network-online.target
-
-          [Container]
-          ContainerName=filebrowser
-          Image=docker.io/filebrowser/filebrowser:s6
-          PublishPort=8585:80
-          Volume=/etc/localtime:/etc/localtime:ro
-          Volume=/home/{{ target_user }}/docker_persistent/filebrowser/database:/database:Z
-          Volume=/home/{{ target_user }}/docker_persistent/filebrowser/config:/config:Z
-          Volume=/mnt/data:/srv/data:Z
-          Volume=/mnt/downloads:/srv/downloads:Z
-          Volume=/mnt/MovieAndTvShows:/srv/media:Z
-          Volume=/home/{{ target_user }}:/srv/home:Z
-          Volume=/home/{{ target_user }}/openclaw-workspace:/srv/openclaw-workspace:Z
-
-          Environment=TZ=/etc/localtime
-          Environment=PGID=1000
-          Environment=PUID=1000
-
-          AutoUpdate=registry
-
-          Label=traefik.enable=true
-          Label=traefik.http.routers.filebrowser.rule=Host(`filebrowser.bumblebee.favarohome.com`)
-          Label=traefik.http.routers.filebrowser.entrypoints=websecure
-          Label=traefik.http.routers.filebrowser.tls.certresolver=cloudflare
-          Label=traefik.http.services.filebrowser.loadbalancer.server.port=80
-
-          [Service]
-          Restart=always
-
-          [Install]
-          WantedBy=default.target
+        src: "{{ quadlets_src }}/filebrowser.container"
         dest: /etc/containers/systemd/filebrowser.container
         mode: "0644"
       notify: reload systemd
@@ -394,7 +438,7 @@
         state: started
 
     # =========================================================
-    # 14. Stirling PDF
+    # 18. Stirling PDF
     # =========================================================
     - name: Create Stirling PDF persistent directories
       file:
@@ -408,39 +452,9 @@
         - config
         - logs
 
-    - name: Create Stirling PDF quadlet
+    - name: Deploy Stirling PDF quadlet
       copy:
-        content: |
-          [Unit]
-          OnFailure=notify-failure@%n.service
-          Description=Stirling PDF - PDF manipulation tool
-          Requires=network-online.target
-
-          [Container]
-          ContainerName=stirling-pdf
-          Image=docker.io/stirlingtools/stirling-pdf:latest
-          PublishPort=8484:8080
-          Volume=/etc/localtime:/etc/localtime:ro
-          Volume=/home/{{ target_user }}/docker_persistent/stirling-pdf/data:/usr/share/tessdata:Z
-          Volume=/home/{{ target_user }}/docker_persistent/stirling-pdf/config:/configs:Z
-          Volume=/home/{{ target_user }}/docker_persistent/stirling-pdf/logs:/logs:Z
-
-          Environment=SECURITY_ENABLELOGIN=false
-          Environment=SYSTEM_DEFAULTLOCALE=en-US
-
-          AutoUpdate=registry
-
-          Label=traefik.enable=true
-          Label=traefik.http.routers.stirling-pdf.rule=Host(`stirling-pdf.bumblebee.favarohome.com`)
-          Label=traefik.http.routers.stirling-pdf.entrypoints=websecure
-          Label=traefik.http.routers.stirling-pdf.tls.certresolver=cloudflare
-          Label=traefik.http.services.stirling-pdf.loadbalancer.server.port=8080
-
-          [Service]
-          Restart=always
-
-          [Install]
-          WantedBy=default.target
+        src: "{{ quadlets_src }}/stirling-pdf.container"
         dest: /etc/containers/systemd/stirling-pdf.container
         mode: "0644"
       notify: reload systemd
@@ -453,7 +467,7 @@
         state: started
 
     # =========================================================
-    # 15. Cloud Drive Sync
+    # 19. Cloud Drive Sync
     # =========================================================
     - name: Create Cloud Drive Sync persistent directories
       file:
@@ -467,36 +481,9 @@
         - docker_persistent/cloud-drive-sync/data
         - gdrive-sync
 
-    - name: Create Cloud Drive Sync quadlet
+    - name: Deploy Cloud Drive Sync quadlet
       copy:
-        content: |
-          [Unit]
-          OnFailure=notify-failure@%n.service
-          Description=Cloud Drive Sync - Google Drive sync daemon
-          Requires=network-online.target
-
-          [Container]
-          ContainerName=cloud-drive-sync
-          Image=ghcr.io/ciberkids/cloud-drive-sync:latest
-          PublishPort=8090:8080
-          Volume=/etc/localtime:/etc/localtime:ro
-          Volume=/home/{{ target_user }}/docker_persistent/cloud-drive-sync/config:/root/.config/cloud-drive-sync:Z
-          Volume=/home/{{ target_user }}/docker_persistent/cloud-drive-sync/data:/root/.local/share/cloud-drive-sync:Z
-          Volume=/home/{{ target_user }}/gdrive-sync:/data/gdrive-sync:Z
-
-          AutoUpdate=registry
-
-          Label=traefik.enable=true
-          Label=traefik.http.routers.cloud-drive-sync.rule=Host(`cloud-drive-sync.bumblebee.favarohome.com`)
-          Label=traefik.http.routers.cloud-drive-sync.entrypoints=websecure
-          Label=traefik.http.routers.cloud-drive-sync.tls.certresolver=cloudflare
-          Label=traefik.http.services.cloud-drive-sync.loadbalancer.server.port=8080
-
-          [Service]
-          Restart=always
-
-          [Install]
-          WantedBy=default.target
+        src: "{{ quadlets_src }}/cloud-drive-sync.container"
         dest: /etc/containers/systemd/cloud-drive-sync.container
         mode: "0644"
       notify: reload systemd
@@ -504,6 +491,137 @@
     - name: Enable and start Cloud Drive Sync
       systemd:
         name: cloud-drive-sync.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 20. n8n
+    # =========================================================
+    - name: Create n8n persistent directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/n8n"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Deploy n8n quadlet
+      copy:
+        src: "{{ quadlets_src }}/n8n.container"
+        dest: /etc/containers/systemd/n8n.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start n8n
+      systemd:
+        name: n8n.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 21. OpenCode
+    # =========================================================
+    - name: Create OpenCode persistent directories
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/opencode/{{ item }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+      loop:
+        - home
+        - repos
+        - local-bin
+
+    - name: Deploy OpenCode quadlet
+      copy:
+        src: "{{ quadlets_src }}/opencode.container"
+        dest: /etc/containers/systemd/opencode.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start OpenCode
+      systemd:
+        name: opencode.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 22. OpenClaw
+    # =========================================================
+    - name: Create OpenClaw persistent directories
+      file:
+        path: "/home/{{ target_user }}/{{ item }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+      loop:
+        - openclaw-workspace
+        - docker_persistent/openclaw/config
+        - docker_persistent/openclaw/bin
+
+    - name: Deploy OpenClaw quadlet
+      copy:
+        src: "{{ quadlets_src }}/openclaw.container"
+        dest: /etc/containers/systemd/openclaw.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start OpenClaw
+      systemd:
+        name: openclaw.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 23. ComfyUI
+    # NOTE: Auto-start is disabled in the quadlet. Start manually:
+    #       sudo systemctl start comfyui
+    # =========================================================
+    - name: Create ComfyUI persistent directories
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/comfyui/{{ item }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+      loop:
+        - run
+        - basedir
+
+    - name: Deploy ComfyUI quadlet
+      copy:
+        src: "{{ quadlets_src }}/comfyui.container"
+        dest: /etc/containers/systemd/comfyui.container
+        mode: "0644"
+      notify: reload systemd
+
+    # =========================================================
+    # 24. ComfyUI Launcher
+    # =========================================================
+    - name: Create ComfyUI Launcher persistent directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/comfyui-launcher"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Deploy ComfyUI Launcher quadlet
+      copy:
+        src: "{{ quadlets_src }}/comfyui-launcher.container"
+        dest: /etc/containers/systemd/comfyui-launcher.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start ComfyUI Launcher
+      systemd:
+        name: comfyui-launcher.service
         daemon_reload: yes
         enabled: yes
         state: started
