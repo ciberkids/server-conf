@@ -16,7 +16,7 @@ Volume=/mnt/data/docker_persistent/traefik/acme.json:/etc/traefik/acme.json
 Volume=/var/run/podman/podman.sock:/var/run/docker.sock
 
 Environment=TZ=/etc/localtime
-Environment=CF_DNS_API_TOKEN=***REDACTED_CF_DNS_TOKEN***
+EnvironmentFile=/etc/containers/secrets/traefik.env
 AutoUpdate=registry
 
 Label=traefik.enable=true
