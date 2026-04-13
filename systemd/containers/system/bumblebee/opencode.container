@@ -3,7 +3,7 @@ OnFailure=notify-failure@%n.service
 OnSuccess=notify-success@%n.service
 Description=OpenCode AI Coding Assistant
 Requires=network-online.target
-Requires=ollama.service
+Wants=ollama.service
 After=ollama.service
 
 [Container]

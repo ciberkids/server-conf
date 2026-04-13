@@ -11,6 +11,7 @@ Image=quay.io/prometheus/prometheus:latest
 PublishPort=9092:9090
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+Volume=/mnt/data/docker_persistent/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
 Volume=/mnt/data/docker_persistent/prometheus/data:/prometheus:rw
 
 AutoUpdate=registry

@@ -1,0 +1,19 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Blackbox Exporter - HTTP endpoint prober
+Requires=network-online.target
+
+[Container]
+ContainerName=blackbox-exporter
+Image=quay.io/prometheus/blackbox-exporter:latest
+PublishPort=9115:9115
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/blackbox-exporter/config.yml:/etc/blackbox_exporter/config.yml:ro
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

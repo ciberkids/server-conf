@@ -1,0 +1,19 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Alertmanager - Alert routing and Telegram notifications
+Requires=network-online.target
+
+[Container]
+ContainerName=alertmanager
+Image=quay.io/prometheus/alertmanager:latest
+PublishPort=9093:9093
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
