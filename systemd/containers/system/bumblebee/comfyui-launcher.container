@@ -6,7 +6,7 @@ Requires=network-online.target
 
 [Container]
 ContainerName=comfyui-launcher
-Image=docker.io/library/python:3.12-alpine
+Image=docker.io/library/python:3-alpine
 PublishPort=8189:8080
 Volume=/home/matteo/docker_persistent/comfyui-launcher:/app:Z
 PodmanArgs=--pid=host --privileged

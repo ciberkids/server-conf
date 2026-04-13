@@ -1,11 +1,11 @@
 [Unit]
 OnFailure=notify-failure@%n.service
-Description=InfluxDB 2.7 Time-Series Database
+Description=InfluxDB Time-Series Database
 Requires=network-online.target
 
 [Container]
 ContainerName=influxdb
-Image=docker.io/influxdb:2.7
+Image=docker.io/influxdb:2
 PublishPort=8086:8086
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/influxdb/data:/var/lib/influxdb2:rw
