@@ -5,7 +5,7 @@ Description=Immich Redis
 [Container]
 ContainerName=immich-redis
 Pod=immich.pod
-Image=docker.io/valkey/valkey:9
+Image=docker.io/valkey/valkey:latest
 Volume=/etc/localtime:/etc/localtime:ro
 HealthCmd=redis-cli ping || exit 1
 

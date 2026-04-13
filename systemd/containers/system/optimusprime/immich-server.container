@@ -7,7 +7,7 @@ Requires=immich-database.service
 [Container]
 ContainerName=immich-server
 Pod=immich.pod
-Image=ghcr.io/immich-app/immich-server:v2.6.1
+Image=ghcr.io/immich-app/immich-server:release
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/immich/upload:/usr/src/app/upload:rw
 Volume=/mnt/data/Matteo_And_Manu/Pictures:/usr/src/app/external/photos:ro
