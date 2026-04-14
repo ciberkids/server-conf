@@ -1,0 +1,5 @@
+[Network]
+NetworkName=affine
+
+[Install]
+WantedBy=default.target

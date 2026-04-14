@@ -1,0 +1,17 @@
+[Unit]
+Description=AFFiNE Redis
+After=affine-network.service
+Requires=affine-network.service
+
+[Container]
+ContainerName=affine-redis
+Image=docker.io/redis:7-alpine
+Network=affine.network
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
