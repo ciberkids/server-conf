@@ -1,0 +1,73 @@
+# Dynamic configuration for services not managed by Docker labels
+# (e.g., Cockpit running on the host, or pod-based containers)
+
+http:
+  routers:
+    cockpit:
+      rule: "Host(`cockpit.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: cockpit
+      tls:
+        certResolver: cloudflare
+
+    immich:
+      rule: "Host(`immich.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: immich
+      tls:
+        certResolver: cloudflare
+
+    immich-public:
+      rule: "Host(`immich.public.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: immich
+      tls:
+        certResolver: cloudflare
+
+    nextcloud:
+      rule: "Host(`nextcloud.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: nextcloud
+      tls:
+        certResolver: cloudflare
+
+    nextcloud-public:
+      rule: "Host(`nextcloud.public.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: nextcloud
+      tls:
+        certResolver: cloudflare
+
+  services:
+    cockpit:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.1.10:9090"
+        serversTransport: insecureTransport
+
+    immich:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:2283"
+        serversTransport: immichTransport
+
+    nextcloud:
+      loadBalancer:
+        servers:
+          - url: "https://192.168.1.10:8443"
+        serversTransport: insecureTransport
+
+  serversTransports:
+    insecureTransport:
+      insecureSkipVerify: true
+
+    immichTransport:
+      forwardingTimeouts:
+        dialTimeout: 60s
+        responseHeaderTimeout: 600s
+        idleConnTimeout: 600s

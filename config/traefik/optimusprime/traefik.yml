@@ -1,0 +1,51 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+
+accessLog:
+  filePath: /etc/traefik/access.log
+  filters:
+    statusCodes:
+      - "499-599"
+
+api:
+  insecure: true
+  dashboard: true
+
+entryPoints:
+  web:
+    address: :80
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: :443
+    transport:
+      respondingTimeouts:
+        readTimeout: 600s
+        writeTimeout: 600s
+        idleTimeout: 300s
+
+certificatesResolvers:
+  cloudflare:
+    acme:
+      email: Matteofavaro+cloudflare.com@gmail.com
+      storage: /etc/traefik/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"
+
+providers:
+  docker:
+    exposedByDefault: false
+    endpoint: "unix:///var/run/docker.sock"
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true
