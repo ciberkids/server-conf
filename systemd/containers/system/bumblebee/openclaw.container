@@ -18,8 +18,10 @@ Volume=/home/matteo/openclaw-workspace:/home/node/.openclaw/workspace:rw
 Volume=/home/matteo/docker_persistent/openclaw/config:/home/node/.openclaw:rw
 Volume=/home/matteo/docker_persistent/openclaw/bin:/opt/agents:rw
 Volume=/home/matteo/docker_persistent/openclaw/opencode-config:/home/node/.config/opencode:rw
+Volume=/home/matteo/docker_persistent/openclaw/ssh:/home/node/.ssh:rw
 Environment="OPENCLAW_HOST=0.0.0.0"
 Environment="PATH=/opt/agents:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PLAYWRIGHT_BROWSERS_PATH=/opt/agents/playwright"
 Environment="TZ=Europe/Zurich"
 EnvironmentFile=/etc/containers/secrets/openclaw.env
 
@@ -28,6 +30,7 @@ AutoUpdate=registry
 
 [Service]
 Restart=always
+ExecStartPost=/bin/bash -c "sleep 5 && /usr/bin/podman exec --user root openclaw /bin/bash /opt/agents/setup-playwright.sh || true"
 
 [Install]
 WantedBy=default.target
