@@ -1,0 +1,21 @@
+[Unit]
+Description=AFFiNE PostgreSQL (pgvector)
+After=affine-network.service
+Requires=affine-network.service
+
+[Container]
+ContainerName=affine-postgres
+Image=docker.io/pgvector/pgvector:pg16
+Network=affine.network
+Volume=/mnt/data/docker_persistent/affine/postgres:/var/lib/postgresql/data:rw
+Environment="POSTGRES_USER=affine"
+Environment="POSTGRES_DB=affine"
+EnvironmentFile=/etc/containers/secrets/affine.env
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
