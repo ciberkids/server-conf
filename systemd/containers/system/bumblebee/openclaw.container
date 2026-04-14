@@ -17,6 +17,7 @@ Volume=/run/podman/podman.sock:/var/run/docker.sock
 Volume=/home/matteo/openclaw-workspace:/home/node/.openclaw/workspace:rw
 Volume=/home/matteo/docker_persistent/openclaw/config:/home/node/.openclaw:rw
 Volume=/home/matteo/docker_persistent/openclaw/bin:/opt/agents:rw
+Volume=/home/matteo/docker_persistent/openclaw/opencode-config:/home/node/.config/opencode:rw
 Environment="OPENCLAW_HOST=0.0.0.0"
 Environment="PATH=/opt/agents:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="TZ=Europe/Zurich"
