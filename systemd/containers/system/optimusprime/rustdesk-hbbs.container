@@ -1,3 +1,6 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+
 [Container]
 AutoUpdate=registry
 Image=ghcr.io/rustdesk/rustdesk-server:latest
