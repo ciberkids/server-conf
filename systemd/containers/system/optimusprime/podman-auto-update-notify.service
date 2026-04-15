@@ -5,4 +5,4 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'result=$(podman auto-update 2>&1); updated=$(echo "$result" | grep -c "true" || true); echo "$result"; if [ "$updated" -gt 0 ]; then telegram-send "[optimus-prime] podman auto-update: $updated container(s) updated."; else telegram-send "[optimus-prime] podman auto-update: all containers up to date."; fi'
+ExecStart=/usr/local/bin/podman-update-notify.sh
