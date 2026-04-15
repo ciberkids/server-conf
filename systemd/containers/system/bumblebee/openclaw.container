@@ -31,7 +31,7 @@ AutoUpdate=registry
 
 [Service]
 Restart=always
-ExecStartPost=/bin/bash -c "sleep 5 && /usr/bin/podman exec --user root openclaw /bin/bash /opt/agents/setup-playwright.sh; /usr/bin/podman exec --user root openclaw /bin/bash /opt/agents/setup-opencode.sh; /usr/bin/podman exec --user root openclaw /bin/bash /opt/agents/patch-models.sh || true"
+ExecStartPost=/bin/bash -c "sleep 5 && /usr/bin/podman exec --user root openclaw /bin/bash /opt/agents/setup-playwright.sh; /usr/bin/podman exec --user root openclaw /bin/bash /opt/agents/setup-opencode.sh; /usr/bin/podman exec --user root openclaw /bin/bash /opt/agents/patch-models.sh; chattr +i /home/matteo/docker_persistent/openclaw/config/agents/main/agent/models.json 2>/dev/null || true"
 
 [Install]
 WantedBy=default.target
