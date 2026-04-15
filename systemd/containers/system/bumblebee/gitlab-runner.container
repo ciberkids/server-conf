@@ -7,6 +7,7 @@ After=network-online.target
 [Container]
 ContainerName=gitlab-runner
 Image=docker.io/gitlab/gitlab-runner:latest
+PublishPort=9252:9252
 SecurityLabelDisable=true
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/run/podman/podman.sock:/var/run/docker.sock:z

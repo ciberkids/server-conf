@@ -23,6 +23,7 @@ Environment="OPENCLAW_HOST=0.0.0.0"
 Environment="PATH=/opt/agents:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PLAYWRIGHT_BROWSERS_PATH=/opt/agents/playwright"
 Environment="TZ=Europe/Zurich"
+Environment="GIT_CONFIG_GLOBAL=/home/node/.openclaw/.gitconfig"
 EnvironmentFile=/etc/containers/secrets/openclaw.env
 
 AutoUpdate=registry
