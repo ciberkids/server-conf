@@ -1,0 +1,22 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=GitLab Runner (Docker executor)
+Requires=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=gitlab-runner
+Image=docker.io/gitlab/gitlab-runner:latest
+SecurityLabelDisable=true
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/run/podman/podman.sock:/var/run/docker.sock:z
+Volume=/home/matteo/docker_persistent/gitlab-runner/config:/etc/gitlab-runner:Z
+Environment="TZ=Europe/Zurich"
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
