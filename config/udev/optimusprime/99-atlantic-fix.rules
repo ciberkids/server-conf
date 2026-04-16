@@ -1,4 +1,7 @@
-# Fix Aquantia AQC100 (atlantic driver) large-packet drops / speedtest failures
-# Disable hardware offloading and reduce ring buffers
+# Fix Aquantia AQC100 (atlantic driver) TX instability / retransmit storm
+# TSO/GSO/GRO off fixes TX packet corruption; TX ring 4096 reduces burst drops;
+# tx-usecs 50 speeds up TX completion; RX ring kept small per driver quirk.
+# Use BBR congestion control (/etc/sysctl.d/99-bbr.conf) to avoid CUBIC backoff on spurious retransmits.
 ACTION=="add", SUBSYSTEM=="net", KERNEL=="enp7s0", RUN+="/sbin/ethtool -K enp7s0 tso off gso off gro off"
-ACTION=="add", SUBSYSTEM=="net", KERNEL=="enp7s0", RUN+="/sbin/ethtool -G enp7s0 rx 512 tx 512"
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="enp7s0", RUN+="/sbin/ethtool -G enp7s0 rx 512 tx 4096"
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="enp7s0", RUN+="/sbin/ethtool -C enp7s0 tx-usecs 50"
