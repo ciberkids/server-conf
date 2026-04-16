@@ -5,7 +5,7 @@ Requires=network-online.target
 
 [Container]
 ContainerName=handbrake
-Image=docker.io/ciberkids/handbrake-amd:latest
+Image=lscr.io/linuxserver/handbrake:latest
 PublishPort=6800:3000
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/handbrake:/config:rw
@@ -16,6 +16,7 @@ AddDevice=/dev/dri/renderD128
 Environment=TZ=Europe/Zurich
 Environment=PUID=1000
 Environment=PGID=1000
+Environment=LIBVA_DRIVER_NAME=radeonsi
 
 AutoUpdate=registry
 
