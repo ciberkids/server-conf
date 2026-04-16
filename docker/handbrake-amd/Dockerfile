@@ -1,25 +1,21 @@
-FROM docker.io/jlesage/handbrake:latest
+FROM lscr.io/linuxserver/handbrake:latest
 
-# Install AMD Mesa VA-API Gallium driver for hardware-accelerated video decoding.
-# This enables radeonsi VA-API on AMD GPUs (RX 5000/6000/7000 series).
+# Base image: linuxserver/handbrake on Arch Linux
+# Provides: HandBrake GUI via KasmVNC (web browser + local VNC)
+#   Web GUI:  port 3000 (HTTPS) / 3001 (HTTP)
+#   Volumes:  /config  /data
 #
-# NOTE: VCN hardware HEVC *encoding* (vce_h265 in HandBrake) requires AMD AMF SDK
-# which is a proprietary package not available in Alpine repos. Until an Alpine-
-# compatible AMF package exists, encoding stays on CPU (x265 software).
-# Hardware decoding via VA-API is active and speeds up the decode phase.
+# AMD GPU support:
+#   - Hardware DECODING: enabled via mesa radeonsi VA-API (already in base image)
+#   - Hardware ENCODING (vce_h265): NOT available without AMD GPU Pro driver stack.
+#     AMD AMF requires proprietary kernel components (EncodeQueueService) that are
+#     only present with the full amdgpu-pro stack. The open-source amdgpu + mesa
+#     combo does not provide these. x265 software encoding is used instead.
 #
-# To build and push:
-#   podman build -t ciberkids/handbrake-amd:latest .
-#   podman push ciberkids/handbrake-amd:latest
+# Container needs: --device /dev/dri/renderD128
 #
-# On update of jlesage/handbrake base image:
-#   podman pull docker.io/jlesage/handbrake:latest
+# To rebuild after base update:
 #   podman build --no-cache -t ciberkids/handbrake-amd:latest .
 #   podman push ciberkids/handbrake-amd:latest
 
-RUN apk add --no-cache mesa-va-gallium
-
-# Point libva at the radeonsi Mesa Gallium driver.
-# Required because libva defaults to looking for an Intel or generic driver.
 ENV LIBVA_DRIVER_NAME=radeonsi
-ENV LIBVA_DRIVERS_PATH=/usr/lib/dri
