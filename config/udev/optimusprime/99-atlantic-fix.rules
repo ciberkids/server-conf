@@ -1,0 +1,4 @@
+# Fix Aquantia AQC100 (atlantic driver) large-packet drops / speedtest failures
+# Disable hardware offloading and reduce ring buffers
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="enp7s0", RUN+="/sbin/ethtool -K enp7s0 tso off gso off gro off"
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="enp7s0", RUN+="/sbin/ethtool -G enp7s0 rx 512 tx 512"

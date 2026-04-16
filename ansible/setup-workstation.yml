@@ -262,6 +262,13 @@
         state: enabled
         immediate: yes
 
+    - name: Allow podman-exporter port in firewall
+      firewalld:
+        port: 9882/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+
     # =========================================================
     # 12. Traefik
     # =========================================================
