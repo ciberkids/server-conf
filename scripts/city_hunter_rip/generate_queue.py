@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 CONFIG = Path(__file__).parent / "dvd_config.json"
-OUTPUT = Path("/mnt/data/docker_persistent/handbrake/ghb/queue.json")
+OUTPUT = Path("/mnt/MovieAndTvShows/ToFix/handbreakOutput/queue.json")
 
 
 def make_job(seq, source_path, title, range_start, range_end, season, episode, plex_title):
