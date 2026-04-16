@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:1 \
@@ -6,9 +6,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PUID=1000 \
     PGID=1000 \
     LIBVA_DRIVER_NAME=radeonsi \
-    VNC_GEOMETRY=1280x800
+    VNC_GEOMETRY=1280x800 \
+    XDG_CURRENT_DESKTOP=GNOME
 
-# Install system packages: VNC stack, VA-API drivers, system ffmpeg, utilities
+# Install system packages: VNC stack, GPU drivers (AMD+Intel+NVIDIA), ffmpeg, utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # TigerVNC = Xvfb + VNC server in one binary
     tigervnc-standalone-server \
@@ -17,12 +18,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     x11-utils xauth dbus-x11 \
     # noVNC for HTTP-based VNC access
     novnc websockify \
-    # VA-API hardware acceleration (AMD radeonsi)
-    libva2 libva-drm2 mesa-va-drivers vainfo \
-    # System ffmpeg with VA-API support (replaces bundled static ffmpeg)
+    # VA-API core + diagnostics
+    libva2 libva-drm2 vainfo \
+    # AMD VA-API (radeonsi for GCN/RDNA, r600 for TeraScale)
+    mesa-va-drivers \
+    # Intel VA-API (iHD for Broadwell+, i965 for Haswell and older)
+    intel-media-va-driver i965-va-driver \
+    # Intel Quick Sync Video (QSV) via Media SDK shim
+    libmfx1 \
+    # OpenCL runtime (helps NVENC/QSV in some ffmpeg builds)
+    ocl-icd-libopencl1 \
+    # NVIDIA NVENC: no packages needed — runtime libs injected by NVIDIA Container Toolkit
+    # System ffmpeg (compiled with --enable-vaapi --enable-nvenc --enable-libmfx)
     ffmpeg \
     # sudo is needed by Shutter Encoder's .deb postinst script
     sudo \
+    # GTK3 + desktop integration (Java Desktop API requires GTK3 on Linux)
+    libgtk-3-0 xdg-utils gvfs at-spi2-core \
     # Utilities
     wget curl ca-certificates procps \
     && rm -rf /var/lib/apt/lists/*
