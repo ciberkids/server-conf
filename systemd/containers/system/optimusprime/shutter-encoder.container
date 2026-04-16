@@ -1,0 +1,39 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Shutter Encoder Container
+Requires=network-online.target
+
+[Container]
+ContainerName=shutter-encoder
+Image=docker.io/ciberkids/shutter-encoder:latest
+PublishPort=6900:6080
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/shutter-encoder:/config:rw
+Volume=/mnt/MovieAndTvShows/ToFix:/input:ro
+Volume=/mnt/MovieAndTvShows/ToFix/shutterOutput:/output:rw
+AddDevice=/dev/dri/renderD128
+
+Environment=TZ=Europe/Zurich
+Environment=PUID=1000
+Environment=PGID=1000
+# VA-API drivers available in image (mesa-va-drivers):
+#   radeonsi  - AMD GCN/RDNA (RX 400+, Vega, RX 5000/6000/7000)
+#   r600      - AMD TeraScale (HD 2000-6000, R7 240/250)
+#   nouveau   - NVIDIA (basic, prefer nvidia-vaapi-driver for modern GPUs)
+#   d3d12     - WSL2 / DirectX 12
+#   virtio_gpu - VM/QEMU virtual GPU
+Environment=LIBVA_DRIVER_NAME=radeonsi
+
+AutoUpdate=registry
+
+Label=traefik.enable=true
+Label=traefik.http.routers.shutter-encoder.rule=Host(`shutter-encoder.optimusprime.favarohome.com`)
+Label=traefik.http.routers.shutter-encoder.entrypoints=websecure
+Label=traefik.http.routers.shutter-encoder.tls.certresolver=cloudflare
+Label=traefik.http.services.shutter-encoder.loadbalancer.server.port=6080
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
