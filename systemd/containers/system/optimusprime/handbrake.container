@@ -6,7 +6,7 @@ Requires=network-online.target
 [Container]
 ContainerName=handbrake
 Image=docker.io/ciberkids/handbrake-amd:latest
-PublishPort=6800:5800
+PublishPort=6800:3000
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/handbrake:/config:rw
 Volume=/mnt/MovieAndTvShows/ToFix:/data:ro
@@ -23,7 +23,7 @@ Label=traefik.enable=true
 Label=traefik.http.routers.handbrake.rule=Host(`handbrake.optimusprime.favarohome.com`)
 Label=traefik.http.routers.handbrake.entrypoints=websecure
 Label=traefik.http.routers.handbrake.tls.certresolver=cloudflare
-Label=traefik.http.services.handbrake.loadbalancer.server.port=5800
+Label=traefik.http.services.handbrake.loadbalancer.server.port=3000
 [Service]
 Restart=always
 
