@@ -12,6 +12,7 @@ Volume=/mnt/data/docker_persistent/handbrake:/config:rw
 Volume=/mnt/MovieAndTvShows/ToFix:/storage:ro
 Volume=/mnt/downloads/handbreakAutoConvert:/watch:rw
 Volume=/mnt/MovieAndTvShows/ToFix/handbreakOutput:/output:rw
+AddDevice=/dev/dri/renderD128
 
 Environment="TZ=/etc/localtime"
 
