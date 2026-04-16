@@ -6,7 +6,7 @@ Requires=network-online.target
 [Container]
 ContainerName=node-exporter
 Image=quay.io/prometheus/node-exporter:latest
-PublishPort=9100:9100
+Network=host
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/:/host:ro,rslave
 PodmanArgs=--pid=host
