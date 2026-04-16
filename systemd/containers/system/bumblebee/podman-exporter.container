@@ -1,0 +1,22 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Prometheus Podman Exporter
+Requires=network-online.target
+
+[Container]
+ContainerName=podman-exporter
+Image=quay.io/navidys/prometheus-podman-exporter:latest
+PublishPort=9882:9882
+Volume=/run/podman/podman.sock:/run/podman/podman.sock:ro
+SecurityLabelDisable=true
+Environment=CONTAINER_HOST=unix:///run/podman/podman.sock
+PodmanArgs=--user 0
+Exec=--collector.enable-all --collector.enhance-metrics
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
