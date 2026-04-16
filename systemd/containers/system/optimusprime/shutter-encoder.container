@@ -16,12 +16,13 @@ AddDevice=/dev/dri/renderD128
 Environment=TZ=Europe/Zurich
 Environment=PUID=1000
 Environment=PGID=1000
-# VA-API drivers available in image (mesa-va-drivers):
-#   radeonsi  - AMD GCN/RDNA (RX 400+, Vega, RX 5000/6000/7000)
-#   r600      - AMD TeraScale (HD 2000-6000, R7 240/250)
-#   nouveau   - NVIDIA (basic, prefer nvidia-vaapi-driver for modern GPUs)
-#   d3d12     - WSL2 / DirectX 12
-#   virtio_gpu - VM/QEMU virtual GPU
+# GPU hw-encode drivers baked into the image:
+#   AMD VA-API:   radeonsi (GCN/RDNA), r600 (TeraScale)  → mesa-va-drivers
+#   Intel VA-API: iHD (Broadwell+), i965 (Haswell-)      → intel-media-va-driver, i965-va-driver
+#   Intel QSV:    via libmfx1 shim                        → libmfx1
+#   NVIDIA NVENC: runtime-injected by NVIDIA Container Toolkit (no image pkgs)
+# Override LIBVA_DRIVER_NAME at runtime: radeonsi (AMD) | iHD (Intel new) | i965 (Intel old)
+# For NVIDIA, add: AddDevice=nvidia.com/gpu=all (and remove /dev/dri if no iGPU)
 Environment=LIBVA_DRIVER_NAME=radeonsi
 
 AutoUpdate=registry
