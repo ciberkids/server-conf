@@ -1,13 +1,12 @@
 [Unit]
 OnFailure=notify-failure@%n.service
-OnSuccess=notify-success@%n.service
 Description=Prometheus Node Exporter
 Requires=network-online.target
 
 [Container]
 ContainerName=node-exporter
 Image=quay.io/prometheus/node-exporter:latest
-PublishPort=9100:9100
+Network=host
 SecurityLabelDisable=true
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/:/host:ro,rslave
