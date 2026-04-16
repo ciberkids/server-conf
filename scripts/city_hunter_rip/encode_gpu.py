@@ -40,8 +40,10 @@ VAAPI_DEVICE  = "/dev/dri/renderD128"
 # Format: w:h:x:y  (x=left offset, y=top offset)
 CROP = "718:572:2:4"
 
-# Constant QP for hevc_vaapi.  24 gives excellent quality at 576p; lower = better.
-QP = 24
+# Constant QP for hevc_vaapi.  22 gives very good quality at 576p; lower = better.
+# Note: hevc_vaapi has less sophisticated in-loop filters than libx265, so we use
+# a slightly lower QP (22 vs 24) to compensate.
+QP = 22
 
 
 def container_to_host(path: str) -> Path:
@@ -79,9 +81,14 @@ def build_ffmpeg_cmd(
         "-map", "0:a:0",        # Italian AC3
         "-map", "0:a:1",        # Japanese AC3
         "-map", "0:s:0",        # Italian VOBSUB (forced subs for on-screen text)
-        # Video filter chain: crop on CPU → upload to GPU → motion-adaptive deinterlace
+        # Video filter chain:
+        #   1. bwdif (CPU): high-quality deinterlacing, top-field-first, one frame per input frame
+        #      bwdif uses directional interpolation and is significantly better than deinterlace_vaapi
+        #      for animated/SD content.  Cost at 576p is negligible vs GPU encode time.
+        #   2. crop (CPU): remove black borders before uploading to GPU
+        #   3. hwupload: transfer frames to VAAPI surface
         # SAR (16:15) is preserved automatically from the mpeg2video stream
-        "-vf", f"crop={CROP},format=nv12,hwupload,deinterlace_vaapi=mode=motion_adaptive:rate=frame",
+        "-vf", f"bwdif=mode=send_frame:parity=tff,crop={CROP},format=nv12,hwupload",
         # Video encoder: HEVC Main via VA-API at constant QP
         "-c:v", "hevc_vaapi",
         "-qp", str(QP),
