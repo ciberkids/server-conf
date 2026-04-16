@@ -9,12 +9,13 @@ Image=docker.io/ciberkids/handbrake-amd:latest
 PublishPort=6800:5800
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/handbrake:/config:rw
-Volume=/mnt/MovieAndTvShows/ToFix:/storage:ro
-Volume=/mnt/downloads/handbreakAutoConvert:/watch:rw
+Volume=/mnt/MovieAndTvShows/ToFix:/data:ro
 Volume=/mnt/MovieAndTvShows/ToFix/handbreakOutput:/output:rw
 AddDevice=/dev/dri/renderD128
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
+Environment=PUID=1000
+Environment=PGID=1000
 
 AutoUpdate=registry
 
