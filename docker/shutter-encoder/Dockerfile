@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:1 \
-    TZ=Europe/Rome \
+    TZ=Europe/Zurich \
     PUID=1000 \
     PGID=1000 \
     LIBVA_DRIVER_NAME=radeonsi \
@@ -49,8 +49,31 @@ RUN wget -q -O /tmp/shutter-encoder.deb \
 RUN ln -sf /usr/bin/ffmpeg "/usr/lib/Shutter Encoder/usr/bin/Library/ffmpeg" \
     && ln -sf /usr/bin/ffprobe "/usr/lib/Shutter Encoder/usr/bin/Library/ffprobe"
 
+# Wrapper script to launch Shutter Encoder (paths with spaces need a script for Openbox)
+RUN printf '#!/bin/bash\nSE_DIR="/usr/lib/Shutter Encoder/usr/bin"\nDISPLAY=:1 "$SE_DIR/JRE/bin/java" -Xmx4G -Dswing.aatext=true -Dsun.desktop=gnome -jar "$SE_DIR/Shutter Encoder.jar" &\n' \
+    > /usr/local/bin/launch-shutter-encoder \
+    && chmod +x /usr/local/bin/launch-shutter-encoder
+
 # Create working directories
-RUN mkdir -p /input /output /config /root/.vnc
+RUN mkdir -p /input /output /config /root/.vnc /root/.config/openbox
+
+# Openbox right-click desktop menu — uses wrapper script to avoid path-with-spaces issues
+RUN cat > /root/.config/openbox/menu.xml << 'MENUEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu>
+  <menu id="root-menu" label="Desktop">
+    <item label="Launch Shutter Encoder">
+      <action name="Execute">
+        <command>launch-shutter-encoder</command>
+      </action>
+    </item>
+    <separator/>
+    <item label="Terminal">
+      <action name="Execute"><command>xterm</command></action>
+    </item>
+  </menu>
+</openbox_menu>
+MENUEOF
 
 # Copy entrypoint
 COPY entrypoint.sh /entrypoint.sh

@@ -27,8 +27,14 @@ sleep 2
 # --- noVNC Setup (HTTP bridge to VNC) ---
 websockify --web /usr/share/novnc/ 6080 localhost:5901 &
 
-# --- Launch Shutter Encoder (foreground) ---
-echo "Starting Shutter Encoder from: $SE_DIR"
+# --- Launch Shutter Encoder with auto-restart ---
 cd "$SE_DIR"
-# -Dsun.desktop=gnome: enables java.awt.Desktop API in VNC/openbox environment
-exec "$JAVA" -Xmx4G -Dswing.aatext=true -Dsun.desktop=gnome -jar "$SE_DIR/Shutter Encoder.jar" "$@"
+echo "Starting Shutter Encoder from: $SE_DIR"
+
+# Restart loop: if the user closes the window, relaunch after 2s
+while true; do
+    "$JAVA" -Xmx4G -Dswing.aatext=true -Dsun.desktop=gnome \
+        -jar "$SE_DIR/Shutter Encoder.jar" "$@" || true
+    echo "[entrypoint] Shutter Encoder exited, restarting in 2s..."
+    sleep 2
+done
