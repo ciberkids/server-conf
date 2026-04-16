@@ -45,9 +45,13 @@ _X265_OPTIONS = (
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _vob_path(disc_path: str, title: int) -> str:
-    """Return the main VOB file path for a given VIDEO_TS directory + title."""
-    return f"{disc_path}/VTS_{title:02d}_1.VOB"
+def _disc_root(disc_path: str) -> str:
+    """Return the disc root directory (parent of VIDEO_TS).
+    HandBrake needs the disc root so libdvdnav can read the IFO files and
+    resolve titles/chapters.  Pointing at a specific .VOB file forces
+    stream-mode fallback which has no chapter structure.
+    """
+    return disc_path.rstrip("/").removesuffix("/VIDEO_TS")
 
 
 def _vob_name(title: int) -> str:
@@ -531,7 +535,7 @@ def _make_ui_settings(source_vob, vol_name, title_num, range_start, range_end,
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def make_entry(seq, disc_path, title, range_start, range_end, season, episode, plex_title):
-    source_vob = _vob_path(disc_path, title)
+    source_vob = _disc_root(disc_path)
     vol_name   = _vob_name(title)
     dest_dir   = f"/output/City Hunter/Season {season:02d}"
     dest_file  = f"{plex_title} - S{season:02d}E{episode:02d}.mkv"
