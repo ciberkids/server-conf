@@ -1,0 +1,61 @@
+{
+  "series": "City Hunter",
+  "plex_title": "City Hunter (1987)",
+  "seasons": [
+    {
+      "season": 1,
+      "mode": "chapters",
+      "chapters_per_episode": 5,
+      "title": 1,
+      "discs": [
+        {"disc": 1, "path": "/storage/City Hunter - Stagione 1 DVD01/VIDEO_TS", "episodes": [1, 2, 3, 4, 5, 6, 7]},
+        {"disc": 2, "path": "/storage/City Hunter - Stagione 1 DVD02/VIDEO_TS", "episodes": [8, 9, 10, 11, 12, 13, 14]},
+        {"disc": 3, "path": "/storage/City Hunter - Stagione 1 DVD03/VIDEO_TS", "episodes": [15, 16, 17, 18, 19, 20, 21]},
+        {"disc": 4, "path": "/storage/City Hunter - Stagione 1 DVD04/VIDEO_TS", "episodes": [22, 23, 24, 25, 26, 27, 28]},
+        {"disc": 5, "path": "/storage/City Hunter - Stagione 1 DVD05/VIDEO_TS", "episodes": [29, 30, 31, 32, 33, 34, 35]},
+        {"disc": 6, "path": "/storage/City Hunter - Stagione 1 DVD06/VIDEO_TS", "episodes": [36, 37, 38, 39, 40, 41, 42]},
+        {"disc": 7, "path": "/storage/City Hunter - Stagione 1 DVD07/VIDEO_TS", "episodes": [43, 44, 45, 46, 47, 48, 49]},
+        {"disc": 8, "path": "/storage/City Hunter - Stagione 1 DVD08/VIDEO_TS", "episodes": [50, 51]}
+      ]
+    },
+    {
+      "season": 2,
+      "mode": "chapters",
+      "chapters_per_episode": 5,
+      "title": 1,
+      "discs": [
+        {"disc": 1, "path": "/storage/City Hunter - Stagione 2 DVD01/VIDEO_TS", "episodes": [1, 2, 3, 4, 5, 6, 7]},
+        {"disc": 2, "path": "/storage/City Hunter - Stagione 2 DVD02/VIDEO_TS", "episodes": [8, 9, 10, 11, 12, 13, 14]},
+        {"disc": 3, "path": "/storage/City Hunter - Stagione 2 DVD03/VIDEO_TS", "episodes": [15, 16, 17, 18, 19, 20, 21]},
+        {"disc": 4, "path": "/storage/City Hunter - Stagione 2 DVD04/VIDEO_TS", "episodes": [22, 23, 24, 25, 26, 27, 28]},
+        {"disc": 5, "path": "/storage/City Hunter - Stagione 2 DVD05/VIDEO_TS", "episodes": [29, 30, 31, 32, 33, 34, 35]},
+        {"disc": 6, "path": "/storage/City Hunter - Stagione 2 DVD06/VIDEO_TS", "episodes": [36, 37, 38, 39, 40, 41, 42]},
+        {"disc": 7, "path": "/storage/City Hunter - Stagione 2 DVD07/VIDEO_TS", "episodes": [43, 44, 45, 46, 47, 48, 49]},
+        {"disc": 8, "path": "/storage/City Hunter - Stagione 2 DVD08/VIDEO_TS", "episodes": [50, 51, 52, 53, 54, 55, 56]},
+        {"disc": 9, "path": "/storage/City Hunter - Stagione 2 DVD09/VIDEO_TS", "episodes": [57, 58, 59, 60, 61, 62, 63]}
+      ]
+    },
+    {
+      "season": 3,
+      "mode": "chapters",
+      "chapters_per_episode": 5,
+      "title": 1,
+      "discs": [
+        {"disc": 1, "path": "/storage/City Hunter - Stagione 3 DVD01/VIDEO_TS", "episodes": [1, 2, 3, 4, 5]},
+        {"disc": 2, "path": "/storage/City Hunter - Stagione 3 DVD02/VIDEO_TS", "episodes": [6, 7, 8, 9, 10]},
+        {"disc": 3, "path": "/storage/City Hunter - Stagione 3 DVD03/VIDEO_TS", "episodes": [11, 12, 13]}
+      ]
+    },
+    {
+      "season": 4,
+      "mode": "chapters",
+      "chapters_per_episode": 5,
+      "title": 1,
+      "discs": [
+        {"disc": 1, "path": "/storage/City Hunter - Stagione 4 DVD01/VIDEO_TS", "episodes": [1, 2, 3, 4, 5]},
+        {"disc": 2, "path": "/storage/City Hunter - Stagione 4 DVD02/VIDEO_TS", "episodes": [6, 7, 8, 9, 10]},
+        {"disc": 3, "path": "/storage/City Hunter - Stagione 4 DVD03/VIDEO_TS", "episodes": [11, 12, 13]}
+      ]
+    }
+  ]
+}
