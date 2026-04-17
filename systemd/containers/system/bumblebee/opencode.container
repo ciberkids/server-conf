@@ -14,7 +14,6 @@ PublishPort=8081:8080
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/opencode/home:/home/opencode:rw,Z
 Volume=/home/matteo/docker_persistent/opencode/repos:/repos:rw,Z
-Volume=/home/matteo/docker_persistent/opencode/local-bin:/usr/local/bin:rw,Z
 Environment="OLLAMA_HOST=http://192.168.1.14:11434"
 
 AutoUpdate=registry
