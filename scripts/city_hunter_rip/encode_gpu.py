@@ -5,13 +5,26 @@ City Hunter DVD → MKV encoder using ffmpeg + VA-API (hevc_vaapi).
 Reads disc layout from dvd_config.json and encodes all episodes directly
 on the Optimus Prime host — no HandBrake GUI or queue file needed.
 
+Pipeline (two-process pipe):
+  [ffmpeg #1] DVD → bwdif (CPU deinterlace) → crop → rawvideo yuv420p → stdout
+         ↓ pipe
+  [ffmpeg #2] stdin rawvideo → hwupload → hevc_vaapi → video-only temp MKV
+  [ffmpeg #3] DVD → audio + subtitles copy → audio temp MKV  (fast, no re-encode)
+  [ffmpeg #4] video temp + audio temp → mux → final MKV
+
+The two-process pipe is required because the dvdvideo demuxer signals a flush at
+every internal VOB cell boundary (not just chapter boundaries), which causes
+hwupload to attempt a filter reinit.  That reinit fails with ENOSYS on AMD VA-API.
+Piping rawvideo between two ffmpeg processes hides all cell-boundary signals from
+the GPU encoder, which sees only a clean continuous yuv420p stream.
+
 Requirements (host, already satisfied on Optimus Prime):
   - ffmpeg with dvdvideo demuxer + hevc_vaapi encoder
   - /dev/dri/renderD128 (AMD GPU, VA-API)
 
 Usage:
   python3 encode_gpu.py               # encode all 140 episodes
-  python3 encode_gpu.py --dry-run     # print ffmpeg commands, don't run
+  python3 encode_gpu.py --dry-run     # print pipeline stages, don't run
   python3 encode_gpu.py --from=S02E05 # resume from a specific episode
   python3 encode_gpu.py --season=1    # encode only season 1
 
@@ -38,11 +51,11 @@ VAAPI_DEVICE  = "/dev/dri/renderD128"
 # ── Encoding settings ──────────────────────────────────────────────────────────
 # Crop: HandBrake auto-detected top=4, left=2 on disc 1; same across all discs.
 # Format: w:h:x:y  (x=left offset, y=top offset)
-CROP = "718:572:2:4"
+CROP        = "718:572:2:4"
+VIDEO_SIZE  = "718x572"        # result of the crop, used by the encoder side
+FRAMERATE   = "25"             # PAL DVD
 
 # Constant QP for hevc_vaapi.  22 gives very good quality at 576p; lower = better.
-# Note: hevc_vaapi has less sophisticated in-loop filters than libx265, so we use
-# a slightly lower QP (22 vs 24) to compensate.
 QP = 22
 
 
@@ -57,57 +70,92 @@ def disc_root(disc_path: str) -> str:
     return container_to_host(disc_path).as_posix().removesuffix("/VIDEO_TS")
 
 
-def build_ffmpeg_cmd(
-    disc: str,
-    title: int,
-    chapter_start: int,
-    chapter_end: int,
-    output: Path,
-) -> list[str]:
+def dvd_input_args(disc: str, title: int, ch_start: int, ch_end: int) -> list[str]:
     return [
-        "ffmpeg", "-hide_banner",
-        # VA-API device
-        "-vaapi_device", VAAPI_DEVICE,
-        # DVD demuxer: IFO-aware, native chapter selection
-        # -preindex does a 2-pass pre-scan for accurate chapter boundary timestamps
         "-f", "dvdvideo",
         "-title", str(title),
-        "-chapter_start", str(chapter_start),
-        "-chapter_end", str(chapter_end),
+        "-chapter_start", str(ch_start),
+        "-chapter_end", str(ch_end),
         "-preindex", "1",
         "-i", disc,
-        # Stream mapping: video + both audio tracks + first subtitle (VOBSUB)
-        "-map", "0:v:0",
-        "-map", "0:a:0",        # Italian AC3
-        "-map", "0:a:1",        # Japanese AC3
-        "-map", "0:s:0",        # Italian VOBSUB (forced subs for on-screen text)
-        # Video filter chain:
-        #   1. bwdif (CPU): high-quality deinterlacing, top-field-first, one frame per input frame
-        #      bwdif uses directional interpolation and is significantly better than deinterlace_vaapi
-        #      for animated/SD content.  Cost at 576p is negligible vs GPU encode time.
-        #   2. crop (CPU): remove black borders before uploading to GPU
-        #   3. hwupload: transfer frames to VAAPI surface
-        # SAR (16:15) is preserved automatically from the mpeg2video stream
-        "-vf", f"bwdif=mode=send_frame:parity=tff,crop={CROP},format=nv12,hwupload",
-        # Video encoder: HEVC Main via VA-API at constant QP
-        "-c:v", "hevc_vaapi",
-        "-qp", str(QP),
-        # Audio: passthrough (AC3 192 kbps, no re-encode)
-        "-c:a", "copy",
-        "-metadata:s:a:0", "title=Italian",
-        "-metadata:s:a:1", "title=Japanese",
-        # Subtitle: copy VOBSUB track into MKV
-        "-c:s", "copy",
-        # Overwrite without asking
-        "-y",
-        str(output),
     ]
+
+
+def encode_episode(disc: str, title: int, ch_start: int, ch_end: int, output: Path) -> int:
+    """
+    Encode one episode using the two-process pipe pipeline.
+    Returns ffmpeg exit code (0 = success).
+    """
+    video_tmp = output.with_suffix(".video.tmp.mkv")
+    audio_tmp = output.with_suffix(".audio.tmp.mkv")
+
+    try:
+        # ── Stage 1: decode video → pipe → GPU encode ─────────────────────────
+        # ffmpeg #1: DVD → bwdif → crop → rawvideo yuv420p → stdout
+        decode_cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            *dvd_input_args(disc, title, ch_start, ch_end),
+            "-map", "0:v:0",
+            "-vf", f"bwdif=mode=send_frame:parity=tff,crop={CROP}",
+            "-c:v", "rawvideo", "-pix_fmt", "yuv420p",
+            "-f", "rawvideo", "pipe:1",
+        ]
+        # ffmpeg #2: stdin rawvideo → hwupload → hevc_vaapi → video-only MKV
+        encode_cmd = [
+            "ffmpeg", "-hide_banner",
+            "-vaapi_device", VAAPI_DEVICE,
+            "-f", "rawvideo", "-pix_fmt", "yuv420p",
+            "-video_size", VIDEO_SIZE, "-framerate", FRAMERATE,
+            "-i", "pipe:0",
+            "-vf", "format=nv12,hwupload",
+            "-c:v", "hevc_vaapi", "-qp", str(QP),
+            "-f", "matroska", "-y", str(video_tmp),
+        ]
+
+        p1 = subprocess.Popen(decode_cmd, stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(encode_cmd, stdin=p1.stdout)
+        p1.stdout.close()  # allow p1 to receive SIGPIPE if p2 exits
+        p2.wait()
+        p1.wait()
+        if p2.returncode != 0 or p1.returncode != 0:
+            return p2.returncode or p1.returncode
+
+        # ── Stage 2: extract audio + subtitles (copy, no re-encode) ───────────
+        audio_cmd = [
+            "ffmpeg", "-hide_banner",
+            *dvd_input_args(disc, title, ch_start, ch_end),
+            "-map", "0:a:0", "-map", "0:a:1", "-map", "0:s:0",
+            "-c:a", "copy", "-c:s", "copy",
+            "-vn",
+            "-f", "matroska", "-y", str(audio_tmp),
+        ]
+        r = subprocess.run(audio_cmd)
+        if r.returncode != 0:
+            return r.returncode
+
+        # ── Stage 3: mux video + audio + subtitles ────────────────────────────
+        mux_cmd = [
+            "ffmpeg", "-hide_banner",
+            "-i", str(video_tmp), "-i", str(audio_tmp),
+            "-map", "0:v:0",
+            "-map", "1:a:0", "-map", "1:a:1", "-map", "1:s:0",
+            "-c", "copy",
+            "-metadata:s:a:0", "title=Italian",
+            "-metadata:s:a:1", "title=Japanese",
+            "-f", "matroska", "-y", str(output),
+        ]
+        r = subprocess.run(mux_cmd)
+        return r.returncode
+
+    finally:
+        video_tmp.unlink(missing_ok=True)
+        audio_tmp.unlink(missing_ok=True)
 
 
 def main() -> None:
     args = sys.argv[1:]
-    dry_run    = "--dry-run" in args
-    from_ep    = next((a.split("=", 1)[1].upper() for a in args if a.startswith("--from=")), None)
+    dry_run     = "--dry-run" in args
+    from_ep     = next((a.split("=", 1)[1].upper() for a in args if a.startswith("--from=")), None)
     only_season = next((int(a.split("=", 1)[1]) for a in args if a.startswith("--season=")), None)
 
     with open(CONFIG_FILE) as f:
@@ -122,8 +170,8 @@ def main() -> None:
         if only_season is not None and s != only_season:
             continue
 
-        title             = season["title"]
-        chapters_per_ep   = season["chapters_per_episode"]
+        title           = season["title"]
+        chapters_per_ep = season["chapters_per_episode"]
 
         for disc_info in season["discs"]:
             root = disc_root(disc_info["path"])
@@ -137,9 +185,9 @@ def main() -> None:
                 out_file = out_dir / f"{series_title} - {ep_id}.mkv"
 
                 jobs.append({
-                    "ep_id":   ep_id,
-                    "disc":    root,
-                    "title":   title,
+                    "ep_id":    ep_id,
+                    "disc":     root,
+                    "title":    title,
                     "ch_start": ch_start,
                     "ch_end":   ch_end,
                     "out_dir":  out_dir,
@@ -163,23 +211,25 @@ def main() -> None:
 
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        cmd = build_ffmpeg_cmd(
-            disc=job["disc"],
-            title=job["title"],
-            chapter_start=job["ch_start"],
-            chapter_end=job["ch_end"],
-            output=out_file,
-        )
-
         print(f"\n[{n}/{len(jobs)}] {ep_id}  chapters {job['ch_start']}–{job['ch_end']}  →  {out_file.name}")
+
         if dry_run:
-            print("  " + " ".join(cmd))
+            print("  [decode ] ffmpeg -f dvdvideo ... -c:v rawvideo -f rawvideo pipe:1")
+            print("  [encode ] ffmpeg -vaapi_device ... -f rawvideo pipe:0 -c:v hevc_vaapi")
+            print("  [audio  ] ffmpeg -f dvdvideo ... -c:a copy -c:s copy audio.tmp.mkv")
+            print("  [mux    ] ffmpeg -i video.tmp.mkv -i audio.tmp.mkv -c copy output.mkv")
             continue
 
-        result = subprocess.run(cmd)
-        if result.returncode != 0:
-            print(f"[encode] ERROR: {ep_id} failed (exit {result.returncode})", file=sys.stderr)
-            sys.exit(result.returncode)
+        rc = encode_episode(
+            disc=job["disc"],
+            title=job["title"],
+            ch_start=job["ch_start"],
+            ch_end=job["ch_end"],
+            output=out_file,
+        )
+        if rc != 0:
+            print(f"[encode] ERROR: {ep_id} failed (exit {rc})", file=sys.stderr)
+            sys.exit(rc)
 
     print("\n[encode] Done.")
 
