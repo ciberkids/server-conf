@@ -9,8 +9,9 @@ The final episode of the series (ep 108) has 4 chapters — handled automaticall
 Split is lossless: ffmpeg -c copy, no re-encoding, no quality loss.
 Original files are never touched.
 
-Output: /mnt/MovieAndTvShows/TvShows/Yattaman (1977)/Season 01/
+Output: /mnt/MovieAndTvShows/ToFix/Yattaman (1977)/Season 01/
         Yattaman (1977) - S01E01.mkv … Yattaman (1977) - S01E108.mkv
+        (Move to TvShows when complete — same filesystem, instant rename)
 
 Usage:
   python3 split_episodes.py              # split everything
@@ -27,7 +28,7 @@ from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 SOURCE_DIR  = Path("/mnt/MovieAndTvShows/ToFix/Yattaman")
-OUTPUT_DIR  = Path("/mnt/MovieAndTvShows/TvShows/Yattaman (1977)/Season 01")
+OUTPUT_DIR  = Path("/mnt/MovieAndTvShows/ToFix/Yattaman (1977)/Season 01")
 SHOW_TITLE  = "Yattaman (1977)"
 
 CHAPTERS_PER_EP = 5   # every 5 chapters = 1 episode
