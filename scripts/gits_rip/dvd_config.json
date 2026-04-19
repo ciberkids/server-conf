@@ -1,0 +1,14 @@
+{
+  "series": "Ghost in the Shell: Stand Alone Complex",
+  "plex_title": "Ghost in the Shell Stand Alone Complex",
+  "season": 2,
+  "note": "2nd GIG — 26 episodes across 6 discs. Each DVD title = 1 episode (title 1 is always empty padding; episodes start at title 2). DVDs 1-2 are progressive; DVDs 3-6 are interlaced TFF.",
+  "discs": [
+    {"disc": 1, "path": "/mnt/MovieAndTvShows/ToFix/Ghost In The Shell/Ghost In The Shell - Stand Alone Complex 2nd GIG DVD01", "episodes": [1, 2, 3, 4, 5]},
+    {"disc": 2, "path": "/mnt/MovieAndTvShows/ToFix/Ghost In The Shell/Ghost In The Shell - Stand Alone Complex 2nd GIG DVD02", "episodes": [6, 7, 8, 9, 10]},
+    {"disc": 3, "path": "/mnt/MovieAndTvShows/ToFix/Ghost In The Shell/Ghost In The Shell - Stand Alone Complex 2nd GIG DVD03", "episodes": [11, 12, 13, 14]},
+    {"disc": 4, "path": "/mnt/MovieAndTvShows/ToFix/Ghost In The Shell/Ghost In The Shell - Stand Alone Complex 2nd GIG DVD04", "episodes": [15, 16, 17, 18]},
+    {"disc": 5, "path": "/mnt/MovieAndTvShows/ToFix/Ghost In The Shell/Ghost In The Shell - Stand Alone Complex 2nd GIG DVD05", "episodes": [19, 20, 21, 22]},
+    {"disc": 6, "path": "/mnt/MovieAndTvShows/ToFix/Ghost In The Shell/Ghost In The Shell - Stand Alone Complex 2nd GIG DVD06", "episodes": [23, 24, 25, 26]}
+  ]
+}
