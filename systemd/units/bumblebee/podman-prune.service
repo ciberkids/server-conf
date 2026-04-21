@@ -1,0 +1,7 @@
+[Unit]
+Description=Prune unused Podman images
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/podman image prune -a -f
