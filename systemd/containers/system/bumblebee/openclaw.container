@@ -1,6 +1,5 @@
 [Unit]
 OnFailure=notify-failure@%n.service
-OnSuccess=notify-success@%n.service
 Description=OpenClaw AI Agent
 Requires=network-online.target
 Wants=ollama.service
