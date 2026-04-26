@@ -16,6 +16,13 @@ Environment=PUBLIC_URL=https://opensign.optimusprime.favarohome.com
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:3000/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.opensign.rule=Host(`opensign.optimusprime.favarohome.com`)
 Label=traefik.http.routers.opensign.entrypoints=websecure

@@ -14,6 +14,13 @@ Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:1880/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.node_red.rule=Host(`nodered.optimusprime.favarohome.com`)
 Label=traefik.http.routers.node_red.entrypoints=websecure

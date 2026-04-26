@@ -12,6 +12,13 @@ Volume=/mnt/data/docker_persistent/alertmanager/alertmanager.yml:/etc/alertmanag
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:9093/-/healthy || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 [Service]
 Restart=always
 

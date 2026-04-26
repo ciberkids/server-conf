@@ -20,6 +20,13 @@ Environment=TZ=/etc/localtime
 EnvironmentFile=/etc/containers/secrets/traefik.env
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.traefik_dashboard.rule=Host(`traefik.optimusprime.favarohome.com`)
 Label=traefik.http.routers.traefik_dashboard.entrypoints=websecure

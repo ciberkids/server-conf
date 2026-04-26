@@ -16,6 +16,13 @@ Volume=/mnt/data/docker_persistent/prometheus/data:/prometheus:rw
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:9090/-/healthy || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.prometheus.rule=Host(`prometheus.optimusprime.favarohome.com`)
 Label=traefik.http.routers.prometheus.entrypoints=websecure

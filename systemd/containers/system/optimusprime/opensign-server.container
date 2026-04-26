@@ -20,6 +20,13 @@ EnvironmentFile=/etc/containers/secrets/opensign.env
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.opensign-server.rule=Host(`opensign-api.optimusprime.favarohome.com`)
 Label=traefik.http.routers.opensign-server.entrypoints=websecure

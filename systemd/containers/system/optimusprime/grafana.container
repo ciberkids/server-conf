@@ -13,6 +13,13 @@ Volume=/mnt/data/docker_persistent/grafana:/var/lib/grafana:rw
 Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
+
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:3000/api/health || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=90s
+HealthTimeout=10s
+HealthOnFailure=restart
 Environment="PGID=1000"
 Environment="PUID=1000"
 
