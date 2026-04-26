@@ -22,6 +22,13 @@ AddDevice=/dev/dri
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:2283/api/server/ping || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=120s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 
 [Service]
 Restart=always

@@ -15,6 +15,13 @@ Volume=/mnt/data/docker_persistent/opensign/files:/data/opensign-files
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.cloud-drive-sync.rule=Host(`cloud-drive-sync.optimusprime.favarohome.com`)
 Label=traefik.http.routers.cloud-drive-sync.entrypoints=websecure

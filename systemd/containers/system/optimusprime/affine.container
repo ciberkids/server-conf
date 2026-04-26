@@ -26,6 +26,13 @@ Exec=/bin/sh /start.sh
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:3010/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=180s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.affine.rule=Host(`affine.optimusprime.favarohome.com`)
 Label=traefik.http.routers.affine.entrypoints=websecure

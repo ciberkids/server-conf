@@ -20,6 +20,13 @@ Environment="PGID=1000"
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -s -o /dev/null http://localhost:4711/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.amule.rule=Host(`amule.optimusprime.favarohome.com`)
 Label=traefik.http.routers.amule.entrypoints=websecure

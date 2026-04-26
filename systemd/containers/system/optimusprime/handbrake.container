@@ -20,6 +20,13 @@ Environment=LIBVA_DRIVER_NAME=radeonsi
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:3000/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.handbrake.rule=Host(`handbrake.optimusprime.favarohome.com`)
 Label=traefik.http.routers.handbrake.entrypoints=websecure

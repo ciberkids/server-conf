@@ -16,6 +16,13 @@ Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8282/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.zigbee2mqtt.rule=Host(`zigbee2mqtt.optimusprime.favarohome.com`)
 Label=traefik.http.routers.zigbee2mqtt.entrypoints=websecure

@@ -19,6 +19,13 @@ Environment="PUID=1000"
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -s -o /dev/null http://localhost:9091/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.transmission.rule=Host(`transmission.optimusprime.favarohome.com`)
 Label=traefik.http.routers.transmission.entrypoints=websecure

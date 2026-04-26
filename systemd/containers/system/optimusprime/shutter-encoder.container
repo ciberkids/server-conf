@@ -27,6 +27,13 @@ Environment=LIBVA_DRIVER_NAME=radeonsi
 
 AutoUpdate=registry
 
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:6080/ || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+HealthOnFailure=restart
+
 Label=traefik.enable=true
 Label=traefik.http.routers.shutter-encoder.rule=Host(`shutter-encoder.optimusprime.favarohome.com`)
 Label=traefik.http.routers.shutter-encoder.entrypoints=websecure
