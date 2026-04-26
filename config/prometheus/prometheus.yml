@@ -1,0 +1,111 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['192.168.1.10:9093']
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node-optimusprime
+    static_configs:
+      - targets: ["192.168.1.10:9100"]
+        labels:
+          instance: "optimusprime"
+
+  - job_name: node-bumblebee
+    static_configs:
+      - targets: ["192.168.1.14:9100"]
+        labels:
+          instance: "bumblebee"
+
+  - job_name: smartctl-optimusprime
+    scrape_interval: 120s
+    scrape_timeout: 60s
+    static_configs:
+      - targets: ["192.168.1.10:9633"]
+        labels:
+          instance: "optimusprime"
+
+  - job_name: blackbox
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          # Optimus Prime
+          - https://heimdall.optimusprime.favarohome.com
+          - https://grafana.optimusprime.favarohome.com
+          - https://homeassistant.optimusprime.favarohome.com
+          - https://jellyfin.optimusprime.favarohome.com
+          - https://influxdb.optimusprime.favarohome.com
+          - https://filebrowser.optimusprime.favarohome.com
+          - https://firefly.optimusprime.favarohome.com
+          - https://grocy.optimusprime.favarohome.com
+          - https://warracker.optimusprime.favarohome.com
+          - https://sonarr.optimusprime.favarohome.com
+          - https://tautulli.optimusprime.favarohome.com
+          - https://transmission.optimusprime.favarohome.com
+          - https://pingvin.optimusprime.favarohome.com
+          - https://plex.optimusprime.favarohome.com
+          - https://nodered.optimusprime.favarohome.com
+          - https://prometheus.optimusprime.favarohome.com
+          - https://traefik.optimusprime.favarohome.com
+          - https://opensign.optimusprime.favarohome.com
+          - https://zigbee2mqtt.optimusprime.favarohome.com
+          - https://makemkv.optimusprime.favarohome.com
+          - https://jdownloader.optimusprime.favarohome.com
+          - https://handbrake.optimusprime.favarohome.com
+          - https://amule.optimusprime.favarohome.com
+          - https://mqtt-dashboard.optimusprime.favarohome.com
+          - https://mqtt-explorer.optimusprime.favarohome.com
+          - https://affine.optimusprime.favarohome.com
+          - https://shutter-encoder.optimusprime.favarohome.com
+          - https://cloud-drive-sync.optimusprime.favarohome.com
+          - http://192.168.1.10:2283
+          # Bumblebee
+          - https://heimdall.bumblebee.favarohome.com
+          - https://n8n.bumblebee.favarohome.com
+          - https://chat.bumblebee.favarohome.com
+          - https://search.bumblebee.favarohome.com
+          - https://stirling-pdf.bumblebee.favarohome.com
+          - https://filebrowser.bumblebee.favarohome.com
+          - https://traefik.bumblebee.favarohome.com
+          - https://ollama.bumblebee.favarohome.com
+          - https://comfyui-launcher.bumblebee.favarohome.com
+          - https://opencode.bumblebee.favarohome.com
+          - https://openclaw.bumblebee.favarohome.com
+          - https://cloud-drive-sync.bumblebee.favarohome.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 192.168.1.10:9115
+
+  - job_name: gitlab-runner-bumblebee
+    static_configs:
+      - targets: ["192.168.1.14:9252"]
+        labels:
+          instance: "bumblebee"
+
+  - job_name: podman-optimusprime
+    static_configs:
+      - targets: ["192.168.1.10:9882"]
+        labels:
+          server: "optimusprime"
+
+  - job_name: podman-bumblebee
+    static_configs:
+      - targets: ["192.168.1.14:9882"]
+        labels:
+          server: "bumblebee"
