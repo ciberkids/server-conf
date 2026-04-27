@@ -12,13 +12,6 @@ Volume=/mnt/data/docker_persistent/pingvin-share/images:/opt/app/frontend/public
 #Volume=/mnt/data/docker_persistent/pingvin-share/config/config.yaml:/opt/app/config.yaml
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:3000/ || exit 1
-HealthInterval=30s
-HealthRetries=3
-HealthStartPeriod=60s
-HealthTimeout=10s
-HealthOnFailure=restart
-
 Label=traefik.enable=true
 Label=traefik.http.routers.pingvin_share.rule=Host(`pingvin.optimusprime.favarohome.com`)
 Label=traefik.http.routers.pingvin_share.entrypoints=websecure

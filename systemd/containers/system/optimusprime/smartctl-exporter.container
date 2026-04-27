@@ -17,13 +17,6 @@ Exec=--smartctl.device-exclude=^(loop|ram|nbd)
 
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:9633/ || exit 1
-HealthInterval=30s
-HealthRetries=3
-HealthStartPeriod=60s
-HealthTimeout=10s
-HealthOnFailure=restart
-
 [Service]
 Restart=always
 
