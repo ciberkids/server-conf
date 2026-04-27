@@ -15,13 +15,6 @@ Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:4000/ || exit 1
-HealthInterval=30s
-HealthRetries=3
-HealthStartPeriod=60s
-HealthTimeout=10s
-HealthOnFailure=restart
-
 Label=traefik.enable=true
 Label=traefik.http.routers.mqtt_explorer.rule=Host(`mqtt-explorer.optimusprime.favarohome.com`)
 Label=traefik.http.routers.mqtt_explorer.entrypoints=websecure

@@ -12,13 +12,6 @@ Volume=/mnt/data/docker_persistent/blackbox-exporter/config.yml:/etc/blackbox_ex
 
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:9115/ || exit 1
-HealthInterval=30s
-HealthRetries=3
-HealthStartPeriod=60s
-HealthTimeout=10s
-HealthOnFailure=restart
-
 [Service]
 Restart=always
 

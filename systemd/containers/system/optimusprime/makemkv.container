@@ -17,13 +17,6 @@ Environment="TZ=/etc/localtime"
 
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:5800/ || exit 1
-HealthInterval=30s
-HealthRetries=3
-HealthStartPeriod=60s
-HealthTimeout=10s
-HealthOnFailure=restart
-
 Label=traefik.enable=true
 Label=traefik.http.routers.makemkv.rule=Host(`makemkv.optimusprime.favarohome.com`)
 Label=traefik.http.routers.makemkv.entrypoints=websecure
