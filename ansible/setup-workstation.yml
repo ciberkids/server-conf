@@ -104,6 +104,27 @@
         state: present
       notify: reboot required
 
+    - name: Install dnf post-transaction-actions plugin
+      dnf:
+        name: python3-dnf-plugin-post-transaction-actions
+        state: present
+
+    - name: Deploy nvidia-reboot script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/bumblebee/nvidia-reboot.sh"
+        dest: /usr/local/sbin/nvidia-reboot.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy nvidia-reboot DNF action
+      copy:
+        src: "{{ playbook_dir }}/../config/dnf/nvidia-reboot.action"
+        dest: /etc/dnf/plugins/post-transaction-actions.d/nvidia-reboot.action
+        owner: root
+        group: root
+        mode: "0644"
+
     # =========================================================
     # 6. NFS mounts
     # =========================================================
