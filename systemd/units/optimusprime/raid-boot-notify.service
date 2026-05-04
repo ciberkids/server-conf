@@ -1,0 +1,11 @@
+[Unit]
+Description=RAID boot health notification
+After=mdmonitor.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/raid-boot-check.sh
+
+[Install]
+WantedBy=multi-user.target
