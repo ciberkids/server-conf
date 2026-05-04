@@ -1,0 +1,93 @@
+#!/usr/bin/python3
+import subprocess
+import sys
+import socket
+import re
+import time
+
+
+def get_eta(md_device):
+    """Parse /proc/mdstat to get ETA for the given md device."""
+    try:
+        md_name = md_device.split('/')[-1]  # e.g. /dev/md124 -> md124
+        with open('/proc/mdstat') as f:
+            content = f.read()
+        # Find the section for this device
+        pattern = rf'{re.escape(md_name)}.*?(?=\nmd|\nunused|\Z)'
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            block = match.group()
+            # Look for finish=123.4min
+            eta_match = re.search(r'finish=(\d+\.?\d*)min', block)
+            if eta_match:
+                mins = float(eta_match.group(1))
+                if mins >= 60:
+                    hours = int(mins // 60)
+                    remaining = int(mins % 60)
+                    return f"{hours}h{remaining}m"
+                return f"{int(mins)}m"
+    except Exception:
+        pass
+    return None
+
+
+def get_message(event, md_device, device):
+    hostname = socket.gethostname()
+
+    # Extract rebuild percentage from events like "Rebuild20"
+    rebuild_percentage = ""
+    if event.startswith("Rebuild") and event not in ("RebuildStarted", "RebuildFinished"):
+        rebuild_percentage = event[7:]
+        event = "Rebuild"
+
+    # Get ETA for rebuild/check events
+    eta = get_eta(md_device)
+    eta_str = f" (ETA: {eta})" if eta else ""
+
+    messages = {
+        "DegradedArray":   f"[{hostname}] RAID DEGRADED: {md_device} is running in degraded mode!",
+        "DeviceDisappeared": f"[{hostname}] RAID ALERT: {md_device} has disappeared!",
+        "Fail":            f"[{hostname}] RAID FAILURE: {md_device} component {device} has FAILED!",
+        "FailSpare":       f"[{hostname}] RAID ALERT: {md_device} spare {device} failed during rebuild",
+        "MoveSpare":       f"[{hostname}] RAID: Spare {device} moved to a new array",
+        "NewArray":        f"[{hostname}] RAID: {md_device} has appeared",
+        "Rebuild":         f"[{hostname}] RAID REBUILD: {md_device} is {rebuild_percentage}% complete{eta_str}",
+        "RebuildFinished": f"[{hostname}] RAID REBUILD COMPLETE: {md_device} rebuild finished",
+        "RebuildStarted":  f"[{hostname}] RAID REBUILD STARTED: {md_device} reconstruction started ({device}){eta_str}",
+        "SpareActive":     f"[{hostname}] RAID: {device} is now active in {md_device}",
+        "SparesMissing":   f"[{hostname}] RAID WARNING: {md_device} is missing spare devices",
+        "TestMessage":     f"[{hostname}] RAID TEST: test message for {md_device} ({device}){eta_str}",
+    }
+
+    return messages.get(event, f"[{hostname}] RAID: Unknown event '{event}' on {md_device} ({device})")
+
+
+def send_with_retry(msg, retries=5, delay=10):
+    """Retry telegram-send until network is available, up to retries * delay seconds."""
+    for attempt in range(retries):
+        try:
+            subprocess.run(["/usr/bin/telegram-send", msg], check=True, timeout=15)
+            return
+        except subprocess.CalledProcessError as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise
+
+
+if __name__ == "__main__":
+    event = sys.argv[1] if len(sys.argv) > 1 else ""
+    md_device = sys.argv[2] if len(sys.argv) > 2 else ""
+    device = sys.argv[3] if len(sys.argv) > 3 else ""
+
+    msg = get_message(event, md_device, device)
+
+    try:
+        send_with_retry(msg)
+    except Exception as e:
+        print(f"Error sending Telegram message: {e}")

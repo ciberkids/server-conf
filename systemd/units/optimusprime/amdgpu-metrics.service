@@ -1,0 +1,6 @@
+[Unit]
+Description=Collect AMD GPU metrics for Prometheus
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/amdgpu-metrics.sh
