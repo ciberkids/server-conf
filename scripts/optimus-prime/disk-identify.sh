@@ -31,11 +31,11 @@ get_info() {
 
     model=$(cat /sys/block/"$dev"/device/model 2>/dev/null | xargs)
     size_gb=$(awk '{printf "%.1f TB", $1 * 512 / 1e12}' /sys/block/"$dev"/size 2>/dev/null)
-    serial=$(sudo smartctl -i /dev/"$dev" 2>/dev/null | awk '/Serial Number:/ {print $NF}')
+    serial=$(sudo smartctl -i /dev/"$dev" 2>/dev/null | awk '/Serial Number:/ {print $NF}') || true
     crc_errors=$(sudo smartctl -A /dev/"$dev" 2>/dev/null \
-        | awk '/UDMA_CRC_Error_Count/ {print $10}')
+        | awk '/UDMA_CRC_Error_Count/ {print $10}') || true
     raid=$(grep -E "md[0-9]+" /proc/mdstat 2>/dev/null \
-        | grep "${dev}[0-9 ]" | awk '{print $1}' | paste -sd ',' -)
+        | grep "${dev}[0-9 ]" | awk '{print $1}' | paste -sd ',' -) || true
 
     echo "Model:    ${model:-unknown}"
     echo "Size:     ${size_gb:-unknown}"
@@ -80,7 +80,7 @@ list_drives() {
     for dev in sda sdb sdc sdd sde sdf sdg sdh sdi sdj sdk sdl sdm; do
         [[ -b /dev/$dev ]] || continue
         crc=$(sudo smartctl -A /dev/"$dev" 2>/dev/null \
-            | awk '/UDMA_CRC_Error_Count/ {print $10; found=1} END{if(!found) print "0"}')
+            | awk '/UDMA_CRC_Error_Count/ {print $10; found=1} END{if(!found) print "0"}') || true
         CRC_MAP[$dev]="${crc:-0}"
     done
 
@@ -91,7 +91,7 @@ list_drives() {
 
         model=$(cat /sys/block/"$dev"/device/model 2>/dev/null | xargs | cut -c1-22)
         size=$(awk '{printf "%.1fT", $1 * 512 / 1e12}' /sys/block/"$dev"/size 2>/dev/null)
-        serial=$(sudo smartctl -i /dev/"$dev" 2>/dev/null | awk '/Serial Number:/ {print $NF}')
+        serial=$(sudo smartctl -i /dev/"$dev" 2>/dev/null | awk '/Serial Number:/ {print $NF}') || true
         crc="${CRC_MAP[$dev]:-0}"
         raid=$(grep -E "md[0-9]+" /proc/mdstat 2>/dev/null \
             | grep "${dev}[0-9 ]" | awk '{print $1}' | paste -sd ',' - || true)
