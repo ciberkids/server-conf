@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly podman image prune timer
+Requires=podman-prune.service
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=3600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
