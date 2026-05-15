@@ -5,7 +5,7 @@ Requires=network-online.target
 
 [Container]
 ContainerName=plex
-Image=docker.io/plexinc/pms-docker:latest
+Image=localhost/plex-amd:latest
 
 PublishPort=32400:32400/tcp
 PublishPort=3005:3005/tcp
