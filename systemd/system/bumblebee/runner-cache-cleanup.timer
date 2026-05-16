@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily GitLab runner cache cleanup timer
+Requires=runner-cache-cleanup.service
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target
