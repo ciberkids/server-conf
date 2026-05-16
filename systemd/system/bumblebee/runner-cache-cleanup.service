@@ -1,0 +1,8 @@
+[Unit]
+Description=Clean GitLab runner cache entries older than 14 days
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/runner-cache-cleanup.sh
+StandardOutput=journal
+StandardError=journal
