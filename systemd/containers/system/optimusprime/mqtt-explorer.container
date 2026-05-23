@@ -11,7 +11,7 @@ PublishPort=4000:4000
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/mqtt-explorer/config:/mqtt-explorer/config:rw
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 
 AutoUpdate=registry
 

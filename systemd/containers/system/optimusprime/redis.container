@@ -9,7 +9,7 @@ Image=docker.io/library/redis:latest
 PublishPort=6379:6379
 Volume=/etc/localtime:/etc/localtime:ro
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 
 AutoUpdate=registry
 

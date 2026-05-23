@@ -17,7 +17,7 @@ Volume=/mnt/MovieAndTvShows:/srv/media:Z
 Volume=/home/matteo:/srv/home:z
 Volume=/home/matteo/openclaw-workspace:/srv/openclaw-workspace:Z
 
-Environment=TZ=/etc/localtime
+Environment=TZ=Europe/Zurich
 Environment=PGID=1000
 Environment=PUID=1000
 

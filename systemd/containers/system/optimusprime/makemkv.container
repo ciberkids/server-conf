@@ -13,7 +13,7 @@ Volume=/mnt/data/docker_persistent/makemkv:/config:rw
 Volume=/mnt/MovieAndTvShows/ToFix:/storage:ro
 Volume=/mnt/MovieAndTvShows/ToFix/makemkvOutput:/output:rw
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 
 AutoUpdate=registry
 

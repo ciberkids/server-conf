@@ -13,7 +13,7 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/transmision:/config:rw
 Volume=/mnt/downloads/transmission:/downloads:rw
 Volume=/mnt/downloads/torrent:/watch:rw
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
 

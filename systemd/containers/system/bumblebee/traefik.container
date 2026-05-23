@@ -18,7 +18,7 @@ Volume=/home/matteo/docker_persistent/traefik/acme.json:/etc/traefik/acme.json:Z
 Volume=/var/run/podman/podman.sock:/var/run/docker.sock
 SecurityLabelDisable=true
 
-Environment=TZ=/etc/localtime
+Environment=TZ=Europe/Zurich
 EnvironmentFile=/etc/containers/secrets/traefik.env
 AutoUpdate=registry
 

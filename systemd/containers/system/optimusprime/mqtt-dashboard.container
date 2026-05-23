@@ -11,7 +11,7 @@ Image=docker.io/secanis/mqtt-dashboard:latest
 PublishPort=3333:3333
 Volume=/etc/localtime:/etc/localtime:ro
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="REDIS_HOST=192.168.1.10"
 Environment="REDIS_PORT=6379"
 Environment="MQTT_HOST=192.168.1.10"
