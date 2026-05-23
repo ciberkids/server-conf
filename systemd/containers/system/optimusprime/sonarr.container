@@ -12,7 +12,7 @@ Volume=/mnt/data/docker_persistent/sonarr:/config:rw
 Volume=/mnt/MovieAndTvShows/TvShows:/tv:rw
 Volume=/mnt/downloads/transmission:/downloads
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
 

@@ -14,7 +14,7 @@ Volume=/mnt/data/docker_persistent/mqtt5/data:/mosquitto/data:rw
 Volume=/mnt/data/docker_persistent/mqtt5/log:/mosquitto/log:rw
 
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 
 AutoUpdate=registry
 

@@ -11,7 +11,7 @@ Image=ghcr.io/immich-app/immich-server:release
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/immich/upload:/usr/src/app/upload:rw
 Volume=/mnt/data/Matteo_And_Manu/Pictures:/usr/src/app/external/photos:ro
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="DB_USERNAME=postgres"
 Environment="DB_PASSWORD=immich_db_password"
 Environment="DB_DATABASE_NAME=immich"

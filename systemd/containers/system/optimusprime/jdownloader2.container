@@ -13,7 +13,7 @@ PublishPort=5900:5900
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/jdownloader-data:/config:rw
 Volume=/mnt/downloads:/output:rw
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
 

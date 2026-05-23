@@ -24,7 +24,7 @@ Volume=/mnt/MovieAndTvShows/Movies:/data/movies
 Volume=/mnt/data/Matteo_And_Manu/Pictures/:/data/photos
 Volume=/mnt/downloads/plexTranscoding:/transcode
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
 Environment="PLEX_CLAIM="claim-BSPNHvxh4GPunoENuQZ_"

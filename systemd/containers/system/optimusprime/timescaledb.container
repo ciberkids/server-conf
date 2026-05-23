@@ -11,7 +11,7 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/timescaledb/data:/home/postgres/pgdata/data:rw
 ShmSize=1g
 
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
 EnvironmentFile=/etc/containers/secrets/timescaledb.env

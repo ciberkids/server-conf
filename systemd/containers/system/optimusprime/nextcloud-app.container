@@ -10,7 +10,7 @@ Image=docker.io/linuxserver/nextcloud:latest
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/nextcloud:/config:rw
 Volume=/mnt/data/docker_persistent/nextcloud/data:/data:rw
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
 

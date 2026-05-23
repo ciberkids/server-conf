@@ -12,7 +12,7 @@ Volume=/mnt/data/docker_persistent/jellyfin:/config:rw
 Volume=/mnt/MovieAndTvShows/TvShows:/data/tvshows:ro
 Volume=/mnt/MovieAndTvShows/Movies:/data/movies:ro
 Volume=/mnt/data/Matteo_And_Manu/Pictures:/data/photos:ro
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
 Environment="JELLYFIN_PublishedServerUrl=https://jellyfin.optimusprime.favarohome.com"

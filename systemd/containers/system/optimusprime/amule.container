@@ -14,7 +14,7 @@ Volume=/mnt/data/docker_persistent/amule/conf:/home/amule/.aMule:Z
 Volume=/mnt/downloads/amule_incoming:/incoming:Z
 Volume=/mnt/data/docker_persistent/amule/tmp:/temp
 Environment="WEBUI_TEMPLATE=AmuleWebUI-Reloaded"
-Environment="TZ=/etc/localtime"
+Environment=TZ=Europe/Zurich
 Environment="PUID=1000"
 Environment="PGID=1000"
 
