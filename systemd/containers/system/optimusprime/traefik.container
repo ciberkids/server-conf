@@ -20,7 +20,7 @@ Environment=TZ=Europe/Zurich
 EnvironmentFile=/etc/containers/secrets/traefik.env
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/ || exit 1
+HealthCmd=CMD-SHELL wget -qO /dev/null http://localhost:8080/api/overview
 HealthInterval=30s
 HealthRetries=3
 HealthStartPeriod=60s

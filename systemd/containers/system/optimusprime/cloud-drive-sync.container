@@ -15,7 +15,7 @@ Volume=/mnt/data/docker_persistent/opensign/files:/data/opensign-files
 
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/ || exit 1
+HealthCmd=CMD-SHELL python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/', timeout=5)"
 HealthInterval=30s
 HealthRetries=3
 HealthStartPeriod=60s
