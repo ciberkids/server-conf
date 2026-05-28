@@ -654,6 +654,51 @@
         enabled: yes
         state: started
 
+    # =========================================================
+    # 25. Paperless-NGX (+ PostgreSQL, Redis, Gotenberg, Tika)
+    # =========================================================
+    - name: Create Paperless-NGX persistent directories
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/paperless/{{ item }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+      loop:
+        - data
+        - media
+        - export
+        - consume
+        - postgres
+        - redis
+
+    - name: Deploy Paperless network quadlet
+      copy:
+        src: "{{ quadlets_src }}/paperless.network"
+        dest: /etc/containers/systemd/paperless.network
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy Paperless-NGX quadlets
+      copy:
+        src: "{{ quadlets_src }}/{{ item }}"
+        dest: "/etc/containers/systemd/{{ item }}"
+        mode: "0644"
+      loop:
+        - paperless-broker.container
+        - paperless-db.container
+        - paperless-gotenberg.container
+        - paperless-tika.container
+        - paperless.container
+      notify: reload systemd
+
+    - name: Enable and start Paperless-NGX
+      systemd:
+        name: paperless.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
   handlers:
     - name: reload systemd
       systemd:

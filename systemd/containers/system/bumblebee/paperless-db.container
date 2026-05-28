@@ -1,0 +1,28 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Paperless-NGX PostgreSQL database
+Requires=network-online.target
+
+[Container]
+ContainerName=paperless-db
+Network=paperless.network
+Image=docker.io/library/postgres:18
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/home/matteo/docker_persistent/paperless/postgres:/var/lib/postgresql:rw,Z
+
+Environment=POSTGRES_DB=paperless
+Environment=POSTGRES_USER=paperless
+EnvironmentFile=/etc/containers/secrets/paperless.env
+
+HealthCmd=pg_isready -U paperless -d paperless
+HealthInterval=5s
+HealthTimeout=5s
+HealthRetries=5
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

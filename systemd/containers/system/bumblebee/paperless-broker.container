@@ -1,0 +1,24 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Paperless-NGX Redis broker
+Requires=network-online.target
+
+[Container]
+ContainerName=paperless-broker
+Network=paperless.network
+Image=docker.io/library/redis:8
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/home/matteo/docker_persistent/paperless/redis:/data:rw,Z
+
+HealthCmd=redis-cli ping
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=5
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
