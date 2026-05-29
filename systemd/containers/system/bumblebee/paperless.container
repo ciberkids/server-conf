@@ -7,6 +7,7 @@ After=paperless-db.service paperless-broker.service paperless-gotenberg.service 
 [Container]
 ContainerName=paperless
 Network=paperless.network
+Network=podman
 Image=ghcr.io/paperless-ngx/paperless-ngx:latest
 PublishPort=8000:8000
 Volume=/etc/localtime:/etc/localtime:ro
