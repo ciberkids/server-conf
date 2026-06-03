@@ -1,0 +1,211 @@
+#!/bin/bash
+# alarm - manage homelab Telegram alert silences
+#
+# Handles two alarm channels:
+#   1. Alertmanager (Prometheus/Blackbox HTTP probe failures, repeat every 4h)
+#   2. systemd notify-failure@*.service (fires at container crash time)
+#
+# Usage:
+#   alarm status
+#   alarm mute <service> [reason]
+#   alarm unmute <service>
+#   alarm list
+
+ALERTMANAGER="http://192.168.1.10:9093"
+SILENCE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/homelab-alarm-silences.json"
+
+# service name -> Alertmanager "instance" label (URL used in prometheus.yml blackbox targets)
+declare -A SERVICE_URL=(
+  [amule]="https://amule.optimusprime.favarohome.com"
+  [opensign]="https://opensign.optimusprime.favarohome.com"
+)
+
+# service name -> systemd unit to mask (notify-failure instance, double .service because %n includes suffix)
+declare -A SERVICE_SYSTEMD=(
+  [amule]="notify-failure@amule.service.service"
+  [opensign]="notify-failure@opensign-client.service.service"
+)
+
+# service name -> SSH host
+declare -A SERVICE_HOST=(
+  [amule]="192.168.1.10"
+  [opensign]="192.168.1.10"
+)
+
+# Ensure silence store exists
+mkdir -p "$(dirname "$SILENCE_FILE")"
+[[ -f "$SILENCE_FILE" ]] || echo '{}' > "$SILENCE_FILE"
+
+_usage() {
+  echo "Usage: alarm <status|list|mute|unmute> [service] [reason]"
+  echo ""
+  echo "Commands:"
+  echo "  alarm status              Show active silences and masked notify-failure units"
+  echo "  alarm list                List known services"
+  echo "  alarm mute <svc> [msg]    Mute Alertmanager + mask systemd notify-failure"
+  echo "  alarm unmute <svc>        Unmute and restore alerts"
+  echo ""
+  echo "Known services: ${!SERVICE_URL[*]}"
+}
+
+_am_silences() {
+  curl -sf "$ALERTMANAGER/api/v2/silences" 2>/dev/null
+}
+
+_systemd_masked() {
+  local host="$1"
+  ssh "$host" "systemctl list-units --state=masked --all 2>/dev/null | grep 'notify-failure'" 2>/dev/null
+}
+
+cmd="${1:-status}"
+service="$2"
+reason="${*:3}"
+[[ -z "$reason" ]] && reason="manually muted"
+
+case "$cmd" in
+
+  status)
+    echo "=== Alertmanager Active Silences ==="
+    silences=$(_am_silences)
+    if [[ -z "$silences" ]]; then
+      echo "  (could not reach Alertmanager at $ALERTMANAGER)"
+    else
+      active=$(echo "$silences" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    active = [s for s in data if s['status']['state'] == 'active']
+    if not active:
+        print('  (no active silences)')
+    for s in active:
+        matchers = ', '.join(f\"{m['name']}={m['value']}\" for m in s['matchers'])
+        print(f\"  [{s['id'][:8]}] {matchers} | until {s['endsAt'][:10]} | {s['comment']}\")
+except Exception as e:
+    print(f'  error: {e}')
+" 2>/dev/null)
+      echo "${active:-(no active silences)}"
+    fi
+    echo ""
+    echo "=== Masked notify-failure@ units on optimusprime ==="
+    masked=$(_systemd_masked "192.168.1.10")
+    echo "${masked:-(none)}"
+    ;;
+
+  list)
+    echo "Known services:"
+    for svc in "${!SERVICE_URL[@]}"; do
+      echo "  $svc -> ${SERVICE_URL[$svc]}"
+    done
+    ;;
+
+  mute)
+    if [[ -z "$service" ]]; then
+      _usage; exit 1
+    fi
+    url="${SERVICE_URL[$service]}"
+    if [[ -z "$url" ]]; then
+      echo "Unknown service: '$service'. Known: ${!SERVICE_URL[*]}"
+      exit 1
+    fi
+
+    # Create Alertmanager silence
+    echo "[1/2] Creating Alertmanager silence for $service ($url)..."
+    now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    result=$(curl -sf -X POST "$ALERTMANAGER/api/v2/silences" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"matchers\": [{
+          \"name\": \"instance\",
+          \"value\": \"$url\",
+          \"isRegex\": false,
+          \"isEqual\": true
+        }],
+        \"startsAt\": \"$now\",
+        \"endsAt\": \"2030-12-31T00:00:00Z\",
+        \"createdBy\": \"alarm-manager\",
+        \"comment\": \"$reason\"
+      }" 2>&1)
+
+    silence_id=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin)['silenceID'])" 2>/dev/null)
+    if [[ -z "$silence_id" ]]; then
+      echo "  Failed to create silence: $result"
+    else
+      echo "  Silence ID: $silence_id"
+      python3 -c "
+import json
+with open('$SILENCE_FILE') as f:
+    data = json.load(f)
+data['$service'] = '$silence_id'
+with open('$SILENCE_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+    fi
+
+    # Mask systemd notify-failure instance
+    unit="${SERVICE_SYSTEMD[$service]}"
+    host="${SERVICE_HOST[$service]}"
+    if [[ -n "$unit" && -n "$host" ]]; then
+      echo "[2/2] Masking $unit on $host..."
+      ssh "$host" "sudo systemctl mask '$unit' 2>&1" && echo "  Masked OK" || echo "  (unit not yet loaded — will be masked on next service start)"
+    fi
+
+    echo "Muted: $service"
+    ;;
+
+  unmute)
+    if [[ -z "$service" ]]; then
+      _usage; exit 1
+    fi
+    url="${SERVICE_URL[$service]}"
+    if [[ -z "$url" ]]; then
+      echo "Unknown service: '$service'. Known: ${!SERVICE_URL[*]}"
+      exit 1
+    fi
+
+    # Delete Alertmanager silence
+    silence_id=$(python3 -c "
+import json
+try:
+    with open('$SILENCE_FILE') as f:
+        data = json.load(f)
+    print(data.get('$service', ''))
+except:
+    print('')
+" 2>/dev/null)
+
+    if [[ -n "$silence_id" ]]; then
+      echo "[1/2] Deleting Alertmanager silence $silence_id for $service..."
+      result=$(curl -sf -X DELETE "$ALERTMANAGER/api/v2/silence/$silence_id" 2>&1)
+      if [[ $? -eq 0 ]]; then
+        echo "  Deleted OK"
+        python3 -c "
+import json
+with open('$SILENCE_FILE') as f:
+    data = json.load(f)
+data.pop('$service', None)
+with open('$SILENCE_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+      else
+        echo "  Warning: DELETE returned: $result (silence may have already expired)"
+      fi
+    else
+      echo "[1/2] No stored silence ID for $service — skipping Alertmanager step"
+    fi
+
+    # Unmask systemd notify-failure instance
+    unit="${SERVICE_SYSTEMD[$service]}"
+    host="${SERVICE_HOST[$service]}"
+    if [[ -n "$unit" && -n "$host" ]]; then
+      echo "[2/2] Unmasking $unit on $host..."
+      ssh "$host" "sudo systemctl unmask '$unit' 2>&1" && echo "  Unmasked OK"
+    fi
+
+    echo "Unmuted: $service"
+    ;;
+
+  *)
+    _usage
+    exit 1
+    ;;
+esac
