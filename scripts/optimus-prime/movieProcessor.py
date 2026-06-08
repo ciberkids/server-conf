@@ -326,6 +326,9 @@ def process_file(filepath, dry_run=False):
         else:
             os.makedirs(QUARANTINE_DIR, exist_ok=True)
             quarantine_path = os.path.join(QUARANTINE_DIR, filename)
+            send_telegram(
+                f"📦 PipelineB moving to quarantine:\n<code>{title_en} ({actual_year})</code>"
+            )
             subprocess.run(["rsync", "-av", "--remove-source-files", filepath, quarantine_path], check=True)
             send_telegram(
                 f"🟡 PipelineB: No saga folder found for:\n<code>{filename}</code>\n"
@@ -350,6 +353,9 @@ def process_file(filepath, dry_run=False):
         return False
 
     os.makedirs(os.path.dirname(dest), exist_ok=True)
+    send_telegram(
+        f"📦 PipelineB moving:\n<code>{title_en} ({actual_year})</code>\n→ <code>{dest_rel}</code>"
+    )
     proc = subprocess.run(
         ["rsync", "-av", "--remove-source-files", filepath, dest],
         capture_output=True, text=True
