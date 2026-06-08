@@ -15,6 +15,7 @@ Volume=/mnt/downloads/transmission:/downloads
 Environment=TZ=Europe/Zurich
 Environment="PGID=1000"
 Environment="PUID=1000"
+Environment="DOTNET_SYSTEM_NET_DISABLEIPV6=1"
 
 AutoUpdate=registry
 
