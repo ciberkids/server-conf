@@ -391,7 +391,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName, destinationFolder: \"/output/jd-import\", autoExtract: true }) }}"
+        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName, destinationFolder: \"/output/jd-downloading\", autoExtract: true }) }}"
       },
       "id": "wf2-node-0018",
       "name": "JDownloader 1080p",
@@ -628,7 +628,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName + \" [4K]\", destinationFolder: \"/output/jd-import\", autoExtract: true }) }}"
+        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName + \" [4K]\", destinationFolder: \"/output/jd-downloading\", autoExtract: true }) }}"
       },
       "id": "wf2-node-0029",
       "name": "JDownloader 4K",
