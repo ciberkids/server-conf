@@ -1,81 +1,980 @@
 {
-  "_comment": "Template only — fill in CREDENTIALS before importing. Real workflow (with creds) lives in /tmp/ctrlhits_workflow.json (not committed).",
-  "_credentials_needed": {
-    "tmdb_bearer": "TMDb Read Access Token",
-    "radarr_api_key": "Radarr API key from Settings > General",
-    "ctrlhits_cookie": "dle_user_id and dle_password cookie values",
-    "jdownloader_url": "http://<optimus-ip>:3128"
-  },
-  "name": "ctrlhits → Radarr Auto-Download",
+  "name": "ctrlhits Discovery + Approval",
   "nodes": [
     {
-      "name": "RSS ctrlhits Movies",
+      "parameters": {
+        "url": "https://ctrlhits.online/films-hd/hevc-1080p-news/rss.xml",
+        "options": {}
+      },
+      "id": "wf2-node-0000",
+      "name": "RSS 1080p",
       "type": "n8n-nodes-base.rssFeedReadTrigger",
       "typeVersion": 1,
+      "position": [
+        200,
+        120
+      ]
+    },
+    {
       "parameters": {
-        "url": "https://ctrlhits.online/films-hd/hevc-1080p-news/rss.xml"
-      }
-    },
-    {
-      "name": "Extract Title Info",
+        "jsCode": "\nconst i = $input.first().json;\nconst title = i.title || '';\nconst link = i.link || i.guid || '';\nconst ym = title.match(/\\((\\d{4})\\)/);\nconst year = ym ? ym[1] : null;\nconst cleanTitle = title.replace(/\\s*\\(\\d{4}\\).*$/, '').trim();\nconst nm = link.match(/\\/(\\d+)-/);\nconst newsId = nm ? nm[1] : null;\nif (!cleanTitle || !year || !newsId) return [];\nreturn [{ json: { cleanTitle, year, newsId, articleUrl: link } }];\n"
+      },
+      "id": "wf2-node-0001",
+      "name": "Extract 1080p Info",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "note": "Extracts cleanTitle, year, newsId, articleUrl from RSS item"
+      "position": [
+        440,
+        120
+      ]
     },
     {
-      "name": "TMDb Search",
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.themoviedb.org/3/search/movie",
+        "authentication": "none",
+        "sendHeaders": true,
+        "options": {},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer <TMDB_API_TOKEN>"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.cleanTitle }}"
+            },
+            {
+              "name": "year",
+              "value": "={{ $json.year }}"
+            },
+            {
+              "name": "language",
+              "value": "it"
+            }
+          ]
+        }
+      },
+      "id": "wf2-node-0002",
+      "name": "TMDb Search 1080p",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "note": "GET https://api.themoviedb.org/3/search/movie?query={cleanTitle}&year={year}&language=it — Bearer auth"
+      "position": [
+        680,
+        120
+      ]
     },
     {
-      "name": "Process TMDb Result",
+      "parameters": {
+        "jsCode": "\nconst tmdb = $input.first().json;\nconst prev = $('Extract 1080p Info').first().json;\nconst results = tmdb.results || [];\nif (!results.length) return [];\nconst m = results[0];\nreturn [{ json: {\n  tmdbId: m.id, tmdbTitle: m.title,\n  year: prev.year, newsId: prev.newsId,\n  articleUrl: prev.articleUrl, cleanTitle: prev.cleanTitle\n}}];\n"
+      },
+      "id": "wf2-node-0003",
+      "name": "Process TMDb 1080p",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "note": "Returns [] if no results (stops pipeline). Carries forward tmdbId, newsId, articleUrl."
+      "position": [
+        920,
+        120
+      ]
     },
     {
-      "name": "Radarr Lookup",
+      "parameters": {
+        "method": "GET",
+        "url": "https://ctrlhits.online/films-uhd/uhd-x265-2160p-news/rss.xml",
+        "authentication": "none",
+        "sendHeaders": false,
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "wf2-node-0004",
+      "name": "Fetch 4K RSS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "note": "GET http://192.168.1.10:7878/api/v3/movie?tmdbId={tmdbId} — X-Api-Key header"
+      "position": [
+        1160,
+        120
+      ]
     },
     {
-      "name": "Check Radarr Wants",
+      "parameters": {
+        "jsCode": "\nconst prev = $('Process TMDb 1080p').first().json;\nconst rss4kResp = $('Fetch 4K RSS').first().json;\nconst rss4kText = typeof rss4kResp === 'string' ? rss4kResp : (rss4kResp.data || rss4kResp.body || '');\n\n// Search 4K RSS for matching movie\nlet has4k = false, articleUrl4k = null, newsId4k = null;\nconst itemsRaw = rss4kText.match(/<item>[\\s\\S]*?<\\/item>/gi) || [];\nconst word0 = prev.cleanTitle.toLowerCase().split(/\\s+/)[0];\nfor (const it of itemsRaw) {\n  const tm = it.match(/<title>(.*?)<\\/title>/);\n  const lm = it.match(/<link>(.*?)<\\/link>/) || it.match(/<guid[^>]*>(.*?)<\\/guid>/);\n  if (!tm || !lm) continue;\n  const t4 = tm[1].replace(/&amp;/g,'&').replace(/&#39;/g,\"'\");\n  if (t4.includes('(' + prev.year + ')') && t4.toLowerCase().includes(word0)) {\n    has4k = true;\n    articleUrl4k = lm[1];\n    const n4m = lm[1].match(/\\/(\\d+)-/);\n    newsId4k = n4m ? n4m[1] : null;\n    break;\n  }\n}\n\n// Store in workflow static data\nconst store = $getWorkflowStaticData('global');\nif (!store.pending) store.pending = {};\nstore.pending[prev.newsId] = {\n  articleUrl: prev.articleUrl, packageName: prev.tmdbTitle + ' (' + prev.year + ')',\n  tmdbId: prev.tmdbId, cleanTitle: prev.cleanTitle, year: prev.year,\n  has4k, articleUrl4k, newsId4k, messageId: null, messageId4k: null\n};\n\n// Build Telegram message\nconst esc = s => String(s).replace(/([_*[\\]()~`>#+=|{}\\.!])/g, '\\\\$1');\nconst body = JSON.stringify({\n  chat_id: '<TELEGRAM_CHAT_ID>',\n  text: '\ud83c\udfac *' + esc(prev.tmdbTitle) + ' \\\\(' + prev.year + '\\\\)*' + (has4k ? '\\n_4K x265 also available_' : ''),\n  parse_mode: 'MarkdownV2',\n  reply_markup: {\n    inline_keyboard: [[\n      { text: '\u2b07\ufe0f Download 1080p', callback_data: 'dl:' + prev.newsId },\n      { text: '\u274c Skip', callback_data: 'skip:' + prev.newsId }\n    ]]\n  }\n});\nreturn [{ json: { newsId: prev.newsId, tgBody: body } }];\n"
+      },
+      "id": "wf2-node-0005",
+      "name": "Prepare Pending + Notify",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "note": "Returns [] unless movie is monitored=true AND hasFile=false"
+      "position": [
+        1400,
+        120
+      ]
     },
     {
-      "name": "ctrlhits Thanks Unlock",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendMessage",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{{ $json.tgBody }}"
+      },
+      "id": "wf2-node-0006",
+      "name": "Send 1080p Notification",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "note": "POST https://ctrlhits.online/engine/ajax/thanks.php — unlocks hidden download links"
+      "position": [
+        1640,
+        120
+      ]
     },
     {
-      "name": "Fetch Article HTML",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "note": "GET article URL with cookie auth, responseFormat=text"
-    },
-    {
-      "name": "Extract Download Links",
+      "parameters": {
+        "jsCode": "\nconst resp = $input.first().json;\nconst newsId = $('Prepare Pending + Notify').first().json.newsId;\nconst store = $getWorkflowStaticData('global');\nif (store.pending && store.pending[newsId] && resp.result) {\n  store.pending[newsId].messageId = resp.result.message_id;\n}\nreturn [{ json: { saved: true } }];\n"
+      },
+      "id": "wf2-node-0007",
+      "name": "Save Notification Msg ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "note": "HTML-unescapes page, regex-extracts filestore.me .rar and .rev links"
+      "position": [
+        1880,
+        120
+      ]
     },
     {
-      "name": "JDownloader Add Links",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "note": "POST http://192.168.1.10:3128/linkgrabberv2/addLinks — deprecated API, no auth needed on LAN"
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 60
+            }
+          ]
+        }
+      },
+      "id": "wf2-node-0008",
+      "name": "Poll Telegram Every 60s",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        500
+      ]
     },
     {
-      "name": "Log Success",
+      "parameters": {
+        "jsCode": "\nconst store = $getWorkflowStaticData('global');\nreturn [{ json: { offset: (store.last_update_id || 0) } }];\n"
+      },
+      "id": "wf2-node-0009",
+      "name": "Get Last Update ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "note": "Logs packageName + fileCount to execution log"
+      "position": [
+        440,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates",
+        "authentication": "none",
+        "sendHeaders": false,
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "offset",
+              "value": "={{ $json.offset }}"
+            },
+            {
+              "name": "timeout",
+              "value": "0"
+            },
+            {
+              "name": "allowed_updates",
+              "value": "[\"callback_query\"]"
+            }
+          ]
+        }
+      },
+      "id": "wf2-node-0010",
+      "name": "Telegram getUpdates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst data = $input.first().json;\nconst updates = (data.result || []);\nconst store = $getWorkflowStaticData('global');\nlet maxId = store.last_update_id || 0;\nconst out = [];\nfor (const u of updates) {\n  if (u.update_id >= maxId) maxId = u.update_id + 1;\n  if (!u.callback_query) continue;\n  const cq = u.callback_query;\n  const [action, newsId] = cq.data.split(':');\n  out.push({ json: {\n    action, newsId,\n    callbackQueryId: cq.id,\n    messageId: cq.message?.message_id,\n    chatId: String(cq.message?.chat?.id || '<TELEGRAM_CHAT_ID>'),\n    rawData: cq.data\n  }});\n}\nstore.last_update_id = maxId;\nif (!out.length) return [];\nreturn out;\n"
+      },
+      "id": "wf2-node-0011",
+      "name": "Parse Callback Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/answerCallbackQuery",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ callback_query_id: $json.callbackQueryId, text: \"Processing\u2026\" }) }}"
+      },
+      "id": "wf2-node-0012",
+      "name": "Answer Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "={{ $json.action }}",
+        "rules": {
+          "values": [
+            {
+              "outputKey": "dl"
+            },
+            {
+              "outputKey": "skip"
+            },
+            {
+              "outputKey": "4k"
+            },
+            {
+              "outputKey": "no4k"
+            }
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "id": "wf2-node-0013",
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1400,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d = (store.pending || {})[inp.newsId];\nif (!d || !d.articleUrl) return [];\nreturn [{ json: { ...inp, ...d } }];\n"
+      },
+      "id": "wf2-node-0014",
+      "name": "Load 1080p Pending",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ctrlhits.online/engine/ajax/thanks.php",
+        "authentication": "none",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cookie",
+              "value": "<CTRLHITS_COOKIE>"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "thanks",
+              "value": "tanksForNews"
+            },
+            {
+              "name": "news_id",
+              "value": "={{ $json.newsId }}"
+            }
+          ]
+        }
+      },
+      "id": "wf2-node-0015",
+      "name": "Thanks 1080p",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Load 1080p Pending').first().json.articleUrl }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cookie",
+              "value": "<CTRLHITS_COOKIE>"
+            }
+          ]
+        }
+      },
+      "id": "wf2-node-0016",
+      "name": "Fetch 1080p Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst raw = $input.first().json;\nconst html = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\nconst prev = $('Load 1080p Pending').first().json;\nconst unesc = html.replace(/&#(\\d+);/g, (_,c) => String.fromCharCode(parseInt(c))).replace(/&amp;/g,'&');\nconst regex = /https?:\\/\\/filestore\\.me\\/[a-z0-9]+\\/[^\\s\"'<>)]+\\.(?:rar|rev)/gi;\nconst links = [...new Set(unesc.match(regex) || [])];\nif (!links.length) return [];\nreturn [{ json: { ...prev, links, linkString: links.join('\\n'), count: links.length } }];\n"
+      },
+      "id": "wf2-node-0017",
+      "name": "Extract 1080p Links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:3128/linkgrabberv2/addLinks",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName, destinationFolder: \"/output/jd-import\", autoExtract: true }) }}"
+      },
+      "id": "wf2-node-0018",
+      "name": "JDownloader 1080p",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/editMessageText",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: \"<TELEGRAM_CHAT_ID>\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"\u2705 1080p queued: *\" + $(\"Load 1080p Pending\").first().json.packageName.replace(/([_*[\\]()~`>#+=|{}\\.])/g,\"\\\\$1\") + \"*\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}"
+      },
+      "id": "wf2-node-0019",
+      "name": "Edit Msg 1080p Queued",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Load 1080p Pending').first().json.has4k }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf2-node-0020",
+      "name": "Has 4K?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst d = $('Load 1080p Pending').first().json;\nconst body = JSON.stringify({\n  chat_id: '<TELEGRAM_CHAT_ID>',\n  text: '\ud83d\udcfa Also grab 4K \\\\(x265\\\\)?\\n*' + d.packageName.replace(/([_*[\\]()~`>#+=|{}\\.!])/g,'\\\\\\\\$1') + '*',\n  parse_mode: 'MarkdownV2',\n  reply_markup: {\n    inline_keyboard: [[\n      { text: '\u2705 Yes, 4K x265', callback_data: '4k:' + d.newsId4k },\n      { text: '\u27a1\ufe0f No thanks',   callback_data: 'no4k:' + d.newsId4k }\n    ]]\n  }\n});\nreturn [{ json: { newsId: d.newsId, newsId4k: d.newsId4k, tgBody: body } }];\n"
+      },
+      "id": "wf2-node-0021",
+      "name": "Build 4K Ask",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendMessage",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{{ $json.tgBody }}"
+      },
+      "id": "wf2-node-0022",
+      "name": "Send 4K Question",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst resp = $input.first().json;\nconst newsId = $('Build 4K Ask').first().json.newsId;\nconst newsId4k = $('Build 4K Ask').first().json.newsId4k;\nconst store = $getWorkflowStaticData('global');\nif (store.pending && store.pending[newsId] && resp.result) {\n  store.pending[newsId].messageId4k = resp.result.message_id;\n}\n// Also index by newsId4k for easy lookup in the 4k branch\nif (!store.pending4k) store.pending4k = {};\nconst d = store.pending[newsId];\nstore.pending4k[newsId4k] = {\n  articleUrl4k: d.articleUrl4k, packageName: d.packageName,\n  newsId4k, messageId4k: resp.result?.message_id\n};\nreturn [{ json: { saved: true } }];\n"
+      },
+      "id": "wf2-node-0023",
+      "name": "Save 4K Question Msg ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3800,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/editMessageText",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: \"<TELEGRAM_CHAT_ID>\", message_id: $json.messageId, text: \"\u274c Skipped\", reply_markup: { inline_keyboard: [] } }) }}"
+      },
+      "id": "wf2-node-0024",
+      "name": "Edit Msg Skipped",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d = (store.pending4k || {})[inp.newsId];\nif (!d || !d.articleUrl4k) return [];\nreturn [{ json: { ...inp, ...d } }];\n"
+      },
+      "id": "wf2-node-0025",
+      "name": "Load 4K Pending",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ctrlhits.online/engine/ajax/thanks.php",
+        "authentication": "none",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cookie",
+              "value": "<CTRLHITS_COOKIE>"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "thanks",
+              "value": "tanksForNews"
+            },
+            {
+              "name": "news_id",
+              "value": "={{ $json.newsId }}"
+            }
+          ]
+        }
+      },
+      "id": "wf2-node-0026",
+      "name": "Thanks 4K",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Load 4K Pending').first().json.articleUrl4k }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Cookie",
+              "value": "<CTRLHITS_COOKIE>"
+            }
+          ]
+        }
+      },
+      "id": "wf2-node-0027",
+      "name": "Fetch 4K Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst raw = $input.first().json;\nconst html = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\nconst prev = $('Load 4K Pending').first().json;\nconst unesc = html.replace(/&#(\\d+);/g, (_,c) => String.fromCharCode(parseInt(c))).replace(/&amp;/g,'&');\nconst regex = /https?:\\/\\/filestore\\.me\\/[a-z0-9]+\\/[^\\s\"'<>)]+\\.(?:rar|rev)/gi;\nconst links = [...new Set(unesc.match(regex) || [])];\nif (!links.length) return [];\nreturn [{ json: { ...prev, links, linkString: links.join('\\n'), count: links.length } }];\n"
+      },
+      "id": "wf2-node-0028",
+      "name": "Extract 4K Links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:3128/linkgrabberv2/addLinks",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName + \" [4K]\", destinationFolder: \"/output/jd-import\", autoExtract: true }) }}"
+      },
+      "id": "wf2-node-0029",
+      "name": "JDownloader 4K",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/editMessageText",
+        "authentication": "none",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: \"<TELEGRAM_CHAT_ID>\", message_id: $(\"Load 4K Pending\").first().json.messageId4k, text: \"\u2705 4K x265 also queued\\!\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}"
+      },
+      "id": "wf2-node-0030",
+      "name": "Edit Msg 4K Queued",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2840,
+        800
+      ]
     }
   ],
-  "flow": "RSS → Extract → TMDb → ProcessTMDb → Radarr → CheckRadarr → Thanks → FetchHTML → ExtractLinks → JDownloader → Log"
+  "connections": {
+    "RSS 1080p": {
+      "main": [
+        [
+          {
+            "node": "Extract 1080p Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract 1080p Info": {
+      "main": [
+        [
+          {
+            "node": "TMDb Search 1080p",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TMDb Search 1080p": {
+      "main": [
+        [
+          {
+            "node": "Process TMDb 1080p",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process TMDb 1080p": {
+      "main": [
+        [
+          {
+            "node": "Fetch 4K RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 4K RSS": {
+      "main": [
+        [
+          {
+            "node": "Prepare Pending + Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Pending + Notify": {
+      "main": [
+        [
+          {
+            "node": "Send 1080p Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 1080p Notification": {
+      "main": [
+        [
+          {
+            "node": "Save Notification Msg ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Telegram Every 60s": {
+      "main": [
+        [
+          {
+            "node": "Get Last Update ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Update ID": {
+      "main": [
+        [
+          {
+            "node": "Telegram getUpdates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram getUpdates": {
+      "main": [
+        [
+          {
+            "node": "Parse Callback Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Callback Queries": {
+      "main": [
+        [
+          {
+            "node": "Answer Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Callback": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          {
+            "node": "Load 1080p Pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Msg Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Load 4K Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load 1080p Pending": {
+      "main": [
+        [
+          {
+            "node": "Thanks 1080p",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thanks 1080p": {
+      "main": [
+        [
+          {
+            "node": "Fetch 1080p Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 1080p Article": {
+      "main": [
+        [
+          {
+            "node": "Extract 1080p Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract 1080p Links": {
+      "main": [
+        [
+          {
+            "node": "JDownloader 1080p",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JDownloader 1080p": {
+      "main": [
+        [
+          {
+            "node": "Edit Msg 1080p Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Msg 1080p Queued": {
+      "main": [
+        [
+          {
+            "node": "Has 4K?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has 4K?": {
+      "main": [
+        [
+          {
+            "node": "Build 4K Ask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build 4K Ask": {
+      "main": [
+        [
+          {
+            "node": "Send 4K Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 4K Question": {
+      "main": [
+        [
+          {
+            "node": "Save 4K Question Msg ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load 4K Pending": {
+      "main": [
+        [
+          {
+            "node": "Thanks 4K",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thanks 4K": {
+      "main": [
+        [
+          {
+            "node": "Fetch 4K Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 4K Article": {
+      "main": [
+        [
+          {
+            "node": "Extract 4K Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract 4K Links": {
+      "main": [
+        [
+          {
+            "node": "JDownloader 4K",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JDownloader 4K": {
+      "main": [
+        [
+          {
+            "node": "Edit Msg 4K Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "_comment": "Template \u2014 replace all <PLACEHOLDER> values with real credentials before importing. See /tmp/ctrlhits_v2_workflow.json on workstation for the live version (not in git)."
 }
