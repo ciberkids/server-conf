@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch ToFix directory for new movie files
+After=local-fs.target
+
+[Path]
+PathChanged=/mnt/MovieAndTvShows/ToFix/
+Unit=movie-processor.service
+
+[Install]
+WantedBy=multi-user.target

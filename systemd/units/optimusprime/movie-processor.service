@@ -1,0 +1,12 @@
+[Unit]
+Description=Process movies from ToFix into the media library
+After=local-fs.target network-online.target
+
+[Service]
+Type=oneshot
+User=matteo
+EnvironmentFile=/home/matteo/.config/movieprocessor.env
+ExecStart=/home/matteo/movieProcessor.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=movie-processor
