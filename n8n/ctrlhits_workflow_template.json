@@ -1,0 +1,81 @@
+{
+  "_comment": "Template only — fill in CREDENTIALS before importing. Real workflow (with creds) lives in /tmp/ctrlhits_workflow.json (not committed).",
+  "_credentials_needed": {
+    "tmdb_bearer": "TMDb Read Access Token",
+    "radarr_api_key": "Radarr API key from Settings > General",
+    "ctrlhits_cookie": "dle_user_id and dle_password cookie values",
+    "jdownloader_url": "http://<optimus-ip>:3128"
+  },
+  "name": "ctrlhits → Radarr Auto-Download",
+  "nodes": [
+    {
+      "name": "RSS ctrlhits Movies",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "parameters": {
+        "url": "https://ctrlhits.online/films-hd/hevc-1080p-news/rss.xml"
+      }
+    },
+    {
+      "name": "Extract Title Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "note": "Extracts cleanTitle, year, newsId, articleUrl from RSS item"
+    },
+    {
+      "name": "TMDb Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "note": "GET https://api.themoviedb.org/3/search/movie?query={cleanTitle}&year={year}&language=it — Bearer auth"
+    },
+    {
+      "name": "Process TMDb Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "note": "Returns [] if no results (stops pipeline). Carries forward tmdbId, newsId, articleUrl."
+    },
+    {
+      "name": "Radarr Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "note": "GET http://192.168.1.10:7878/api/v3/movie?tmdbId={tmdbId} — X-Api-Key header"
+    },
+    {
+      "name": "Check Radarr Wants",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "note": "Returns [] unless movie is monitored=true AND hasFile=false"
+    },
+    {
+      "name": "ctrlhits Thanks Unlock",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "note": "POST https://ctrlhits.online/engine/ajax/thanks.php — unlocks hidden download links"
+    },
+    {
+      "name": "Fetch Article HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "note": "GET article URL with cookie auth, responseFormat=text"
+    },
+    {
+      "name": "Extract Download Links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "note": "HTML-unescapes page, regex-extracts filestore.me .rar and .rev links"
+    },
+    {
+      "name": "JDownloader Add Links",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "note": "POST http://192.168.1.10:3128/linkgrabberv2/addLinks — deprecated API, no auth needed on LAN"
+    },
+    {
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "note": "Logs packageName + fileCount to execution log"
+    }
+  ],
+  "flow": "RSS → Extract → TMDb → ProcessTMDb → Radarr → CheckRadarr → Thanks → FetchHTML → ExtractLinks → JDownloader → Log"
+}
