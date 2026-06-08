@@ -406,7 +406,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"\\u2705 1080p queued: *\" + $(\"Load 1080p Pending\").first().json.packageName.replace(/([_*[\\]()~`>#+=|{}\\\\.])/g,\"\\\\$1\") + \"*\\n_\" + $(\"Extract 1080p Links\").first().json.count + \" parts_\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"\\u2705 1080p queued: \" + $(\"Load 1080p Pending\").first().json.packageName + \" \\u2014 \" + $(\"Extract 1080p Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0019",
@@ -560,7 +560,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId, text: \"\\u2705 4K x265 queued: *\" + $(\"Load 4K Pending\").first().json.packageName.replace(/([_*[\\]()~`>#+=|{}\\\\.])/g,\"\\\\$1\") + \"*\\n_\" + $(\"Extract 4K Links\").first().json.count + \" parts_\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId, text: \"\\u2705 4K queued: \" + $(\"Load 4K Pending\").first().json.packageName + \" \\u2014 \" + $(\"Extract 4K Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0030",
