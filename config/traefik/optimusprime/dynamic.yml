@@ -43,6 +43,14 @@ http:
       tls:
         certResolver: cloudflare
 
+    n8n-public:
+      rule: "Host(`n8n.public.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: n8n
+      tls:
+        certResolver: cloudflare
+
   services:
     cockpit:
       loadBalancer:
@@ -61,6 +69,11 @@ http:
         servers:
           - url: "https://192.168.1.10:8443"
         serversTransport: insecureTransport
+
+    n8n:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.14:5678"
 
   serversTransports:
     insecureTransport:
