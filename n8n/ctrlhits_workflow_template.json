@@ -285,7 +285,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d = (store.pending || {})[inp.newsId];\nif (!d || !d.articleUrl) return [];\nreturn [{ json: { ...inp, ...d } }];\n"
+        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d = (store.pending || {})[inp.newsId];\nif (!d || !d.articleUrl) return [];\n// messageId: use inp (clicked message) not d (stored, may be stale)\nreturn [{ json: { ...inp, ...d, messageId: inp.messageId } }];\n"
       },
       "id": "wf2-node-0014",
       "name": "Load 1080p Pending",
@@ -439,7 +439,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d = (store.pending4k || {})[inp.newsId];\nif (!d || !d.articleUrl4k) return [];\nreturn [{ json: { ...inp, ...d } }];\n"
+        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nlet newsId4k = inp.newsId;\nlet d = (store.pending4k || {})[newsId4k];\nif (!d) {\n  const p = (store.pending || {})[inp.newsId];\n  if (p && p.newsId4k) {\n    newsId4k = p.newsId4k;\n    d = (store.pending4k || {})[newsId4k];\n  }\n}\nif (!d || !d.articleUrl4k) return [];\n// messageId: always use the clicked message from callback\nreturn [{ json: { ...inp, ...d, newsId: newsId4k, messageId: inp.messageId } }];\n"
       },
       "id": "wf2-node-0025",
       "name": "Load 4K Pending",
@@ -560,7 +560,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId4k, text: \"✅ 4K x265 also queued\\!\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId, text: \"\\u2705 4K x265 queued: *\" + $(\"Load 4K Pending\").first().json.packageName.replace(/([_*[\\]()~`>#+=|{}\\\\.])/g,\"\\\\$1\") + \"*\\n_\" + $(\"Extract 4K Links\").first().json.count + \" parts_\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0030",
@@ -571,244 +571,6 @@
         2848,
         800
       ]
-    },
-    {
-      "id": "wf2-node-both-01",
-      "name": "Load Both Pending",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1648,
-        1000
-      ],
-      "parameters": {
-        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d1 = (store.pending || {})[inp.newsId];\nif (!d1 || !d1.articleUrl) return [];\nconst newsId4k = d1.newsId4k;\nconst d4k = (store.pending4k || {})[newsId4k];\nif (!newsId4k || !d4k || !d4k.articleUrl4k) return [];\nreturn [{ json: { ...inp, ...d1, ...d4k } }];\n"
-      }
-    },
-    {
-      "id": "wf2-node-both-02",
-      "name": "Thanks 1080p B",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1888,
-        1000
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://ctrlhits.online/engine/ajax/thanks.php",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Cookie",
-              "value": "{{CTRLHITS_COOKIE}}"
-            },
-            {
-              "name": "X-Requested-With",
-              "value": "XMLHttpRequest"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "form-urlencoded",
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "thanks",
-              "value": "tanksForNews"
-            },
-            {
-              "name": "news_id",
-              "value": "={{ $json.newsId }}"
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "wf2-node-both-03",
-      "name": "Fetch 1080p Article B",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2128,
-        1000
-      ],
-      "parameters": {
-        "url": "={{ $('Load Both Pending').first().json.articleUrl }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Cookie",
-              "value": "{{CTRLHITS_COOKIE}}"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "text"
-            }
-          }
-        }
-      }
-    },
-    {
-      "id": "wf2-node-both-04",
-      "name": "Extract 1080p Links B",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2368,
-        1000
-      ],
-      "parameters": {
-        "jsCode": "\nconst raw = $input.first().json;\nconst html = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\nconst prev = $('Load Both Pending').first().json;\nconst unesc = html.replace(/&#(\\d+);/g, (_,c) => String.fromCharCode(parseInt(c))).replace(/&amp;/g,'&');\nconst regex = /https?:\\/\\/filestore\\.me\\/[a-z0-9]+\\/[^\\s\"'<>)]+\\.(?:rar|rev)/gi;\nconst links = [...new Set(unesc.match(regex) || [])];\nif (!links.length) return [];\nreturn [{ json: { ...prev, links, linkString: links.join('\\n'), count: links.length } }];\n"
-      }
-    },
-    {
-      "id": "wf2-node-both-05",
-      "name": "JDownloader 1080p B",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2608,
-        1000
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "http://192.168.1.10:3128/linkgrabberv2/addLinks",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName, destinationFolder: \"/output/jd-downloading\", autoExtract: true }) }}",
-        "options": {}
-      }
-    },
-    {
-      "id": "wf2-node-both-06",
-      "name": "Thanks 4K B",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2848,
-        1000
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://ctrlhits.online/engine/ajax/thanks.php",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Cookie",
-              "value": "{{CTRLHITS_COOKIE}}"
-            },
-            {
-              "name": "X-Requested-With",
-              "value": "XMLHttpRequest"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "form-urlencoded",
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "thanks",
-              "value": "tanksForNews"
-            },
-            {
-              "name": "news_id",
-              "value": "={{ $('Load Both Pending').first().json.newsId4k }}"
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "wf2-node-both-07",
-      "name": "Fetch 4K Article B",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        3088,
-        1000
-      ],
-      "parameters": {
-        "url": "={{ $('Load Both Pending').first().json.articleUrl4k }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Cookie",
-              "value": "{{CTRLHITS_COOKIE}}"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "text"
-            }
-          }
-        }
-      }
-    },
-    {
-      "id": "wf2-node-both-08",
-      "name": "Extract 4K Links B",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3328,
-        1000
-      ],
-      "parameters": {
-        "jsCode": "\nconst raw = $input.first().json;\nconst html = typeof raw === 'string' ? raw : (raw.data || raw.body || '');\nconst prev = $('Load Both Pending').first().json;\nconst unesc = html.replace(/&#(\\d+);/g, (_,c) => String.fromCharCode(parseInt(c))).replace(/&amp;/g,'&');\nconst regex = /https?:\\/\\/filestore\\.me\\/[a-z0-9]+\\/[^\\s\"'<>)]+\\.(?:rar|rev)/gi;\nconst links = [...new Set(unesc.match(regex) || [])];\nif (!links.length) return [];\nreturn [{ json: { ...prev, links, linkString: links.join('\\n'), count: links.length } }];\n"
-      }
-    },
-    {
-      "id": "wf2-node-both-09",
-      "name": "JDownloader 4K B",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        3568,
-        1000
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "http://192.168.1.10:3128/linkgrabberv2/addLinks",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ links: $json.linkString, packageName: $json.packageName + \" [4K]\", destinationFolder: \"/output/jd-downloading\", autoExtract: true }) }}",
-        "options": {}
-      }
-    },
-    {
-      "id": "wf2-node-both-10",
-      "name": "Edit Msg Both Queued",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        3808,
-        1000
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load Both Pending\").first().json.messageId, text: \"\\u2705 1080p + 4K queued: *\" + $(\"Load Both Pending\").first().json.packageName.replace(/([_*[\\]()~`>#+=|{}\\\\.\\!])/g,\"\\\\$1\") + \"*\\n_\" + $(\"Extract 1080p Links B\").first().json.count + \" + \" + $(\"Extract 4K Links B\").first().json.count + \" parts_\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
-        "options": {}
-      }
     },
     {
       "id": "wf2-node-restore-cb",
@@ -877,25 +639,6 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, text: \"\\u23F3 Fetching 4K links\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
-        "options": {}
-      }
-    },
-    {
-      "id": "wf2-node-edit-both-start",
-      "name": "Edit Msg: Downloading Both",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1888,
-        904
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, text: \"\\u23F3 Fetching 1080p + 4K links\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       }
     }
@@ -1036,7 +779,12 @@
         ],
         [
           {
-            "node": "Load Both Pending",
+            "node": "Load 1080p Pending",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load 4K Pending",
             "type": "main",
             "index": 0
           }
@@ -1162,110 +910,6 @@
         [
           {
             "node": "Edit Msg 4K Queued",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Load Both Pending": {
-      "main": [
-        [
-          {
-            "node": "Thanks 1080p B",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Edit Msg: Downloading Both",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Thanks 1080p B": {
-      "main": [
-        [
-          {
-            "node": "Fetch 1080p Article B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch 1080p Article B": {
-      "main": [
-        [
-          {
-            "node": "Extract 1080p Links B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract 1080p Links B": {
-      "main": [
-        [
-          {
-            "node": "JDownloader 1080p B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "JDownloader 1080p B": {
-      "main": [
-        [
-          {
-            "node": "Thanks 4K B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Thanks 4K B": {
-      "main": [
-        [
-          {
-            "node": "Fetch 4K Article B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch 4K Article B": {
-      "main": [
-        [
-          {
-            "node": "Extract 4K Links B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract 4K Links B": {
-      "main": [
-        [
-          {
-            "node": "JDownloader 4K B",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "JDownloader 4K B": {
-      "main": [
-        [
-          {
-            "node": "Edit Msg Both Queued",
             "type": "main",
             "index": 0
           }
