@@ -10,6 +10,7 @@ Image=docker.io/jlesage/jdownloader-2:latest
 
 PublishPort=5800:5800
 PublishPort=5900:5900
+PublishPort=9666:9666
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/jdownloader-data:/config:rw
 Volume=/mnt/downloads:/output:rw
