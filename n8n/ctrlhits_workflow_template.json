@@ -60,7 +60,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer {TMDB_READ_TOKEN}"
+              "value": "Bearer {{TMDB_TOKEN}}"
             }
           ]
         },
@@ -110,7 +110,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst prev = $('Process TMDb 1080p').first().json;\nconst rss4kResp = $('Fetch 4K RSS').first().json;\nconst rss4kText = typeof rss4kResp === 'string' ? rss4kResp : (rss4kResp.data || rss4kResp.body || '');\n\n// Search 4K RSS for matching movie\nlet has4k = false, articleUrl4k = null, newsId4k = null;\nconst itemsRaw = rss4kText.match(/<item>[\\s\\S]*?<\\/item>/gi) || [];\nconst word0 = prev.cleanTitle.toLowerCase().split(/\\s+/)[0];\nfor (const it of itemsRaw) {\n  const tm = it.match(/<title>(.*?)<\\/title>/);\n  const lm = it.match(/<link>(.*?)<\\/link>/) || it.match(/<guid[^>]*>(.*?)<\\/guid>/);\n  if (!tm || !lm) continue;\n  const t4 = tm[1].replace(/&amp;/g,'&').replace(/&#39;/g,\"'\");\n  if (t4.includes('(' + prev.year + ')') && t4.toLowerCase().includes(word0)) {\n    has4k = true;\n    articleUrl4k = lm[1];\n    const n4m = lm[1].match(/\\/(\\d+)-/);\n    newsId4k = n4m ? n4m[1] : null;\n    break;\n  }\n}\n\n// Store in workflow static data\nconst store = $getWorkflowStaticData('global');\nif (!store.pending) store.pending = {};\nstore.pending[prev.newsId] = {\n  articleUrl: prev.articleUrl, packageName: prev.tmdbTitle + ' (' + prev.year + ')',\n  tmdbId: prev.tmdbId, cleanTitle: prev.cleanTitle, year: prev.year,\n  has4k, articleUrl4k, newsId4k, messageId: null, messageId4k: null\n};\n\n// Build Telegram message\nconst esc = s => String(s).replace(/([_*[\\]()~`>#+=|{}\\.!])/g, '\\\\$1');\nconst body = JSON.stringify({\n  chat_id: '12373499',\n  text: '\ud83c\udfac *' + esc(prev.tmdbTitle) + ' \\\\(' + prev.year + '\\\\)*' + (has4k ? '\\n_4K x265 also available_' : ''),\n  parse_mode: 'MarkdownV2',\n  reply_markup: {\n    inline_keyboard: [[\n      { text: '\u2b07\ufe0f Download 1080p', callback_data: 'dl:' + prev.newsId },\n      { text: '\u274c Skip', callback_data: 'skip:' + prev.newsId }\n    ]]\n  }\n});\nreturn [{ json: { newsId: prev.newsId, tgBody: body } }];\n"
+        "jsCode": "\nconst prev = $('Process TMDb 1080p').first().json;\nconst rss4kResp = $('Fetch 4K RSS').first().json;\nconst rss4kText = typeof rss4kResp === 'string' ? rss4kResp : (rss4kResp.data || rss4kResp.body || '');\n\n// Search 4K RSS for matching movie\nlet has4k = false, articleUrl4k = null, newsId4k = null;\nconst itemsRaw = rss4kText.match(/<item>[\\s\\S]*?<\\/item>/gi) || [];\nconst word0 = prev.cleanTitle.toLowerCase().split(/\\s+/)[0];\nfor (const it of itemsRaw) {\n  const tm = it.match(/<title>(.*?)<\\/title>/);\n  const lm = it.match(/<link>(.*?)<\\/link>/) || it.match(/<guid[^>]*>(.*?)<\\/guid>/);\n  if (!tm || !lm) continue;\n  const t4 = tm[1].replace(/&amp;/g,'&').replace(/&#39;/g,\"'\");\n  if (t4.includes('(' + prev.year + ')') && t4.toLowerCase().includes(word0)) {\n    has4k = true;\n    articleUrl4k = lm[1];\n    const n4m = lm[1].match(/\\/(\\d+)-/);\n    newsId4k = n4m ? n4m[1] : null;\n    break;\n  }\n}\n\n// Store in workflow static data\nconst store = $getWorkflowStaticData('global');\nif (!store.pending) store.pending = {};\nstore.pending[prev.newsId] = {\n  articleUrl: prev.articleUrl, packageName: prev.tmdbTitle + ' (' + prev.year + ')',\n  tmdbId: prev.tmdbId, cleanTitle: prev.cleanTitle, year: prev.year,\n  has4k, articleUrl4k, newsId4k, messageId: null, messageId4k: null\n};\n\n// Build Telegram message\nconst esc = s => String(s).replace(/([_*[\\]()~`>#+=|{}\\.!])/g, '\\\\$1');\nconst body = JSON.stringify({\n  chat_id: '12373499',\n  text: '🎬 *' + esc(prev.tmdbTitle) + ' \\\\(' + prev.year + '\\\\)*' + (has4k ? '\\n_4K x265 also available_' : ''),\n  parse_mode: 'MarkdownV2',\n  reply_markup: {\n    inline_keyboard: [[\n      { text: '⬇️ Download 1080p', callback_data: 'dl:' + prev.newsId },\n      { text: '❌ Skip', callback_data: 'skip:' + prev.newsId }\n    ]]\n  }\n});\nreturn [{ json: { newsId: prev.newsId, tgBody: body } }];\n"
       },
       "id": "wf2-node-0005",
       "name": "Prepare Pending + Notify",
@@ -155,77 +155,31 @@
     },
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "minutes"
-            }
-          ]
-        }
+        "httpMethod": "POST",
+        "path": "tg-callback",
+        "responseMode": "onReceived",
+        "options": {}
       },
-      "id": "wf2-node-0008",
-      "name": "Poll Telegram Every 60s",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
+      "id": "wf2-node-tg-wh",
+      "name": "Telegram Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
       "position": [
         208,
         512
-      ]
+      ],
+      "webhookId": "ctrlhits-tg-callback"
     },
     {
       "parameters": {
-        "jsCode": "const store = $getWorkflowStaticData('global');\nconst pending = store.pending || {};\nif (Object.keys(pending).length === 0) return [];\nreturn [{ json: { offset: (store.last_update_id || 0) } }];\n"
+        "jsCode": "\nconst update = $input.first().json;\nconst cq = update.callback_query;\nif (!cq || !cq.data) return [];\nconst parts = cq.data.split(':');\nconst action = parts[0];\nconst newsId = parts.slice(1).join(':');\nreturn [{ json: {\n  action,\n  newsId,\n  callbackQueryId: cq.id,\n  messageId: cq.message?.message_id,\n  chatId: String(cq.message?.chat?.id || '12373499'),\n  rawData: cq.data\n}}];\n"
       },
-      "id": "wf2-node-0009",
-      "name": "Get Last Update ID",
+      "id": "wf2-node-parse-cb",
+      "name": "Parse Telegram Callback",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        448,
-        512
-      ]
-    },
-    {
-      "parameters": {
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/getUpdates",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "offset",
-              "value": "={{ $json.offset }}"
-            },
-            {
-              "name": "timeout",
-              "value": "0"
-            },
-            {
-              "name": "allowed_updates",
-              "value": "[\"callback_query\"]"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "wf2-node-0010",
-      "name": "Telegram getUpdates",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
       "position": [
         688,
-        512
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst data = $input.first().json;\nconst updates = (data.result || []);\nconst store = $getWorkflowStaticData('global');\nlet maxId = store.last_update_id || 0;\nconst out = [];\nfor (const u of updates) {\n  if (u.update_id >= maxId) maxId = u.update_id + 1;\n  if (!u.callback_query) continue;\n  const cq = u.callback_query;\n  const [action, newsId] = cq.data.split(':');\n  out.push({ json: {\n    action, newsId,\n    callbackQueryId: cq.id,\n    messageId: cq.message?.message_id,\n    chatId: String(cq.message?.chat?.id || '12373499'),\n    rawData: cq.data\n  }});\n}\nstore.last_update_id = maxId;\nif (!out.length) return [];\nreturn out;\n"
-      },
-      "id": "wf2-node-0011",
-      "name": "Parse Callback Queries",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        928,
         512
       ]
     },
@@ -236,7 +190,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ callback_query_id: $json.callbackQueryId, text: \"Processing\u2026\" }) }}",
+        "body": "={{ JSON.stringify({ callback_query_id: $json.callbackQueryId, text: \"Processing…\" }) }}",
         "options": {}
       },
       "id": "wf2-node-0012",
@@ -392,7 +346,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"\u2705 1080p queued: *\" + $(\"Load 1080p Pending\").first().json.packageName.replace(/([_*[\\]()~`>#+=|{}\\.])/g,\"\\\\$1\") + \"*\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"✅ 1080p queued: *\" + $(\"Load 1080p Pending\").first().json.packageName.replace(/([_*[\\]()~`>#+=|{}\\.])/g,\"\\\\$1\") + \"*\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0019",
@@ -439,7 +393,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst d = $('Load 1080p Pending').first().json;\nconst body = JSON.stringify({\n  chat_id: '12373499',\n  text: '\ud83d\udcfa Also grab 4K \\\\(x265\\\\)?\\n*' + d.packageName.replace(/([_*[\\]()~`>#+=|{}\\.!])/g,'\\\\\\\\$1') + '*',\n  parse_mode: 'MarkdownV2',\n  reply_markup: {\n    inline_keyboard: [[\n      { text: '\u2705 Yes, 4K x265', callback_data: '4k:' + d.newsId4k },\n      { text: '\u27a1\ufe0f No thanks',   callback_data: 'no4k:' + d.newsId4k }\n    ]]\n  }\n});\nreturn [{ json: { newsId: d.newsId, newsId4k: d.newsId4k, tgBody: body } }];\n"
+        "jsCode": "\nconst d = $('Load 1080p Pending').first().json;\nconst body = JSON.stringify({\n  chat_id: '12373499',\n  text: '📺 Also grab 4K \\\\(x265\\\\)?\\n*' + d.packageName.replace(/([_*[\\]()~`>#+=|{}\\.!])/g,'\\\\\\\\$1') + '*',\n  parse_mode: 'MarkdownV2',\n  reply_markup: {\n    inline_keyboard: [[\n      { text: '✅ Yes, 4K x265', callback_data: '4k:' + d.newsId4k },\n      { text: '➡️ No thanks',   callback_data: 'no4k:' + d.newsId4k }\n    ]]\n  }\n});\nreturn [{ json: { newsId: d.newsId, newsId4k: d.newsId4k, tgBody: body } }];\n"
       },
       "id": "wf2-node-0021",
       "name": "Build 4K Ask",
@@ -489,7 +443,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $json.messageId, text: \"\u274c Skipped\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $json.messageId, text: \"❌ Skipped\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0024",
@@ -624,7 +578,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId4k, text: \"\u2705 4K x265 also queued\\!\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId4k, text: \"✅ 4K x265 also queued\\!\", parse_mode: \"MarkdownV2\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0030",
@@ -715,40 +669,18 @@
         ]
       ]
     },
-    "Poll Telegram Every 60s": {
+    "Telegram Webhook": {
       "main": [
         [
           {
-            "node": "Get Last Update ID",
+            "node": "Parse Telegram Callback",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Last Update ID": {
-      "main": [
-        [
-          {
-            "node": "Telegram getUpdates",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Telegram getUpdates": {
-      "main": [
-        [
-          {
-            "node": "Parse Callback Queries",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Callback Queries": {
+    "Parse Telegram Callback": {
       "main": [
         [
           {
@@ -951,8 +883,7 @@
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   },
   "pinData": {}
 }
