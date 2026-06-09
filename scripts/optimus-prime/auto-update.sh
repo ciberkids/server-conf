@@ -39,11 +39,16 @@ paccache -ruk0 -q 2>/dev/null
 # Send Telegram notification
 MSG="[optimus-prime] Auto-update complete: $UPGRADED upgraded, $INSTALLED installed."
 if [ "$KERNEL_UPDATED" = true ]; then
-    MSG="$MSG Kernel updated ($RUNNING_KERNEL -> $INSTALLED_MODULES). Reboot scheduled for 05:00."
-    # Schedule reboot at 5 AM
-    sudo shutdown -r 05:00 "Scheduled reboot after kernel update"
+    # Block reboot if any MD RAID array is actively syncing/rebuilding
+    if grep -qE 'resync|recovery|reshape|check' /proc/mdstat; then
+        MSG="$MSG Kernel updated ($RUNNING_KERNEL -> $INSTALLED_MODULES) but RAID rebuild in progress — reboot DEFERRED."
+        telegram-send "$MSG"
+        echo "[$(date)] Reboot deferred: RAID rebuild active" >> $LOG_FILE
+    else
+        MSG="$MSG Kernel updated ($RUNNING_KERNEL -> $INSTALLED_MODULES). Reboot scheduled for 05:00."
+        sudo shutdown -r 05:00 "Scheduled reboot after kernel update"
+    fi
+else
+    telegram-send "$MSG"
 fi
-
-telegram-send "$MSG"
-echo "[$(date)] $MSG" >> $LOG_FILE
 echo "[$(date)] Auto-update finished (rc=$UPDATE_RC)" >> $LOG_FILE
