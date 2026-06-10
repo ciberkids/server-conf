@@ -179,6 +179,74 @@
         key: "{{ lookup('file', ssh_key_source + '/optimusprime_id_rsa.pub') }}"
         state: present
 
+    - name: Create GitHub ciberkids SSH key directory
+      file:
+        path: "/home/{{ target_user }}/.ssh/github/ciberkids"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0700"
+
+    - name: Copy GitHub ciberkids private key
+      copy:
+        src: "{{ ssh_key_source }}/github/ciberkids/id_github"
+        dest: "/home/{{ target_user }}/.ssh/github/ciberkids/id_github"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0600"
+        remote_src: yes
+
+    - name: Copy GitHub ciberkids public key
+      copy:
+        src: "{{ ssh_key_source }}/github/ciberkids/id_github.pub"
+        dest: "/home/{{ target_user }}/.ssh/github/ciberkids/id_github.pub"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0644"
+        remote_src: yes
+
+    - name: Write SSH config with github.com-personal alias
+      copy:
+        content: |
+          Host github.com-personal
+              HostName github.com
+              User git
+              IdentityFile ~/.ssh/github/ciberkids/id_github
+              IdentitiesOnly yes
+        dest: "/home/{{ target_user }}/.ssh/config"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0600"
+
+    - name: Add GitHub to known_hosts
+      known_hosts:
+        name: github.com
+        key: "{{ lookup('pipe', 'ssh-keyscan github.com') }}"
+        path: "/home/{{ target_user }}/.ssh/known_hosts"
+        state: present
+
+    # =========================================================
+    # 7b. Projects directory
+    # =========================================================
+    - name: Create /home/projects directory
+      file:
+        path: /home/projects
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Set git global identity
+      git_config:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        scope: global
+      become: yes
+      become_user: "{{ target_user }}"
+      loop:
+        - { name: "user.name", value: "ciberkids" }
+        - { name: "user.email", value: "matteo.favaro@hexagon.com" }
+
     # =========================================================
     # 8. Fastfetch for all users on login
     # =========================================================
