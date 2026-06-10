@@ -64,7 +64,6 @@ scrape_configs:
           - https://makemkv.optimusprime.favarohome.com
           - https://jdownloader.optimusprime.favarohome.com
           - https://handbrake.optimusprime.favarohome.com
-          - https://amule.optimusprime.favarohome.com
           - https://mqtt-dashboard.optimusprime.favarohome.com
           - https://mqtt-explorer.optimusprime.favarohome.com
           - https://affine.optimusprime.favarohome.com
