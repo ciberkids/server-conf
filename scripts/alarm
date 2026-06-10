@@ -5,6 +5,8 @@
 #   1. Alertmanager (Prometheus/Blackbox HTTP probe failures, repeat every 4h)
 #   2. systemd notify-failure@*.service (fires at container crash time)
 #
+# For services without a blackbox probe (URL=""), only the systemd unit is masked.
+#
 # Usage:
 #   alarm status
 #   alarm mute <service> [reason]
@@ -14,19 +16,163 @@
 ALERTMANAGER="http://192.168.1.10:9093"
 SILENCE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/homelab-alarm-silences.json"
 
-# service name -> Alertmanager "instance" label (URL used in prometheus.yml blackbox targets)
+# service key -> Alertmanager "instance" label (exact URL in prometheus.yml blackbox targets)
+# Empty string = no blackbox probe, skip Alertmanager silence
 declare -A SERVICE_URL=(
+  # --- Optimus Prime (192.168.1.10) ---
+  [heimdall-op]="https://heimdall.optimusprime.favarohome.com"
+  [grafana]="https://grafana.optimusprime.favarohome.com"
+  [homeassistant]="https://homeassistant.optimusprime.favarohome.com"
+  [jellyfin]="https://jellyfin.optimusprime.favarohome.com"
+  [influxdb]="https://influxdb.optimusprime.favarohome.com"
+  [filebrowser-op]="https://filebrowser.optimusprime.favarohome.com"
+  [firefly]="https://firefly.optimusprime.favarohome.com"
+  [grocy]="https://grocy.optimusprime.favarohome.com"
+  [warracker]="https://warracker.optimusprime.favarohome.com"
+  [sonarr]="https://sonarr.optimusprime.favarohome.com"
+  [tautulli]="https://tautulli.optimusprime.favarohome.com"
+  [transmission]="https://transmission.optimusprime.favarohome.com"
+  [pingvin]="https://pingvin.optimusprime.favarohome.com"
+  [plex]="https://plex.optimusprime.favarohome.com"
+  [nodered]="https://nodered.optimusprime.favarohome.com"
+  [prometheus]="https://prometheus.optimusprime.favarohome.com"
+  [traefik-op]="https://traefik.optimusprime.favarohome.com"
   [opensign]="https://opensign.optimusprime.favarohome.com"
+  [zigbee2mqtt]="https://zigbee2mqtt.optimusprime.favarohome.com"
+  [makemkv]="https://makemkv.optimusprime.favarohome.com"
+  [jdownloader]="https://jdownloader.optimusprime.favarohome.com"
+  [handbrake]="https://handbrake.optimusprime.favarohome.com"
+  [mqtt-dashboard]="https://mqtt-dashboard.optimusprime.favarohome.com"
+  [mqtt-explorer]="https://mqtt-explorer.optimusprime.favarohome.com"
+  [affine]="https://affine.optimusprime.favarohome.com"
+  [shutter-encoder]="https://shutter-encoder.optimusprime.favarohome.com"
+  [cloud-drive-sync-op]="https://cloud-drive-sync.optimusprime.favarohome.com"
+  [immich]="http://192.168.1.10:2283"
+  # systemd-only (no blackbox probe)
+  [alertmanager]=""
+  [blackbox-exporter]=""
+  [prowlarr]=""
+  [nextcloud]=""
+  # --- Bumblebee (192.168.1.14) ---
+  [heimdall-bb]="https://heimdall.bumblebee.favarohome.com"
+  [n8n]="https://n8n.bumblebee.favarohome.com"
+  [open-webui]="https://chat.bumblebee.favarohome.com"
+  [searxng]="https://search.bumblebee.favarohome.com"
+  [stirling-pdf]="https://stirling-pdf.bumblebee.favarohome.com"
+  [filebrowser-bb]="https://filebrowser.bumblebee.favarohome.com"
+  [traefik-bb]="https://traefik.bumblebee.favarohome.com"
+  [ollama]="https://ollama.bumblebee.favarohome.com"
+  [comfyui-launcher]="https://comfyui-launcher.bumblebee.favarohome.com"
+  [opencode]="https://opencode.bumblebee.favarohome.com"
+  [openclaw]="https://openclaw.bumblebee.favarohome.com"
+  [cloud-drive-sync-bb]="https://cloud-drive-sync.bumblebee.favarohome.com"
+  # systemd-only (no blackbox probe)
+  [paperless]=""
+  [gitlab-runner]=""
 )
 
-# service name -> systemd unit to mask (notify-failure instance, double .service because %n includes suffix)
+# service key -> systemd unit to mask (notify-failure instance name)
 declare -A SERVICE_SYSTEMD=(
-  [opensign]="notify-failure@opensign-client.service.service"
+  # --- Optimus Prime ---
+  [heimdall-op]="notify-failure@heimdall.service.service"
+  [grafana]="notify-failure@grafana.service.service"
+  [homeassistant]="notify-failure@home_assistant.service.service"
+  [jellyfin]="notify-failure@jellyfin.service.service"
+  [influxdb]="notify-failure@influxdb.service.service"
+  [filebrowser-op]="notify-failure@filebrowser.service.service"
+  [firefly]="notify-failure@firefly-iii.service.service"
+  [grocy]="notify-failure@grocy.service.service"
+  [warracker]="notify-failure@warracker.service.service"
+  [sonarr]="notify-failure@sonarr.service.service"
+  [tautulli]="notify-failure@tautulli.service.service"
+  [transmission]="notify-failure@transmission.service.service"
+  [pingvin]="notify-failure@pingvin-share.service.service"
+  [plex]="notify-failure@plex.service.service"
+  [nodered]="notify-failure@node-red.service.service"
+  [prometheus]="notify-failure@prometheus.service.service"
+  [traefik-op]="notify-failure@traefik.service.service"
+  [opensign]="notify-failure@opensign-server.service.service"
+  [zigbee2mqtt]="notify-failure@zigbee2mqtt.service.service"
+  [makemkv]="notify-failure@makemkv.service.service"
+  [jdownloader]="notify-failure@jdownloader2.service.service"
+  [handbrake]="notify-failure@handbrake.service.service"
+  [mqtt-dashboard]="notify-failure@mqtt-dashboard.service.service"
+  [mqtt-explorer]="notify-failure@mqtt-explorer.service.service"
+  [affine]="notify-failure@affine.service.service"
+  [shutter-encoder]="notify-failure@shutter-encoder.service.service"
+  [cloud-drive-sync-op]="notify-failure@cloud-drive-sync.service.service"
+  [immich]="notify-failure@immich-server.service.service"
+  [alertmanager]="notify-failure@alertmanager.service.service"
+  [blackbox-exporter]="notify-failure@blackbox-exporter.service.service"
+  [prowlarr]="notify-failure@prowlarr.service.service"
+  [nextcloud]="notify-failure@nextcloud-app.service.service"
+  # --- Bumblebee ---
+  [heimdall-bb]="notify-failure@heimdall.service.service"
+  [n8n]="notify-failure@n8n.service.service"
+  [open-webui]="notify-failure@open-webui.service.service"
+  [searxng]="notify-failure@searxng.service.service"
+  [stirling-pdf]="notify-failure@stirling-pdf.service.service"
+  [filebrowser-bb]="notify-failure@filebrowser.service.service"
+  [traefik-bb]="notify-failure@traefik.service.service"
+  [ollama]="notify-failure@ollama.service.service"
+  [comfyui-launcher]="notify-failure@comfyui-launcher.service.service"
+  [opencode]="notify-failure@opencode.service.service"
+  [openclaw]="notify-failure@openclaw.service.service"
+  [cloud-drive-sync-bb]="notify-failure@cloud-drive-sync.service.service"
+  [paperless]="notify-failure@paperless.service.service"
+  [gitlab-runner]="notify-failure@gitlab-runner.service.service"
 )
 
-# service name -> SSH host
+# service key -> SSH host
 declare -A SERVICE_HOST=(
+  # Optimus Prime
+  [heimdall-op]="192.168.1.10"
+  [grafana]="192.168.1.10"
+  [homeassistant]="192.168.1.10"
+  [jellyfin]="192.168.1.10"
+  [influxdb]="192.168.1.10"
+  [filebrowser-op]="192.168.1.10"
+  [firefly]="192.168.1.10"
+  [grocy]="192.168.1.10"
+  [warracker]="192.168.1.10"
+  [sonarr]="192.168.1.10"
+  [tautulli]="192.168.1.10"
+  [transmission]="192.168.1.10"
+  [pingvin]="192.168.1.10"
+  [plex]="192.168.1.10"
+  [nodered]="192.168.1.10"
+  [prometheus]="192.168.1.10"
+  [traefik-op]="192.168.1.10"
   [opensign]="192.168.1.10"
+  [zigbee2mqtt]="192.168.1.10"
+  [makemkv]="192.168.1.10"
+  [jdownloader]="192.168.1.10"
+  [handbrake]="192.168.1.10"
+  [mqtt-dashboard]="192.168.1.10"
+  [mqtt-explorer]="192.168.1.10"
+  [affine]="192.168.1.10"
+  [shutter-encoder]="192.168.1.10"
+  [cloud-drive-sync-op]="192.168.1.10"
+  [immich]="192.168.1.10"
+  [alertmanager]="192.168.1.10"
+  [blackbox-exporter]="192.168.1.10"
+  [prowlarr]="192.168.1.10"
+  [nextcloud]="192.168.1.10"
+  # Bumblebee
+  [heimdall-bb]="192.168.1.14"
+  [n8n]="192.168.1.14"
+  [open-webui]="192.168.1.14"
+  [searxng]="192.168.1.14"
+  [stirling-pdf]="192.168.1.14"
+  [filebrowser-bb]="192.168.1.14"
+  [traefik-bb]="192.168.1.14"
+  [ollama]="192.168.1.14"
+  [comfyui-launcher]="192.168.1.14"
+  [opencode]="192.168.1.14"
+  [openclaw]="192.168.1.14"
+  [cloud-drive-sync-bb]="192.168.1.14"
+  [paperless]="192.168.1.14"
+  [gitlab-runner]="192.168.1.14"
 )
 
 # Ensure silence store exists
@@ -84,51 +230,67 @@ except Exception as e:
     fi
     echo ""
     echo "=== Masked notify-failure@ units on optimusprime ==="
-    masked=$(_systemd_masked "192.168.1.10")
-    echo "${masked:-(none)}"
+    masked_op=$(_systemd_masked "192.168.1.10")
+    echo "${masked_op:-(none)}"
+    echo ""
+    echo "=== Masked notify-failure@ units on bumblebee ==="
+    masked_bb=$(_systemd_masked "192.168.1.14")
+    echo "${masked_bb:-(none)}"
     ;;
 
   list)
-    echo "Known services:"
-    for svc in "${!SERVICE_URL[@]}"; do
-      echo "  $svc -> ${SERVICE_URL[$svc]}"
-    done
+    echo "Optimus Prime services:"
+    for svc in "${!SERVICE_HOST[@]}"; do
+      [[ "${SERVICE_HOST[$svc]}" == "192.168.1.10" ]] || continue
+      url="${SERVICE_URL[$svc]:-<systemd-only>}"
+      echo "  $svc -> $url"
+    done | sort
+    echo ""
+    echo "Bumblebee services:"
+    for svc in "${!SERVICE_HOST[@]}"; do
+      [[ "${SERVICE_HOST[$svc]}" == "192.168.1.14" ]] || continue
+      url="${SERVICE_URL[$svc]:-<systemd-only>}"
+      echo "  $svc -> $url"
+    done | sort
     ;;
 
   mute)
     if [[ -z "$service" ]]; then
       _usage; exit 1
     fi
-    url="${SERVICE_URL[$service]}"
-    if [[ -z "$url" ]]; then
-      echo "Unknown service: '$service'. Known: ${!SERVICE_URL[*]}"
+    if [[ -z "${SERVICE_HOST[$service]+x}" ]]; then
+      echo "Unknown service: '$service'. Run 'alarm list' to see known services."
       exit 1
     fi
 
-    # Create Alertmanager silence
-    echo "[1/2] Creating Alertmanager silence for $service ($url)..."
-    now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    result=$(curl -sf -X POST "$ALERTMANAGER/api/v2/silences" \
-      -H "Content-Type: application/json" \
-      -d "{
-        \"matchers\": [{
-          \"name\": \"instance\",
-          \"value\": \"$url\",
-          \"isRegex\": false,
-          \"isEqual\": true
-        }],
-        \"startsAt\": \"$now\",
-        \"endsAt\": \"2030-12-31T00:00:00Z\",
-        \"createdBy\": \"alarm-manager\",
-        \"comment\": \"$reason\"
-      }" 2>&1)
+    url="${SERVICE_URL[$service]}"
+    host="${SERVICE_HOST[$service]}"
 
-    silence_id=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin)['silenceID'])" 2>/dev/null)
-    if [[ -z "$silence_id" ]]; then
-      echo "  Failed to create silence: $result"
-    else
-      echo "  Silence ID: $silence_id"
-      python3 -c "
+    # Create Alertmanager silence (only if service has a blackbox probe)
+    if [[ -n "$url" ]]; then
+      echo "[1/2] Creating Alertmanager silence for $service ($url)..."
+      now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      result=$(curl -sf -X POST "$ALERTMANAGER/api/v2/silences" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"matchers\": [{
+            \"name\": \"instance\",
+            \"value\": \"$url\",
+            \"isRegex\": false,
+            \"isEqual\": true
+          }],
+          \"startsAt\": \"$now\",
+          \"endsAt\": \"2030-12-31T00:00:00Z\",
+          \"createdBy\": \"alarm-manager\",
+          \"comment\": \"$reason\"
+        }" 2>&1)
+
+      silence_id=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin)['silenceID'])" 2>/dev/null)
+      if [[ -z "$silence_id" ]]; then
+        echo "  Failed to create silence: $result"
+      else
+        echo "  Silence ID: $silence_id"
+        python3 -c "
 import json
 with open('$SILENCE_FILE') as f:
     data = json.load(f)
@@ -136,11 +298,13 @@ data['$service'] = '$silence_id'
 with open('$SILENCE_FILE', 'w') as f:
     json.dump(data, f, indent=2)
 "
+      fi
+    else
+      echo "[1/2] Skipping Alertmanager silence (no blackbox probe for $service)"
     fi
 
     # Mask systemd notify-failure instance
     unit="${SERVICE_SYSTEMD[$service]}"
-    host="${SERVICE_HOST[$service]}"
     if [[ -n "$unit" && -n "$host" ]]; then
       echo "[2/2] Masking $unit on $host..."
       ssh "$host" "sudo systemctl mask '$unit' 2>&1" && echo "  Masked OK" || echo "  (unit not yet loaded — will be masked on next service start)"
@@ -153,14 +317,16 @@ with open('$SILENCE_FILE', 'w') as f:
     if [[ -z "$service" ]]; then
       _usage; exit 1
     fi
-    url="${SERVICE_URL[$service]}"
-    if [[ -z "$url" ]]; then
-      echo "Unknown service: '$service'. Known: ${!SERVICE_URL[*]}"
+    if [[ -z "${SERVICE_HOST[$service]+x}" ]]; then
+      echo "Unknown service: '$service'. Run 'alarm list' to see known services."
       exit 1
     fi
 
+    url="${SERVICE_URL[$service]}"
+
     # Delete Alertmanager silence
-    silence_id=$(python3 -c "
+    if [[ -n "$url" ]]; then
+      silence_id=$(python3 -c "
 import json
 try:
     with open('$SILENCE_FILE') as f:
@@ -170,12 +336,12 @@ except:
     print('')
 " 2>/dev/null)
 
-    if [[ -n "$silence_id" ]]; then
-      echo "[1/2] Deleting Alertmanager silence $silence_id for $service..."
-      result=$(curl -sf -X DELETE "$ALERTMANAGER/api/v2/silence/$silence_id" 2>&1)
-      if [[ $? -eq 0 ]]; then
-        echo "  Deleted OK"
-        python3 -c "
+      if [[ -n "$silence_id" ]]; then
+        echo "[1/2] Deleting Alertmanager silence $silence_id for $service..."
+        result=$(curl -sf -X DELETE "$ALERTMANAGER/api/v2/silence/$silence_id" 2>&1)
+        if [[ $? -eq 0 ]]; then
+          echo "  Deleted OK"
+          python3 -c "
 import json
 with open('$SILENCE_FILE') as f:
     data = json.load(f)
@@ -183,11 +349,14 @@ data.pop('$service', None)
 with open('$SILENCE_FILE', 'w') as f:
     json.dump(data, f, indent=2)
 "
+        else
+          echo "  Warning: DELETE returned: $result (silence may have already expired)"
+        fi
       else
-        echo "  Warning: DELETE returned: $result (silence may have already expired)"
+        echo "[1/2] No stored silence ID for $service — skipping Alertmanager step"
       fi
     else
-      echo "[1/2] No stored silence ID for $service — skipping Alertmanager step"
+      echo "[1/2] Skipping Alertmanager step (no blackbox probe for $service)"
     fi
 
     # Unmask systemd notify-failure instance
