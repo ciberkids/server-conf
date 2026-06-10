@@ -16,19 +16,16 @@ SILENCE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/homelab-alarm-silences.json"
 
 # service name -> Alertmanager "instance" label (URL used in prometheus.yml blackbox targets)
 declare -A SERVICE_URL=(
-  [amule]="https://amule.optimusprime.favarohome.com"
   [opensign]="https://opensign.optimusprime.favarohome.com"
 )
 
 # service name -> systemd unit to mask (notify-failure instance, double .service because %n includes suffix)
 declare -A SERVICE_SYSTEMD=(
-  [amule]="notify-failure@amule.service.service"
   [opensign]="notify-failure@opensign-client.service.service"
 )
 
 # service name -> SSH host
 declare -A SERVICE_HOST=(
-  [amule]="192.168.1.10"
   [opensign]="192.168.1.10"
 )
 
