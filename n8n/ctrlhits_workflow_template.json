@@ -744,6 +744,26 @@
       "parameters": {
         "jsCode": "const resp = $input.first().json;\nconst newsId = $('Build Recovery Msg').first().json.newsId;\nconst store = $getWorkflowStaticData('global');\nif (store.pending && store.pending[newsId] && resp.result) {\n  store.pending[newsId].messageId = resp.result.message_id;\n}\nreturn [{ json: { saved: true, newsId, messageId: resp.result?.message_id } }];\n"
       }
+    },
+    {
+      "id": "wf2-node-recovery-schedule",
+      "name": "Daily Recovery Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        1280
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      }
     }
   ],
   "connections": {
@@ -1090,6 +1110,17 @@
         [
           {
             "node": "Save Recovery MsgId",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Recovery Check": {
+      "main": [
+        [
+          {
+            "node": "Scan Null Pending",
             "type": "main",
             "index": 0
           }
