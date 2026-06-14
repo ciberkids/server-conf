@@ -123,7 +123,7 @@
     "id": "f76a0e5c73bcc5f1",
     "type": "subflow",
     "name": "L1-L2-L3 Voltage Amp Power",
-    "info": "This node will read 2 field from the message:\n\n1) \n  ``\n  msg.meterName\n  ``\n\nit will use this to create a topic as follow\n``\nconst mqtt_topic = \"energy/meters/Instant-raw/\" + msg.meterName\n``\n\n2) \n  ``\n  msg.unitId\n  ``\n  \nit will use to contact the Energy meter on that address.\n\n\nThe registry that will be read are:\n\n\n```\n\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\nsdmReadout.voltageL2_V = msg.payload.buffer.readFloatBE(4, 4)             // Register 30003 ->   3, to   4 - 4bytes\nsdmReadout.voltageL3_V = msg.payload.buffer.readFloatBE(8, 4)             // Register 30005 ->   5, to   6 - 4bytes\n \nsdmReadout.currentL1_A = msg.payload.buffer.readFloatBE(12, 4)            // Register 30007 ->   7, to   8 - 4bytes\nsdmReadout.currentL2_A = msg.payload.buffer.readFloatBE(16, 4)            // Register 30009 ->   9, to  10 - 4bytes\nsdmReadout.currentL3_A = msg.payload.buffer.readFloatBE(20, 4)            // Register 30011 ->  11, to  12 - 4bytes\n \nsdmReadout.powerL1_W = msg.payload.buffer.readFloatBE(24, 4)              // Register 30013 ->  13, to  14 - 4bytes\nsdmReadout.powerL2_W = msg.payload.buffer.readFloatBE(28, 4)              // Register 30015 ->  15, to  16 - 4bytes\nsdmReadout.powerL3_W = msg.payload.buffer.readFloatBE(32, 4)              // Register 30017 ->  17, to  18 - 4bytes\n \nsdmReadout.totalAmps_A = msg.payload.buffer.readFloatBE(96, 4)            // Register 30049 ->  49, to  50 - 4bytes\nsdmReadout.totalPower_W = msg.payload.buffer.readFloatBE(104, 4)          // Register 30053 ->  53, to  54 - 4bytes\nsdmReadout.frequency = msg.payload.buffer.readFloatBE(140, 4)             // Register 30071 ->  71, to  73 - 4bytes\nsdmReadout.totalImport_kWh = msg.payload.buffer.readFloatBE(144, 4)       // Register 30073 ->  73, to  75 - 4bytes\nsdmReadout.totalExport_kWh = msg.payload.buffer.readFloatBE(148, 4)        // Register 30075 ->  75, to  76 - 4bytes\nsdmReadout.totalPowerDuringDemand_W = msg.payload.buffer.readFloatBE(168, 4) // Register 30085 ->  85, to  86 - 4bytes\nsdmReadout.maxPowerDuringDemand_W = msg.payload.buffer.readFloatBE(172, 4)   // Register 30087 ->  87, to  88 - 4bytes  \n```\n\nthe message payload will be prepared as follows:\n\n```\n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\n\n msg.payload = { \n    \"id\": meterId,\n    \"L1\": {\n      \"voltageV\": sdmReadout.voltageL1_V,              \n      \"powerW\": sdmReadout.powerL1_W,                  \n      \"currentA\": sdmReadout.currentL1_A\n    },\n    \"L2\": {\n      \"voltageV\": sdmReadout.voltageL2_V,\n      \"powerW\": sdmReadout.powerL2_W,\n      \"currentA\": sdmReadout.currentL2_A\n    },\n    \"L3\": {\n      \"voltageV\": sdmReadout.voltageL3_V,\n      \"powerW\": sdmReadout.powerL3_W,\n      \"currentA\": sdmReadout.currentL3_A\n    },\n\n    \"totalAmpsA\": sdmReadout.totalAmps_A,                    \n    \"totalPowerW\": sdmReadout.totalPower_W, \n    \"frequency\": sdmReadout.frequency,\n    \"totalImportkWh\": sdmReadout.totalImport_kWh,              \n    \"totalExportkWh\": sdmReadout.totalExport_kWh,      \n    \"totalPowerDuringDemandTimeW\": sdmReadout.totalPowerDuringDemand_W,\n    \"maxPowerDuringDemandTimeW\": sdmReadout.maxPowerDuringDemand_W   \n\n  }\n```",
+    "info": "This node will read 2 field from the message:\n\n1) \n  ``\n  msg.meterName\n  ``\n\nit will use this to create a topic as follow\n``\nconst mqtt_topic = \"energy/meters/Instant-raw/\" + msg.meterName\n``\n\n2) \n  ``\n  msg.unitId\n  ``\n  \nit will use to contact the Energy meter on that address.\n\n\nThe registry that will be read are:\n\n\n```\n\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\nsdmReadout.voltageL2_V = msg.payload.buffer.readFloatBE(4, 4)             // Register 30003 ->   3, to   4 - 4bytes\nsdmReadout.voltageL3_V = msg.payload.buffer.readFloatBE(8, 4)             // Register 30005 ->   5, to   6 - 4bytes\n \nsdmReadout.currentL1_A = msg.payload.buffer.readFloatBE(12, 4)            // Register 30007 ->   7, to   8 - 4bytes\nsdmReadout.currentL2_A = msg.payload.buffer.readFloatBE(16, 4)            // Register 30009 ->   9, to  10 - 4bytes\nsdmReadout.currentL3_A = msg.payload.buffer.readFloatBE(20, 4)            // Register 30011 ->  11, to  12 - 4bytes\n \nsdmReadout.powerL1_W = msg.payload.buffer.readFloatBE(24, 4)              // Register 30013 ->  13, to  14 - 4bytes\nsdmReadout.powerL2_W = msg.payload.buffer.readFloatBE(28, 4)              // Register 30015 ->  15, to  16 - 4bytes\nsdmReadout.powerL3_W = msg.payload.buffer.readFloatBE(32, 4)              // Register 30017 ->  17, to  18 - 4bytes\n \nsdmReadout.totalAmps_A = msg.payload.buffer.readFloatBE(96, 4)            // Register 30049 ->  49, to  50 - 4bytes\nsdmReadout.totalPower_W = msg.payload.buffer.readFloatBE(104, 4)          // Register 30053 ->  53, to  54 - 4bytes\nsdmReadout.frequency = msg.payload.buffer.readFloatBE(140, 4)             // Register 30071 ->  71, to  73 - 4bytes\nsdmReadout.totalImport_kWh = msg.payload.buffer.readFloatBE(144, 4)       // Register 30073 ->  73, to  75 - 4bytes\nsdmReadout.totalExport_kWh = msg.payload.buffer.readFloatBE(148, 4)        // Register 30075 ->  75, to  76 - 4bytes\nsdmReadout.totalPowerDuringDemand_W = msg.payload.buffer.readFloatBE(168, 4) // Register 30085 ->  85, to  86 - 4bytes\nsdmReadout.maxPowerDuringDemand_W = msg.payload.buffer.readFloatBE(172, 4)   // Register 30087 ->  87, to  88 - 4bytes  \n```\n\nthe message payload will be prepared as follows:\n\n```\n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\n\n msg.payload = { \n    \"id\": meterId,\n    \"L1\": {\n      \"voltageV\": sdmReadout.voltageL1_V,              \n      \"powerW\": sdmReadout.powerL1_W,                  \n      \"currentA\": sdmReadout.currentL1_A\n    },\n    \"L2\": {\n      \"voltageV\": sdmReadout.voltageL2_V,\n      \"powerW\": sdmReadout.powerL2_W,\n      \"currentA\": sdmReadout.currentL2_A\n    },\n    \"L3\": {\n      \"voltageV\": sdmReadout.voltageL3_V,\n      \"powerW\": sdmReadout.powerL3_W,\n      \"currentA\": sdmReadout.currentL3_A\n    },\n\n    \"totalAmpsA\": sdmReadout.totalAmps_A,                    \n    \"totalPowerW\": sdmReadout.totalPower_W, \n    \"frequency\": sdmReadout.frequency,\n    \"totalImportkWh\": sdmReadout.totalImport_kWh,              \n    \"totalExportkWh\": sdmReadout.totalExport_kWh,      \n    \"totalPowerDuringDemandTimeW\": sdmReadout.totalPowerDuringDemand_W,\n    \"maxPowerDuringDemandTimeW\": sdmReadout.maxPowerDuringDemand_W   \n\n  }\n```",
     "category": "Eastron SDM 360v2",
     "in": [
       {
@@ -764,7 +764,7 @@
     "type": "function",
     "z": "1d3f6ecfa584f742",
     "name": "Extract registry values 30001 - 30088",
-    "func": "//console.log(msg)\n//console.log(msg.payload)\n//console.log(msg.payload.buffer)\n// this function assume that we read from registry 30001 - 30088 --> lenght 88\n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\nlet meterName = msg.topic\n// console.log(\"result for address 0 and meter: \" + meterName)\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\nsdmReadout.voltageL2_V = msg.payload.buffer.readFloatBE(4, 4)             // Register 30003 ->   3, to   4 - 4bytes\nsdmReadout.voltageL3_V = msg.payload.buffer.readFloatBE(8, 4)             // Register 30005 ->   5, to   6 - 4bytes\n \nsdmReadout.currentL1_A = msg.payload.buffer.readFloatBE(12, 4)            // Register 30007 ->   7, to   8 - 4bytes\nsdmReadout.currentL2_A = msg.payload.buffer.readFloatBE(16, 4)            // Register 30009 ->   9, to  10 - 4bytes\nsdmReadout.currentL3_A = msg.payload.buffer.readFloatBE(20, 4)            // Register 30011 ->  11, to  12 - 4bytes\n \nsdmReadout.powerL1_W = msg.payload.buffer.readFloatBE(24, 4)              // Register 30013 ->  13, to  14 - 4bytes\nsdmReadout.powerL2_W = msg.payload.buffer.readFloatBE(28, 4)              // Register 30015 ->  15, to  16 - 4bytes\nsdmReadout.powerL3_W = msg.payload.buffer.readFloatBE(32, 4)              // Register 30017 ->  17, to  18 - 4bytes\n \nsdmReadout.totalAmps_A = msg.payload.buffer.readFloatBE(96, 4)            // Register 30049 ->  49, to  50 - 4bytes\nsdmReadout.totalPower_W = msg.payload.buffer.readFloatBE(104, 4)          // Register 30053 ->  53, to  54 - 4bytes\nsdmReadout.frequency = msg.payload.buffer.readFloatBE(140, 4)             // Register 30071 ->  71, to  73 - 4bytes\nsdmReadout.totalImport_kWh = msg.payload.buffer.readFloatBE(144, 4)       // Register 30073 ->  73, to  75 - 4bytes\nsdmReadout.totalExport_kWh = msg.payload.buffer.readFloatBE(148, 4)        // Register 30075 ->  75, to  76 - 4bytes\nsdmReadout.totalPowerDuringDemand_W = msg.payload.buffer.readFloatBE(168, 4) // Register 30085 ->  85, to  86 - 4bytes\nsdmReadout.maxPowerDuringDemand_W = msg.payload.buffer.readFloatBE(172, 4)   // Register 30087 ->  87, to  88 - 4bytes  \n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\n\n msg.payload = { \n                    \"id\": meterId,\n                    \"L1\": {\n                      \"voltageV\": sdmReadout.voltageL1_V,              \n                      \"powerW\": sdmReadout.powerL1_W,                  \n                      \"currentA\": sdmReadout.currentL1_A\n                    },\n                    \"L2\": {\n                      \"voltageV\": sdmReadout.voltageL2_V,\n                      \"powerW\": sdmReadout.powerL2_W,\n                      \"currentA\": sdmReadout.currentL2_A\n                    },\n                    \"L3\": {\n                      \"voltageV\": sdmReadout.voltageL3_V,\n                      \"powerW\": sdmReadout.powerL3_W,\n                      \"currentA\": sdmReadout.currentL3_A\n                    },\n\n                    \"totalAmpsA\": sdmReadout.totalAmps_A,                    \n                    \"totalPowerW\": sdmReadout.totalPower_W, \n                    \"frequency\": sdmReadout.frequency,\n                    \"totalImportkWh\": sdmReadout.totalImport_kWh,              \n                    \"totalExportkWh\": sdmReadout.totalExport_kWh,      \n                    \"totalPowerDuringDemandTimeW\": sdmReadout.totalPowerDuringDemand_W,\n                    \"maxPowerDuringDemandTimeW\": sdmReadout.maxPowerDuringDemand_W   \n                \n  }\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "//console.log(msg)\n//console.log(msg.payload)\n//console.log(msg.payload.buffer)\n// this function assume that we read from registry 30001 - 30088 --> lenght 88\n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\nlet meterName = msg.topic\n// console.log(\"result for address 0 and meter: \" + meterName)\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\nsdmReadout.voltageL2_V = msg.payload.buffer.readFloatBE(4, 4)             // Register 30003 ->   3, to   4 - 4bytes\nsdmReadout.voltageL3_V = msg.payload.buffer.readFloatBE(8, 4)             // Register 30005 ->   5, to   6 - 4bytes\n \nsdmReadout.currentL1_A = msg.payload.buffer.readFloatBE(12, 4)            // Register 30007 ->   7, to   8 - 4bytes\nsdmReadout.currentL2_A = msg.payload.buffer.readFloatBE(16, 4)            // Register 30009 ->   9, to  10 - 4bytes\nsdmReadout.currentL3_A = msg.payload.buffer.readFloatBE(20, 4)            // Register 30011 ->  11, to  12 - 4bytes\n \nsdmReadout.powerL1_W = msg.payload.buffer.readFloatBE(24, 4)              // Register 30013 ->  13, to  14 - 4bytes\nsdmReadout.powerL2_W = msg.payload.buffer.readFloatBE(28, 4)              // Register 30015 ->  15, to  16 - 4bytes\nsdmReadout.powerL3_W = msg.payload.buffer.readFloatBE(32, 4)              // Register 30017 ->  17, to  18 - 4bytes\n \nsdmReadout.totalAmps_A = msg.payload.buffer.readFloatBE(96, 4)            // Register 30049 ->  49, to  50 - 4bytes\nsdmReadout.totalPower_W = msg.payload.buffer.readFloatBE(104, 4)          // Register 30053 ->  53, to  54 - 4bytes\nsdmReadout.frequency = msg.payload.buffer.readFloatBE(140, 4)             // Register 30071 ->  71, to  73 - 4bytes\nsdmReadout.totalImport_kWh = msg.payload.buffer.readFloatBE(144, 4)       // Register 30073 ->  73, to  75 - 4bytes\nsdmReadout.totalExport_kWh = msg.payload.buffer.readFloatBE(148, 4)        // Register 30075 ->  75, to  76 - 4bytes\nsdmReadout.totalPowerDuringDemand_W = msg.payload.buffer.readFloatBE(168, 4) // Register 30085 ->  85, to  86 - 4bytes\nsdmReadout.maxPowerDuringDemand_W = msg.payload.buffer.readFloatBE(172, 4)   // Register 30087 ->  87, to  88 - 4bytes  \n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\n\n msg.payload = { \n                    \"id\": meterId,\n                    \"L1\": {\n                      \"voltageV\": sdmReadout.voltageL1_V,              \n                      \"powerW\": sdmReadout.powerL1_W,                  \n                      \"currentA\": sdmReadout.currentL1_A\n                    },\n                    \"L2\": {\n                      \"voltageV\": sdmReadout.voltageL2_V,\n                      \"powerW\": sdmReadout.powerL2_W,\n                      \"currentA\": sdmReadout.currentL2_A\n                    },\n                    \"L3\": {\n                      \"voltageV\": sdmReadout.voltageL3_V,\n                      \"powerW\": sdmReadout.powerL3_W,\n                      \"currentA\": sdmReadout.currentL3_A\n                    },\n\n                    \"totalAmpsA\": sdmReadout.totalAmps_A,                    \n                    \"totalPowerW\": sdmReadout.totalPower_W, \n                    \"frequency\": sdmReadout.frequency,\n                    \"totalImportkWh\": sdmReadout.totalImport_kWh,              \n                    \"totalExportkWh\": sdmReadout.totalExport_kWh,      \n                    \"totalPowerDuringDemandTimeW\": sdmReadout.totalPowerDuringDemand_W,\n                    \"maxPowerDuringDemandTimeW\": sdmReadout.maxPowerDuringDemand_W   \n                \n  }\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1295,7 +1295,7 @@
     "type": "function",
     "z": "f76a0e5c73bcc5f1",
     "name": "Extract registry values 30001 - 30017",
-    "func": "//console.log(msg)\n//console.log(msg.payload)\n//console.log(msg.payload.buffer)\n// this function assume that we read from registry 30001 - 30088 --> lenght 88\n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\nsdmReadout.voltageL2_V = msg.payload.buffer.readFloatBE(4, 4)             // Register 30003 ->   3, to   4 - 4bytes\nsdmReadout.voltageL3_V = msg.payload.buffer.readFloatBE(8, 4)             // Register 30005 ->   5, to   6 - 4bytes\n \nsdmReadout.currentL1_A = msg.payload.buffer.readFloatBE(12, 4)            // Register 30007 ->   7, to   8 - 4bytes\nsdmReadout.currentL2_A = msg.payload.buffer.readFloatBE(16, 4)            // Register 30009 ->   9, to  10 - 4bytes\nsdmReadout.currentL3_A = msg.payload.buffer.readFloatBE(20, 4)            // Register 30011 ->  11, to  12 - 4bytes\n \nsdmReadout.powerL1_W = msg.payload.buffer.readFloatBE(24, 4)              // Register 30013 ->  13, to  14 - 4bytes\nsdmReadout.powerL2_W = msg.payload.buffer.readFloatBE(28, 4)              // Register 30015 ->  15, to  16 - 4bytes\nsdmReadout.powerL3_W = msg.payload.buffer.readFloatBE(32, 4)              // Register 30017 ->  17, to  18 - 4bytes\n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n    \"L1\": {\n      \"voltageV\": sdmReadout.voltageL1_V,              \n      \"powerW\": sdmReadout.powerL1_W,                  \n      \"currentA\": sdmReadout.currentL1_A\n    },\n    \"L2\": {\n      \"voltageV\": sdmReadout.voltageL2_V,\n      \"powerW\": sdmReadout.powerL2_W,\n      \"currentA\": sdmReadout.currentL2_A\n    },\n    \"L3\": {\n      \"voltageV\": sdmReadout.voltageL3_V,\n      \"powerW\": sdmReadout.powerL3_W,\n      \"currentA\": sdmReadout.currentL3_A\n    }\n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "//console.log(msg)\n//console.log(msg.payload)\n//console.log(msg.payload.buffer)\n// this function assume that we read from registry 30001 - 30088 --> lenght 88\n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\nsdmReadout.voltageL2_V = msg.payload.buffer.readFloatBE(4, 4)             // Register 30003 ->   3, to   4 - 4bytes\nsdmReadout.voltageL3_V = msg.payload.buffer.readFloatBE(8, 4)             // Register 30005 ->   5, to   6 - 4bytes\n \nsdmReadout.currentL1_A = msg.payload.buffer.readFloatBE(12, 4)            // Register 30007 ->   7, to   8 - 4bytes\nsdmReadout.currentL2_A = msg.payload.buffer.readFloatBE(16, 4)            // Register 30009 ->   9, to  10 - 4bytes\nsdmReadout.currentL3_A = msg.payload.buffer.readFloatBE(20, 4)            // Register 30011 ->  11, to  12 - 4bytes\n \nsdmReadout.powerL1_W = msg.payload.buffer.readFloatBE(24, 4)              // Register 30013 ->  13, to  14 - 4bytes\nsdmReadout.powerL2_W = msg.payload.buffer.readFloatBE(28, 4)              // Register 30015 ->  15, to  16 - 4bytes\nsdmReadout.powerL3_W = msg.payload.buffer.readFloatBE(32, 4)              // Register 30017 ->  17, to  18 - 4bytes\n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n    \"L1\": {\n      \"voltageV\": sdmReadout.voltageL1_V,              \n      \"powerW\": sdmReadout.powerL1_W,                  \n      \"currentA\": sdmReadout.currentL1_A\n    },\n    \"L2\": {\n      \"voltageV\": sdmReadout.voltageL2_V,\n      \"powerW\": sdmReadout.powerL2_W,\n      \"currentA\": sdmReadout.currentL2_A\n    },\n    \"L3\": {\n      \"voltageV\": sdmReadout.voltageL3_V,\n      \"powerW\": sdmReadout.powerL3_W,\n      \"currentA\": sdmReadout.currentL3_A\n    }\n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -1517,7 +1517,7 @@
     "type": "function",
     "z": "09c5e88a1856c077",
     "name": "Extract registry values 30049-30088",
-    "func": "//console.log(msg)\n//console.log(msg.payload)\n//console.log(msg.payload.buffer)\n// this function assume that we read from registry 30001 - 30088 --> lenght 88\n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\n// All the calculation are based from the offset of the buffer that has been read starting from the address 30049\nsdmReadout.totalAmps_A = msg.payload.buffer.readFloatBE(0, 4)            // Register 30049 ->  49, to  50 - 4bytes\n// Skip 4 bytes --> Address 30051 missing (4 , 4)\nsdmReadout.totalPower_W = msg.payload.buffer.readFloatBE(8, 4)           // Register 30053 ->  53, to  56 - 4bytes\n// Skip 4 bytes --> Address 30055 missing (12 , 4)\n// Skip 4 bytes --> Address 30057 - Total system volt amps. - not interesting (16 , 4)\n// Skip 4 bytes --> Address 30059 missing (20 , 4)\n// Skip 4 bytes --> Address 30061 - Total system VAr. - not interesting (24 , 4)\n// Skip 4 bytes --> Address 30063 - Total system power factor (1). - not interesting (28 , 4)\n// Skip 4 bytes --> Address 30065 -  missing (32 , 4)\n// Skip 4 bytes --> Address 30067 - Total system phase angle. - not interesting (36 , 4)\n// Skip 4 bytes --> Address 30069 -  missing (40 , 4)\nsdmReadout.frequency = msg.payload.buffer.readFloatBE(44, 4)             // Register 30071 ->  71, to  73 - 4bytes\nsdmReadout.totalImport_kWh = msg.payload.buffer.readFloatBE(48, 4)       // Register 30073 ->  73, to  75 - 4bytes\nsdmReadout.totalExport_kWh = msg.payload.buffer.readFloatBE(52, 4)        // Register 30075 ->  75, to  76 - 4bytes\n// Skip 4 bytes --> Address 30077 - Total Import kVArh . - not interesting (56 , 4)\n// Skip 4 bytes --> Address 30079 - Total Export kVArh . - not interesting (60 , 4)\n// Skip 4 bytes --> Address 30081 - Total VAh - not interesting (64 , 4)\n// Skip 4 bytes --> Address 30083 - Ah - not interesting (68 , 4)\nsdmReadout.totalPowerDuringDemand_W = msg.payload.buffer.readFloatBE(72, 4) // Register 30085 ->  85, to  86 - 4bytes\nsdmReadout.maxPowerDuringDemand_W = msg.payload.buffer.readFloatBE(76, 4)   // Register 30087 ->  87, to  88 - 4bytes  \n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n    \"id\": meterId,\n    \"totalAmpsA\": sdmReadout.totalAmps_A,                    \n    \"totalPowerW\": sdmReadout.totalPower_W, \n    \"frequency\": sdmReadout.frequency,\n    \"totalImportkWh\": sdmReadout.totalImport_kWh,              \n    \"totalExportkWh\": sdmReadout.totalExport_kWh,      \n    \"totalPowerDuringDemandTimeW\": sdmReadout.totalPowerDuringDemand_W,\n    \"maxPowerDuringDemandTimeW\": sdmReadout.maxPowerDuringDemand_W\n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "//console.log(msg)\n//console.log(msg.payload)\n//console.log(msg.payload.buffer)\n// this function assume that we read from registry 30001 - 30088 --> lenght 88\n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\n// All the calculation are based from the offset of the buffer that has been read starting from the address 30049\nsdmReadout.totalAmps_A = msg.payload.buffer.readFloatBE(0, 4)            // Register 30049 ->  49, to  50 - 4bytes\n// Skip 4 bytes --> Address 30051 missing (4 , 4)\nsdmReadout.totalPower_W = msg.payload.buffer.readFloatBE(8, 4)           // Register 30053 ->  53, to  56 - 4bytes\n// Skip 4 bytes --> Address 30055 missing (12 , 4)\n// Skip 4 bytes --> Address 30057 - Total system volt amps. - not interesting (16 , 4)\n// Skip 4 bytes --> Address 30059 missing (20 , 4)\n// Skip 4 bytes --> Address 30061 - Total system VAr. - not interesting (24 , 4)\n// Skip 4 bytes --> Address 30063 - Total system power factor (1). - not interesting (28 , 4)\n// Skip 4 bytes --> Address 30065 -  missing (32 , 4)\n// Skip 4 bytes --> Address 30067 - Total system phase angle. - not interesting (36 , 4)\n// Skip 4 bytes --> Address 30069 -  missing (40 , 4)\nsdmReadout.frequency = msg.payload.buffer.readFloatBE(44, 4)             // Register 30071 ->  71, to  73 - 4bytes\nsdmReadout.totalImport_kWh = msg.payload.buffer.readFloatBE(48, 4)       // Register 30073 ->  73, to  75 - 4bytes\nsdmReadout.totalExport_kWh = msg.payload.buffer.readFloatBE(52, 4)        // Register 30075 ->  75, to  76 - 4bytes\n// Skip 4 bytes --> Address 30077 - Total Import kVArh . - not interesting (56 , 4)\n// Skip 4 bytes --> Address 30079 - Total Export kVArh . - not interesting (60 , 4)\n// Skip 4 bytes --> Address 30081 - Total VAh - not interesting (64 , 4)\n// Skip 4 bytes --> Address 30083 - Ah - not interesting (68 , 4)\nsdmReadout.totalPowerDuringDemand_W = msg.payload.buffer.readFloatBE(72, 4) // Register 30085 ->  85, to  86 - 4bytes\nsdmReadout.maxPowerDuringDemand_W = msg.payload.buffer.readFloatBE(76, 4)   // Register 30087 ->  87, to  88 - 4bytes  \n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n    \"id\": meterId,\n    \"totalAmpsA\": sdmReadout.totalAmps_A,                    \n    \"totalPowerW\": sdmReadout.totalPower_W, \n    \"frequency\": sdmReadout.frequency,\n    \"totalImportkWh\": sdmReadout.totalImport_kWh,              \n    \"totalExportkWh\": sdmReadout.totalExport_kWh,      \n    \"totalPowerDuringDemandTimeW\": sdmReadout.totalPowerDuringDemand_W,\n    \"maxPowerDuringDemandTimeW\": sdmReadout.maxPowerDuringDemand_W\n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -6404,7 +6404,7 @@
     "type": "function",
     "z": "07d6f65c1d1d6375",
     "name": "Extract registry values 30001",
-    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -6626,7 +6626,7 @@
     "type": "function",
     "z": "07d6f65c1d1d6375",
     "name": "Extract registry values 30001",
-    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -6848,7 +6848,7 @@
     "type": "function",
     "z": "07d6f65c1d1d6375",
     "name": "Extract registry values 30001",
-    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -7070,7 +7070,7 @@
     "type": "function",
     "z": "07d6f65c1d1d6375",
     "name": "Extract registry values 30001",
-    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -7292,7 +7292,7 @@
     "type": "function",
     "z": "07d6f65c1d1d6375",
     "name": "Extract registry values 30001",
-    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import \u2013 export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
+    "func": "\n// this function assume that we read from registry 30001 \n// every entry in the buffer is 1 byte (8 bits) -> 1 registry address is 2 bytes (16bits)\n// a full number is a 32float so we need 4 slots in the buffer for reading a full number -> 32 bits \n// while the registries are contiguoes (30001 - 30087) we apply the following formula for the offset\n// offset = registry - 30000 * 2 - 2\n// e.g. registry = 30007 --> current Phase1 -> offset = 14 -2 = 12\nlet meterId = msg.modbusRequest.unitid\n\n// console.log(meterName);\n\nlet sdmReadout = {}\nsdmReadout.voltageL1_V = msg.payload.buffer.readFloatBE(0, 4)             // Register 30001 ->   1, to   2 - 4bytes\n// note:\n// The power sum demand calculation is for import – export. --> if positive we are buying in the last 5 minutes otherwise selling\n// Total kWh / kVarh equals to Import + export. \n// console.log(sdmReadout)\ndelete msg.payload\n\nmsg.payload = { \n      \"voltageV\": sdmReadout.voltageL1_V \n}\n\nmsg.timestamp = Date.now()\n\n\ndelete msg.modbusRequest\ndelete msg.values\n\n\n//console.log(msg)\n\nreturn msg\n\n",
     "outputs": 1,
     "timeout": 0,
     "noerr": 0,
@@ -7466,5 +7466,150 @@
         "78190ed6d71d8bdd"
       ]
     ]
+  },
+  {
+    "id": "0623e021788f38eb",
+    "type": "tab",
+    "label": "Fronius Status Monitor",
+    "disabled": false,
+    "info": "",
+    "env": []
+  },
+  {
+    "id": "inj_fronius_poll",
+    "type": "inject",
+    "z": "0623e021788f38eb",
+    "name": "Every 60s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 5,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 130,
+    "y": 100,
+    "wires": [
+      [
+        "http_fronius_realtime"
+      ]
+    ]
+  },
+  {
+    "id": "http_fronius_realtime",
+    "type": "http request",
+    "z": "0623e021788f38eb",
+    "name": "GET CommonInverterData",
+    "method": "GET",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "http://192.168.1.58/solar_api/v1/GetInverterRealtimeData.cgi?Scope=Device&DeviceId=1&DataCollection=CommonInverterData",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 340,
+    "y": 100,
+    "wires": [
+      [
+        "func_fronius_parse"
+      ]
+    ]
+  },
+  {
+    "id": "func_fronius_parse",
+    "type": "function",
+    "z": "0623e021788f38eb",
+    "name": "Parse status & alert",
+    "func": "const body = msg.payload.Body;\nif (!body || !body.Data || !body.Data.DeviceStatus) {\n    node.warn('Unexpected Fronius API response: ' + JSON.stringify(msg.payload));\n    return null;\n}\nconst status = body.Data.DeviceStatus;\nconst errorCode    = status.ErrorCode;\nconst statusCode   = status.StatusCode;\nconst ledColor     = status.LEDColor;\nconst stateToReset = status.StateToReset;\n\nconst errorMap = {\n    0:   'No error',\n    102: 'Grid frequency out of range',\n    401: 'Grid overvoltage - AC protection',\n    405: 'Grid frequency too high',\n    406: 'Grid frequency too low',\n    408: 'Grid ROCOF too high',\n    523: 'AC grid / isolation fault',\n    525: 'Grid overvoltage trip',\n    557: 'Grid undervoltage'\n};\nconst errorDesc     = errorMap[errorCode] || ('Unknown error ' + errorCode);\nconst statusRunning = (statusCode === 7 || statusCode === 6);\n\nconst prevError = flow.get('solarLastError') !== undefined ? flow.get('solarLastError') : -1;\nflow.set('solarLastError', errorCode);\n\nconst mqttTopics = [\n    ['energy/solar/status/ErrorCode',    errorCode],\n    ['energy/solar/status/StatusCode',   statusCode],\n    ['energy/solar/status/LEDColor',     ledColor],\n    ['energy/solar/status/StateToReset', stateToReset ? 1 : 0]\n];\nfor (const [topic, payload] of mqttTopics) {\n    node.send([{topic, payload}, null]);\n}\n\nconst CHAT_ID = 12373499;\n\nif (errorCode !== 0 && errorCode !== prevError) {\n    return [null, {\n        payload: JSON.stringify({\n            chat_id: CHAT_ID,\n            text: '⚡ <b>Fronius Inverter Error</b>\\n🔴 Code <b>' + errorCode + '</b>: ' + errorDesc +\n                  '\\nStatus: ' + statusCode + (statusRunning ? ' ✅ running' : ' ❌ stopped') +\n                  '\\nReset needed: <b>' + stateToReset + '</b>',\n            parse_mode: 'HTML'\n        })\n    }];\n}\nif (errorCode === 0 && prevError !== 0 && prevError !== -1) {\n    return [null, {\n        payload: JSON.stringify({\n            chat_id: CHAT_ID,\n            text: '✅ <b>Fronius Recovered</b>\\nError <b>' + prevError + '</b> cleared — inverter running normally.',\n            parse_mode: 'HTML'\n        })\n    }];\n}\nreturn [null, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 570,
+    "y": 100,
+    "wires": [
+      [
+        "mqtt_fronius_out"
+      ],
+      [
+        "http_telegram_fronius"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_fronius_out",
+    "type": "mqtt out",
+    "z": "0623e021788f38eb",
+    "name": "MQTT solar/status",
+    "topic": "",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "0384943ce48e7ac6",
+    "x": 800,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "http_telegram_fronius",
+    "type": "http request",
+    "z": "0623e021788f38eb",
+    "name": "Telegram sendMessage",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/sendMessage",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [
+      {
+        "keyType": "str",
+        "keyValue": "Content-Type",
+        "valueType": "str",
+        "valueValue": "application/json"
+      }
+    ],
+    "x": 800,
+    "y": 140,
+    "wires": [
+      [
+        "debug_fronius"
+      ]
+    ]
+  },
+  {
+    "id": "debug_fronius",
+    "type": "debug",
+    "z": "0623e021788f38eb",
+    "name": "Telegram response",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1020,
+    "y": 140,
+    "wires": []
   }
 ]

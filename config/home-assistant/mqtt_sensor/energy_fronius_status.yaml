@@ -1,0 +1,19 @@
+- name: Fronius Inverter Error Code
+  state_topic: energy/solar/status/ErrorCode
+  unique_id: fronius_inverter_ErrorCode
+  expire_after: '120'
+
+- name: Fronius Inverter Status Code
+  state_topic: energy/solar/status/StatusCode
+  unique_id: fronius_inverter_StatusCode
+  expire_after: '120'
+
+- name: Fronius Inverter LED Color
+  state_topic: energy/solar/status/LEDColor
+  unique_id: fronius_inverter_LEDColor
+  expire_after: '120'
+
+- name: Fronius Inverter State To Reset
+  state_topic: energy/solar/status/StateToReset
+  unique_id: fronius_inverter_StateToReset
+  expire_after: '120'
