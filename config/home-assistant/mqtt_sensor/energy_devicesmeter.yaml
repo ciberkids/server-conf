@@ -1,0 +1,152 @@
+- name: Devices Energy Meter L1 Voltage
+  state_topic: energy/meters/Instant/DevicesMeter/L1/voltageV
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_DevicesMeter_L1Voltage
+  device_class: voltage
+  expire_after: '20'
+- name: Devices Energy Meter L2 Voltage
+  state_topic: energy/meters/Instant/DevicesMeter/L2/voltageV
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_DevicesMeter_L2Voltage
+  device_class: voltage
+  expire_after: '20'
+- name: Devices Energy Meter L3 Voltage
+  state_topic: energy/meters/Instant/DevicesMeter/L3/voltageV
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_DevicesMeter_L3Voltage
+  device_class: voltage
+  expire_after: '20'
+- name: Devices Energy Meter L1 Current
+  state_topic: energy/meters/Instant/DevicesMeter/L1/currentA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L1Current
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L2 Current
+  state_topic: energy/meters/Instant/DevicesMeter/L2/currentA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L2Current
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L3 Current
+  state_topic: energy/meters/Instant/DevicesMeter/L3/currentA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L3Current
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L1 Power
+  state_topic: energy/meters/Instant/DevicesMeter/L1/powerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_DevicesMeter_L1Power_instant
+  device_class: power
+  expire_after: '20'
+- name: Devices Energy Meter L2 Power
+  state_topic: energy/meters/Instant/DevicesMeter/L2/powerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_DevicesMeter_L2Power_instant
+  device_class: power
+  expire_after: '20'
+- name: Devices Energy Meter L3 Power
+  state_topic: energy/meters/Instant/DevicesMeter/L3/powerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_DevicesMeter_L3Power_instant
+  device_class: power
+  expire_after: '20'
+- name: Devices Energy Meter L1 Amp Demand
+  state_topic: energy/meters/Instant/DevicesMeter/L1/ampDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L1AmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L2 Amp Demand
+  state_topic: energy/meters/Instant/DevicesMeter/L2/ampDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L2AmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L3 Amp Demand
+  state_topic: energy/meters/Instant/DevicesMeter/L3/ampDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L3AmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L1 Max Amp Demand
+  state_topic: energy/meters/Instant/DevicesMeter/L1/maxAmpDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L1MaxAmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L2 Max Amp Demand
+  state_topic: energy/meters/Instant/DevicesMeter/L2/maxAmpDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L2MaxAmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter L3 Max Amp Demand
+  state_topic: energy/meters/Instant/DevicesMeter/L3/maxAmpDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_L3MaxAmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter Total Current
+  state_topic: energy/meters/Instant/DevicesMeter/totalAmpsA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_DevicesMeter_totalAmps
+  device_class: current
+  expire_after: '20'
+- name: Devices Energy Meter Total Power
+  state_topic: energy/meters/Instant/DevicesMeter/totalPowerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_DevicesMeter_totalPower_instant
+  device_class: power
+  expire_after: '20'
+- name: Devices Energy Meter Frequency
+  state_topic: energy/meters/Instant/DevicesMeter/frequency
+  unit_of_measurement: Hz
+  unique_id: eastron_SDM360_DevicesMeter_frequency
+  device_class: frequency
+  expire_after: '20'
+- name: Devices Energy Meter Total Import Energy
+  state_topic: energy/meters/Instant/DevicesMeter/totalImportkWh
+  unit_of_measurement: kWh
+  unique_id: eastron_SDM360_DevicesMeter_totalImportPower
+  device_class: energy
+  expire_after: '20'
+  state_class: total_increasing
+- name: Devices Energy Meter Total Export Energy
+  state_topic: energy/meters/Instant/DevicesMeter/totalExportkWh
+  unit_of_measurement: kWh
+  unique_id: eastron_SDM360_DevicesMeter_totalExportPower
+  device_class: energy
+  expire_after: '20'
+  state_class: total_increasing
+- name: Devices Energy Meter Total Power Demand
+  state_topic: energy/meters/Instant/DevicesMeter/totalPowerDuringDemandTimeW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_DevicesMeter_totalPowerDemand
+  device_class: power
+  expire_after: '20'
+- name: Devices Energy Meter Max Power Demand
+  state_topic: energy/meters/Instant/DevicesMeter/maxPowerDuringDemandTimeW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_DevicesMeter_maxPowerDemand
+  device_class: power
+  expire_after: '20'
+- name: Devices Energy Meter Voltage L1-L2
+  state_topic: energy/meters/Instant/DevicesMeter/L1_L2_V
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_DevicesMeter_voltageL1L2
+  device_class: voltage
+  expire_after: '20'
+- name: Devices Energy Meter Voltage L2-L3
+  state_topic: energy/meters/Instant/DevicesMeter/L2_L3_V
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_DevicesMeter_voltageL2L3
+  device_class: voltage
+  expire_after: '20'
+- name: Devices Energy Meter Voltage L3-L1
+  state_topic: energy/meters/Instant/DevicesMeter/L3_L1_V
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_DevicesMeter_voltageL3L1
+  device_class: voltage
+  expire_after: '20'
