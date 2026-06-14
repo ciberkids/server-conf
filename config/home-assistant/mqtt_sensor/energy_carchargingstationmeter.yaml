@@ -1,0 +1,152 @@
+- name: Charging Station Energy Meter L1 Voltage
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L1/voltageV
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_CarChargingStationMeter_L1Voltage
+  device_class: voltage
+  expire_after: '20'
+- name: Charging Station Energy Meter L2 Voltage
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L2/voltageV
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_CarChargingStationMeter_L2Voltage
+  device_class: voltage
+  expire_after: '20'
+- name: Charging Station Energy Meter L3 Voltage
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L3/voltageV
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_CarChargingStationMeter_L3Voltage
+  device_class: voltage
+  expire_after: '20'
+- name: Charging Station Energy Meter L1 Current
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L1/currentA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L1Current
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L2 Current
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L2/currentA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L2Current
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L3 Current
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L3/currentA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L3Current
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L1 Power
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L1/powerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_CarChargingStationMeter_L1Power_instant
+  device_class: power
+  expire_after: '20'
+- name: Charging Station Energy Meter L2 Power
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L2/powerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_CarChargingStationMeter_L2Power_instant
+  device_class: power
+  expire_after: '20'
+- name: Charging Station Energy Meter L3 Power
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L3/powerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_CarChargingStationMeter_L3Power_instant
+  device_class: power
+  expire_after: '20'
+- name: Charging Station Energy Meter L1 Amp Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L1/ampDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L1AmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L2 Amp Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L2/ampDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L2AmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L3 Amp Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L3/ampDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L3AmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L1 Max Amp Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L1/maxAmpDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L1MaxAmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L2 Max Amp Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L2/maxAmpDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L2MaxAmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter L3 Max Amp Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L3/maxAmpDuringDemandTimeA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_L3MaxAmpDemand
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter Total Current
+  state_topic: energy/meters/Instant/CarChargingStationMeter/totalAmpsA
+  unit_of_measurement: A
+  unique_id: eastron_SDM360_CarChargingStationMeter_totalAmps
+  device_class: current
+  expire_after: '20'
+- name: Charging Station Energy Meter Total Power
+  state_topic: energy/meters/Instant/CarChargingStationMeter/totalPowerW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_CarChargingStationMeter_totalPower_instant
+  device_class: power
+  expire_after: '20'
+- name: Charging Station Energy Meter Frequency
+  state_topic: energy/meters/Instant/CarChargingStationMeter/frequency
+  unit_of_measurement: Hz
+  unique_id: eastron_SDM360_CarChargingStationMeter_frequency
+  device_class: frequency
+  expire_after: '20'
+- name: Charging Station Energy Meter Total Import Energy
+  state_topic: energy/meters/Instant/CarChargingStationMeter/totalImportkWh
+  unit_of_measurement: kWh
+  unique_id: eastron_SDM360_CarChargingStationMeter_totalImportPower
+  device_class: energy
+  expire_after: '20'
+  state_class: total_increasing
+- name: Charging Station Energy Meter Total Export Energy
+  state_topic: energy/meters/Instant/CarChargingStationMeter/totalExportkWh
+  unit_of_measurement: kWh
+  unique_id: eastron_SDM360_CarChargingStationMeter_totalExportPower
+  device_class: energy
+  expire_after: '20'
+  state_class: total_increasing
+- name: Charging Station Energy Meter Total Power Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/totalPowerDuringDemandTimeW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_CarChargingStationMeter_totalPowerDemand
+  device_class: power
+  expire_after: '20'
+- name: Charging Station Energy Meter Max Power Demand
+  state_topic: energy/meters/Instant/CarChargingStationMeter/maxPowerDuringDemandTimeW
+  unit_of_measurement: W
+  unique_id: eastron_SDM360_CarChargingStationMeter_maxPowerDemand
+  device_class: power
+  expire_after: '20'
+- name: Charging Station Energy Meter Voltage L1-L2
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L1_L2_V
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_CarChargingStationMeter_voltageL1L2
+  device_class: voltage
+  expire_after: '20'
+- name: Charging Station Energy Meter Voltage L2-L3
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L2_L3_V
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_CarChargingStationMeter_voltageL2L3
+  device_class: voltage
+  expire_after: '20'
+- name: Charging Station Energy Meter Voltage L3-L1
+  state_topic: energy/meters/Instant/CarChargingStationMeter/L3_L1_V
+  unit_of_measurement: V
+  unique_id: eastron_SDM360_CarChargingStationMeter_voltageL3L1
+  device_class: voltage
+  expire_after: '20'
