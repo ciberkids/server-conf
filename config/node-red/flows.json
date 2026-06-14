@@ -7611,5 +7611,150 @@
     "x": 1020,
     "y": 140,
     "wires": []
+  },
+  {
+    "id": "544682bd0ada92e9",
+    "type": "tab",
+    "label": "Fronius Status Monitor",
+    "disabled": false,
+    "info": "",
+    "env": []
+  },
+  {
+    "id": "inj_fronius_poll",
+    "type": "inject",
+    "z": "544682bd0ada92e9",
+    "name": "Every 60s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 5,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 130,
+    "y": 100,
+    "wires": [
+      [
+        "http_fronius_realtime"
+      ]
+    ]
+  },
+  {
+    "id": "http_fronius_realtime",
+    "type": "http request",
+    "z": "544682bd0ada92e9",
+    "name": "GET CommonInverterData",
+    "method": "GET",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "http://192.168.1.58/solar_api/v1/GetInverterRealtimeData.cgi?Scope=Device&DeviceId=1&DataCollection=CommonInverterData",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 340,
+    "y": 100,
+    "wires": [
+      [
+        "func_fronius_parse"
+      ]
+    ]
+  },
+  {
+    "id": "func_fronius_parse",
+    "type": "function",
+    "z": "544682bd0ada92e9",
+    "name": "Parse status & alert",
+    "func": "const body = msg.payload.Body;\nif (!body || !body.Data || !body.Data.DeviceStatus) {\n    node.warn('Unexpected Fronius API response: ' + JSON.stringify(msg.payload));\n    return null;\n}\nconst status = body.Data.DeviceStatus;\nconst errorCode    = status.ErrorCode;\nconst statusCode   = status.StatusCode;\nconst ledColor     = status.LEDColor;\nconst stateToReset = status.StateToReset;\n\nconst errorMap = {\n    0:   'No error',\n    102: 'Grid frequency out of range',\n    401: 'Grid overvoltage - AC protection',\n    405: 'Grid frequency too high',\n    406: 'Grid frequency too low',\n    408: 'Grid ROCOF too high',\n    523: 'AC grid / isolation fault',\n    525: 'Grid overvoltage trip',\n    557: 'Grid undervoltage'\n};\nconst errorDesc     = errorMap[errorCode] || ('Unknown error ' + errorCode);\nconst statusRunning = (statusCode === 7 || statusCode === 6);\n\nconst prevError = flow.get('solarLastError') !== undefined ? flow.get('solarLastError') : -1;\nflow.set('solarLastError', errorCode);\n\n// Publish MQTT status topics regardless of alerting\nconst mqttTopics = [\n    ['energy/solar/status/ErrorCode',    errorCode],\n    ['energy/solar/status/StatusCode',   statusCode],\n    ['energy/solar/status/LEDColor',     ledColor],\n    ['energy/solar/status/StateToReset', stateToReset ? 1 : 0]\n];\nfor (const [topic, payload] of mqttTopics) {\n    node.send([{topic, payload}, null]);\n}\n\nconst CHAT_ID = 12373499;\n\n// 523 = normal night isolation disconnect — only alert during solar hours (06:00-21:00)\nconst DAY_ONLY_ERRORS = new Set([523]);\nconst hour = new Date().getHours();\nconst isDaytime = hour >= 6 && hour < 21;\n\nif (errorCode !== 0 && errorCode !== prevError) {\n    if (DAY_ONLY_ERRORS.has(errorCode) && !isDaytime) {\n        return [null, null]; // normal night behaviour, skip alert\n    }\n    return [null, {\n        payload: JSON.stringify({\n            chat_id: CHAT_ID,\n            text: '⚡ <b>Fronius Inverter Error</b>\\n🔴 Code <b>' + errorCode + '</b>: ' + errorDesc +\n                  '\\nStatus: ' + statusCode + (statusRunning ? ' ✅ running' : ' ❌ stopped') +\n                  '\\nReset needed: <b>' + stateToReset + '</b>',\n            parse_mode: 'HTML'\n        })\n    }];\n}\nif (errorCode === 0 && prevError !== 0 && prevError !== -1) {\n    return [null, {\n        payload: JSON.stringify({\n            chat_id: CHAT_ID,\n            text: '✅ <b>Fronius Recovered</b>\\nError <b>' + prevError + '</b> cleared — inverter running normally.',\n            parse_mode: 'HTML'\n        })\n    }];\n}\nreturn [null, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 570,
+    "y": 100,
+    "wires": [
+      [
+        "mqtt_fronius_out"
+      ],
+      [
+        "http_telegram_fronius"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_fronius_out",
+    "type": "mqtt out",
+    "z": "544682bd0ada92e9",
+    "name": "MQTT solar/status",
+    "topic": "",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "0384943ce48e7ac6",
+    "x": 800,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "http_telegram_fronius",
+    "type": "http request",
+    "z": "544682bd0ada92e9",
+    "name": "Telegram sendMessage",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/sendMessage",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [
+      {
+        "keyType": "str",
+        "keyValue": "Content-Type",
+        "valueType": "str",
+        "valueValue": "application/json"
+      }
+    ],
+    "x": 800,
+    "y": 140,
+    "wires": [
+      [
+        "debug_fronius"
+      ]
+    ]
+  },
+  {
+    "id": "debug_fronius",
+    "type": "debug",
+    "z": "544682bd0ada92e9",
+    "name": "Telegram response",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1020,
+    "y": 140,
+    "wires": []
   }
 ]
