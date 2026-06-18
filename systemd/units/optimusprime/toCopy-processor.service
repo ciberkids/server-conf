@@ -5,7 +5,8 @@ After=local-fs.target
 [Service]
 Type=oneshot
 User=matteo
-ExecStart=/bin/bash -c 'for f in /mnt/downloads/toCopy/*.mkv; do [ -f "$f" ] && rsync -av "$f" /mnt/MovieAndTvShows/ToFix/; done'
+EnvironmentFile=/home/matteo/.config/movieprocessor.env
+ExecStart=/home/matteo/toCopyProcessor.sh
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=toCopy-processor
