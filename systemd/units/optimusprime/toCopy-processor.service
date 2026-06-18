@@ -1,0 +1,14 @@
+[Unit]
+Description=Copy movies from toCopy to ToFix for processing
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=matteo
+ExecStart=/bin/bash -c 'for f in /mnt/downloads/toCopy/*.mkv; do [ -f "$f" ] && rsync -av "$f" /mnt/MovieAndTvShows/ToFix/; done'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=toCopy-processor
+
+[Install]
+WantedBy=multi-user.target
