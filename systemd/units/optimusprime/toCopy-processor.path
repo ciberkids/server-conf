@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch toCopy directory for new movie files
+After=local-fs.target
+
+[Path]
+PathChanged=/mnt/downloads/toCopy/
+Unit=toCopy-processor.service
+
+[Install]
+WantedBy=multi-user.target
