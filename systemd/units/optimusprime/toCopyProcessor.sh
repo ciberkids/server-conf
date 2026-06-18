@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copies .mkv files from toCopy → ToFix, notifies Telegram per file, deletes source on success.
+# Copies .mkv files from toCopy → ToFix, notifies Telegram before start and after each file.
 set -euo pipefail
 
 TOFIX_DIR="/mnt/MovieAndTvShows/ToFix"
@@ -12,6 +12,14 @@ if [[ ${#files[@]} -eq 0 ]]; then
     exit 0
 fi
 
+# Pre-notification: list all files about to be copied
+names=""
+for f in "${files[@]}"; do
+    names+="  • $(basename "$f")\n"
+done
+telegram-send --format html "📋 toCopy: starting ${#files[@]} file(s):\n${names}"
+
+# Copy each file and notify on completion
 for f in "${files[@]}"; do
     name=$(basename "$f")
     size=$(du -sh "$f" | cut -f1)
