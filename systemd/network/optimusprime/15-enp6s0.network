@@ -1,0 +1,9 @@
+[Match]
+Name=enp6s0
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+UseGateway=no
+UseRoutes=no
