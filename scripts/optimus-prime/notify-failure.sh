@@ -2,13 +2,23 @@
 set -euo pipefail
 
 SERVICE="$1"
-MAX_ALERTS=3  # notify individually for first N failures, then send one "suppressing" message
+MAX_ALERTS=3
 STATE_DIR="/run/notify-failure"
 mkdir -p "$STATE_DIR"
 
 COUNT_FILE="$STATE_DIR/${SERVICE}.count"
 FLAG_FILE="$STATE_DIR/${SERVICE}.failed"
 
+# Check if systemd gave up restarting (start-limit-hit → SubState=failed)
+# vs a transient failure that will be retried (SubState=auto-restart)
+substate=$(systemctl show "${SERVICE}" -p SubState --value 2>/dev/null || echo "unknown")
+if [[ "$substate" == "failed" ]]; then
+    touch "$FLAG_FILE"
+    telegram-send "🔴 [optimusprime] Service ${SERVICE} hit restart limit — needs manual reset"
+    exit 0
+fi
+
+# Transient failure — service will be retried by systemd
 count=0
 [[ -f "$COUNT_FILE" ]] && count=$(cat "$COUNT_FILE")
 count=$((count + 1))
