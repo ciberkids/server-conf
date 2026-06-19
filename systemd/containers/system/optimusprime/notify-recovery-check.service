@@ -1,0 +1,7 @@
+[Unit]
+Description=Check for recovered services and notify via Telegram
+
+[Service]
+Type=oneshot
+User=matteo
+ExecStart=/home/matteo/notify-recovery-check.sh
