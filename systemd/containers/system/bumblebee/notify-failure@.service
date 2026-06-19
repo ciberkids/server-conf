@@ -3,4 +3,4 @@ Description=Send Telegram notification on service failure
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/telegram-send --config /etc/telegram-send.conf "[bumblebee] Service %i FAILED"
+ExecStart=/home/matteo/notify-failure.sh %i
