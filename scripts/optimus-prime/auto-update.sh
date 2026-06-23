@@ -24,9 +24,9 @@ INSTALLED=$(echo "$UPDATE_OUTPUT" | grep -c "installing ")
 # Check if kernel was updated
 NEW_KERNEL=$(pacman -Q linux-lts 2>/dev/null | awk '{print $2}')
 KERNEL_UPDATED=false
-if [ "$RUNNING_KERNEL" != *"$NEW_KERNEL"* ] && [ -n "$NEW_KERNEL" ]; then
-    # Compare installed kernel package with running kernel
-    INSTALLED_MODULES=$(ls /usr/lib/modules/ | sort -V | tail -1)
+if [[ "$RUNNING_KERNEL" != *"$NEW_KERNEL"* ]] && [ -n "$NEW_KERNEL" ]; then
+    # Only look at linux-lts module dirs, ignore mainline linux (e.g. 7.x) if installed
+    INSTALLED_MODULES=$(ls /usr/lib/modules/ | grep -E '\-lts$' | sort -V | tail -1)
     if [ "$RUNNING_KERNEL" != "$INSTALLED_MODULES" ]; then
         KERNEL_UPDATED=true
     fi
