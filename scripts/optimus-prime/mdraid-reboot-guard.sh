@@ -1,5 +1,5 @@
 #!/bin/bash
-# Cancel any pending scheduled reboot if an MD RAID array is actively rebuilding.
+# Cancel any pending scheduled reboot if any MD RAID array is rebuilding or degraded.
 # Runs every 30 min via mdraid-reboot-guard.timer as belt-and-suspenders alongside
 # the RAID check in auto-update.sh.
 
