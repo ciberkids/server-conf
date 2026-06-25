@@ -1,0 +1,8 @@
+[Unit]
+Description=Rebuild Plex image from upstream and restart if the base changed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/plex-rebuild.sh
