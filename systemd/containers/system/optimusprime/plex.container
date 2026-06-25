@@ -34,7 +34,9 @@ HostName=optimusprime
 
 AddDevice=/dev/dri
 
-AutoUpdate=registry
+# NOTE: no AutoUpdate=registry — this is a locally built image (localhost/plex-amd).
+# Upstream tracking is handled by plex-rebuild.timer, which rebuilds from
+# plexinc/pms-docker:latest only when the base digest changes.
 
 HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:32400/identity || exit 1
 HealthInterval=30s
