@@ -4,6 +4,10 @@ After=local-fs.target
 
 [Path]
 PathChanged=/mnt/downloads/toCopy/
+# Level-triggered safety net: re-fire whenever a .mkv is *present* (not just on a
+# fresh change event). Catches files left behind by a mid-run arrival race or
+# files already sitting here when the watcher (re)starts after a reboot.
+PathExistsGlob=/mnt/downloads/toCopy/*.mkv
 Unit=toCopy-processor.service
 
 [Install]
