@@ -4,6 +4,9 @@ After=local-fs.target
 
 [Path]
 PathChanged=/mnt/MovieAndTvShows/ToFix/
+# Level-triggered safety net (see toCopy-processor.path): re-fire while a top-level
+# .mkv is present, so files left by a mid-run race or a reboot still get processed.
+PathExistsGlob=/mnt/MovieAndTvShows/ToFix/*.mkv
 Unit=movie-processor.service
 
 [Install]
