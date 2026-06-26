@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst i = $input.first().json;\nconst title = i.title || '';\nconst link = i.link || i.guid || '';\nconst ym = title.match(/\\((\\d{4})\\)/);\nconst year = ym ? ym[1] : null;\nconst cleanTitle = title.replace(/\\s*\\(\\d{4}\\).*$/, '').trim();\nconst nm = link.match(/\\/(\\d+)-/);\nconst newsId = nm ? nm[1] : null;\nif (!cleanTitle || !year || !newsId) return [];\nreturn [{ json: { cleanTitle, year, newsId, articleUrl: link } }];\n"
+        "jsCode": "// Multi-item: process EVERY new RSS item, not just the first.\nconst out = [];\nfor (const it of $input.all()) {\n  const i = it.json;\n  const title = i.title || '';\n  const link = i.link || i.guid || '';\n  const ym = title.match(/\\((\\d{4})\\)/);\n  const year = ym ? ym[1] : null;\n  const cleanTitle = title.replace(/\\s*\\(\\d{4}\\).*$/, '').trim();\n  const nm = link.match(/\\/(\\d+)-/);\n  const newsId = nm ? nm[1] : null;\n  if (!cleanTitle || !year || !newsId) continue;\n  out.push({ json: { cleanTitle, year, newsId, articleUrl: link } });\n}\nreturn out;\n"
       },
       "id": "wf2-node-0001",
       "name": "Extract 1080p Info",
@@ -77,7 +77,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst tmdb = $input.first().json;\nconst prev = $('Extract 1080p Info').first().json;\nconst results = tmdb.results || [];\nif (!results.length) return [];\nconst m = results[0];\nreturn [{ json: {\n  tmdbId: m.id, tmdbTitle: m.title,\n  year: prev.year, newsId: prev.newsId,\n  articleUrl: prev.articleUrl, cleanTitle: prev.cleanTitle\n}}];\n"
+        "jsCode": "// Multi-item: pair each TMDb response with its Extract item by index.\n// The HTTP node ran once per Extract output item, preserving order, so\n// tmdbItems[idx] corresponds to extractItems[idx].\nconst tmdbItems = $input.all();\nconst extractItems = $('Extract 1080p Info').all();\nconst out = [];\nfor (let idx = 0; idx < tmdbItems.length; idx++) {\n  const tmdb = tmdbItems[idx].json;\n  const prev = extractItems[idx].json;\n  const results = tmdb.results || [];\n  if (!results.length) continue;\n  const m = results[0];\n  out.push({ json: {\n    tmdbId: m.id, tmdbTitle: m.title,\n    year: prev.year, newsId: prev.newsId,\n    articleUrl: prev.articleUrl, cleanTitle: prev.cleanTitle\n  }});\n}\nreturn out;\n"
       },
       "id": "wf2-node-0003",
       "name": "Process TMDb 1080p",
@@ -110,7 +110,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst prev = $('Process TMDb 1080p').first().json;\nconst rss4kResp = $('Fetch 4K RSS').first().json;\nconst rss4kText = typeof rss4kResp === 'string' ? rss4kResp : (rss4kResp.data || rss4kResp.body || '');\n\nlet has4k = false, articleUrl4k = null, newsId4k = null;\nconst itemsRaw = rss4kText.match(/<item>[\\s\\S]*?<\\/item>/gi) || [];\nconst word0 = prev.cleanTitle.toLowerCase().split(/\\s+/)[0];\nfor (const it of itemsRaw) {\n  const tm = it.match(/<title>(.*?)<\\/title>/);\n  const lm = it.match(/<link>(.*?)<\\/link>/) || it.match(/<guid[^>]*>(.*?)<\\/guid>/);\n  if (!tm || !lm) continue;\n  const t4 = tm[1].replace(/&amp;/g,'&').replace(/&#39;/g,\"'\");\n  if (t4.includes('(' + prev.year + ')') && t4.toLowerCase().includes(word0)) {\n    has4k = true;\n    articleUrl4k = lm[1];\n    const n4m = lm[1].match(/\\/(\\d+)-/);\n    newsId4k = n4m ? n4m[1] : null;\n    break;\n  }\n}\n\nconst store = $getWorkflowStaticData('global');\nif (!store.pending) store.pending = {};\nconst packageName = prev.tmdbTitle + ' (' + prev.year + ')';\nconst oldMessageId = (store.pending[prev.newsId] || {}).messageId || null;\n\nstore.pending[prev.newsId] = {\n  articleUrl: prev.articleUrl, packageName,\n  tmdbId: prev.tmdbId, cleanTitle: prev.cleanTitle, year: prev.year,\n  has4k, articleUrl4k, newsId4k, messageId: oldMessageId, messageId4k: null\n};\nif (has4k && newsId4k) {\n  if (!store.pending4k) store.pending4k = {};\n  store.pending4k[newsId4k] = { articleUrl4k, packageName, newsId4k, messageId4k: null };\n}\n\nconst esc = s => String(s).replace(/([_*[\\]()~`>#+=|{}\\\\.!])/g, '\\\\$1');\nlet keyboard;\nif (has4k) {\n  keyboard = [\n    [\n      { text: '\u2b07\ufe0f 1080p',       callback_data: 'dl:'     + prev.newsId },\n      { text: '\u2b07\ufe0f 1080p + 4K',  callback_data: 'dlboth:' + prev.newsId }\n    ],\n    [\n      { text: '\u2b07\ufe0f 4K only',      callback_data: '4k:'    + newsId4k    },\n      { text: '\u274c Skip',               callback_data: 'skip:'  + prev.newsId }\n    ]\n  ];\n} else {\n  keyboard = [[\n    { text: '\u2b07\ufe0f Download 1080p', callback_data: 'dl:'   + prev.newsId },\n    { text: '\u274c Skip',                 callback_data: 'skip:' + prev.newsId }\n  ]];\n}\n\nconst msgText = '\ud83c\udfa5 *' + esc(prev.tmdbTitle) + ' \\\\(' + prev.year + '\\\\)*' + (has4k ? '\\n_4K x265 also available_' : '');\n\nlet tgMethod, tgBody;\nif (oldMessageId) {\n  tgMethod = 'editMessageText';\n  tgBody = JSON.stringify({\n    chat_id: '12373499',\n    message_id: oldMessageId,\n    text: msgText,\n    parse_mode: 'MarkdownV2',\n    reply_markup: { inline_keyboard: keyboard }\n  });\n} else {\n  tgMethod = 'sendMessage';\n  tgBody = JSON.stringify({\n    chat_id: '12373499',\n    text: msgText,\n    parse_mode: 'MarkdownV2',\n    reply_markup: { inline_keyboard: keyboard }\n  });\n}\nreturn [{ json: { newsId: prev.newsId, tgBody, tgMethod } }];\n"
+        "jsCode": "// Multi-item: build one Telegram notification per movie. The 4K RSS text is the\n// same feed for every movie, so fetch it once outside the loop.\nconst movies = $('Process TMDb 1080p').all();\nconst rss4kResp = $('Fetch 4K RSS').first().json;\nconst rss4kText = typeof rss4kResp === 'string' ? rss4kResp : (rss4kResp.data || rss4kResp.body || '');\nconst itemsRaw = rss4kText.match(/<item>[\\s\\S]*?<\\/item>/gi) || [];\n\nconst store = $getWorkflowStaticData('global');\nif (!store.pending) store.pending = {};\n// MarkdownV2 escape — now includes '-' (Telegram reserves it; the omission was\n// crashing notifications for any title containing a hyphen).\nconst esc = s => String(s).replace(/([_*[\\]()~`>#+\\-=|{}\\\\.!])/g, '\\\\$1');\n\nconst out = [];\nfor (const mv of movies) {\n  const prev = mv.json;\n\n  let has4k = false, articleUrl4k = null, newsId4k = null;\n  const word0 = prev.cleanTitle.toLowerCase().split(/\\s+/)[0];\n  for (const it of itemsRaw) {\n    const tm = it.match(/<title>(.*?)<\\/title>/);\n    const lm = it.match(/<link>(.*?)<\\/link>/) || it.match(/<guid[^>]*>(.*?)<\\/guid>/);\n    if (!tm || !lm) continue;\n    const t4 = tm[1].replace(/&amp;/g, '&').replace(/&#39;/g, \"'\");\n    if (t4.includes('(' + prev.year + ')') && t4.toLowerCase().includes(word0)) {\n      has4k = true;\n      articleUrl4k = lm[1];\n      const n4m = lm[1].match(/\\/(\\d+)-/);\n      newsId4k = n4m ? n4m[1] : null;\n      break;\n    }\n  }\n\n  const packageName = prev.tmdbTitle + ' (' + prev.year + ')';\n  const oldMessageId = (store.pending[prev.newsId] || {}).messageId || null;\n\n  store.pending[prev.newsId] = {\n    articleUrl: prev.articleUrl, packageName,\n    tmdbId: prev.tmdbId, cleanTitle: prev.cleanTitle, year: prev.year,\n    has4k, articleUrl4k, newsId4k, messageId: oldMessageId, messageId4k: null\n  };\n  if (has4k && newsId4k) {\n    if (!store.pending4k) store.pending4k = {};\n    store.pending4k[newsId4k] = { articleUrl4k, packageName, newsId4k, messageId4k: null };\n  }\n\n  let keyboard;\n  if (has4k) {\n    keyboard = [\n      [\n        { text: '⬇️ 1080p',       callback_data: 'dl:'     + prev.newsId },\n        { text: '⬇️ 1080p + 4K',  callback_data: 'dlboth:' + prev.newsId }\n      ],\n      [\n        { text: '⬇️ 4K only',      callback_data: '4k:'    + newsId4k    },\n        { text: '❌ Skip',               callback_data: 'skip:'  + prev.newsId }\n      ]\n    ];\n  } else {\n    keyboard = [[\n      { text: '⬇️ Download 1080p', callback_data: 'dl:'   + prev.newsId },\n      { text: '❌ Skip',                 callback_data: 'skip:' + prev.newsId }\n    ]];\n  }\n\n  const msgText = '🎥 *' + esc(prev.tmdbTitle) + ' \\\\(' + prev.year + '\\\\)*' + (has4k ? '\\n_4K x265 also available_' : '');\n\n  let tgMethod, tgBody;\n  if (oldMessageId) {\n    tgMethod = 'editMessageText';\n    tgBody = JSON.stringify({\n      chat_id: '12373499',\n      message_id: oldMessageId,\n      text: msgText,\n      parse_mode: 'MarkdownV2',\n      reply_markup: { inline_keyboard: keyboard }\n    });\n  } else {\n    tgMethod = 'sendMessage';\n    tgBody = JSON.stringify({\n      chat_id: '12373499',\n      text: msgText,\n      parse_mode: 'MarkdownV2',\n      reply_markup: { inline_keyboard: keyboard }\n    });\n  }\n  out.push({ json: { newsId: prev.newsId, tgBody, tgMethod } });\n}\nreturn out;\n"
       },
       "id": "wf2-node-0005",
       "name": "Prepare Pending + Notify",
@@ -138,11 +138,12 @@
       "position": [
         1776,
         16
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "\nconst resp = $input.first().json;\nconst newsId = $('Prepare Pending + Notify').first().json.newsId;\nconst store = $getWorkflowStaticData('global');\nif (store.pending && store.pending[newsId] && resp.result) {\n  store.pending[newsId].messageId = resp.result.message_id;\n}\nreturn [{ json: { saved: true } }];\n"
+        "jsCode": "// Multi-item: each Telegram response pairs with the Prepare item of the same\n// index (Send ran once per Prepare output, order preserved).\nconst responses = $input.all();\nconst prepared = $('Prepare Pending + Notify').all();\nconst store = $getWorkflowStaticData('global');\nfor (let idx = 0; idx < responses.length; idx++) {\n  const resp = responses[idx].json;\n  const newsId = prepared[idx] && prepared[idx].json ? prepared[idx].json.newsId : null;\n  if (newsId && store.pending && store.pending[newsId] && resp.result) {\n    store.pending[newsId].messageId = resp.result.message_id;\n  }\n}\nreturn [{ json: { saved: responses.length } }];\n"
       },
       "id": "wf2-node-0007",
       "name": "Save Notification Msg ID",
@@ -189,7 +190,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ callback_query_id: $json.callbackQueryId, text: \"Processing\u2026\" }) }}",
+        "body": "={{ JSON.stringify({ callback_query_id: $json.callbackQueryId, text: \"Processing…\" }) }}",
         "options": {}
       },
       "id": "wf2-node-0012",
@@ -405,7 +406,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"\u2705 1080p queued: \" + $(\"Load 1080p Pending\").first().json.packageName + \" \u2014 \" + $(\"Extract 1080p Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"✅ 1080p queued: \" + $(\"Load 1080p Pending\").first().json.packageName + \" — \" + $(\"Extract 1080p Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0019",
@@ -424,7 +425,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $json.messageId, text: \"\u274c Skipped\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $json.messageId, text: \"❌ Skipped\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0024",
@@ -559,7 +560,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId, text: \"\u2705 4K queued: \" + $(\"Load 4K Pending\").first().json.packageName + \" \u2014 \" + $(\"Extract 4K Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId, text: \"✅ 4K queued: \" + $(\"Load 4K Pending\").first().json.packageName + \" — \" + $(\"Extract 4K Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0030",
