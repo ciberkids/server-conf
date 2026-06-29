@@ -646,30 +646,34 @@
         state: started
 
     # =========================================================
-    # 22. OpenClaw
+    # 22. Hermes Agent (Nous Research) — replaced OpenClaw 2026-06-29
+    # No upstream registry image; build from source and load first:
+    #   git clone https://github.com/nousresearch/hermes-agent
+    #   # patch Dockerfile: replace `--chmod=a+rX,go-w` with `--chmod=0755`
+    #   podman build -t localhost/hermes-agent:latest .
+    #   podman save localhost/hermes-agent:latest | ssh bumblebee 'sudo podman load'
+    # Secrets live in /etc/containers/secrets/hermes.env (see hermes.env.template):
+    #   TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS, TELEGRAM_HOME_CHANNEL,
+    #   OPENROUTER_API_KEY, OLLAMA_BASE_URL, HERMES_UID/GID=1000
     # =========================================================
-    - name: Create OpenClaw persistent directories
+    - name: Create Hermes persistent directory
       file:
-        path: "/home/{{ target_user }}/{{ item }}"
+        path: "/home/{{ target_user }}/docker_persistent/hermes/data"
         state: directory
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: "0755"
-      loop:
-        - openclaw-workspace
-        - docker_persistent/openclaw/config
-        - docker_persistent/openclaw/bin
 
-    - name: Deploy OpenClaw quadlet
+    - name: Deploy Hermes quadlet
       copy:
-        src: "{{ quadlets_src }}/openclaw.container"
-        dest: /etc/containers/systemd/openclaw.container
+        src: "{{ quadlets_src }}/hermes.container"
+        dest: /etc/containers/systemd/hermes.container
         mode: "0644"
       notify: reload systemd
 
-    - name: Enable and start OpenClaw
+    - name: Enable and start Hermes
       systemd:
-        name: openclaw.service
+        name: hermes.service
         daemon_reload: yes
         enabled: yes
         state: started

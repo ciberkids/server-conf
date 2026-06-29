@@ -8,33 +8,12 @@ http:
       tls:
         certResolver: cloudflare
 
-    openclaw:
-      rule: "Host(`openclaw.bumblebee.favarohome.com`)"
-      entryPoints:
-        - websecure
-      service: openclaw
-      middlewares:
-        - openclaw-inject-user
-      tls:
-        certResolver: cloudflare
-
-  middlewares:
-    openclaw-inject-user:
-      headers:
-        customRequestHeaders:
-          X-Forwarded-User: "matteo"
-
   services:
     cockpit:
       loadBalancer:
         servers:
           - url: "https://192.168.1.14:9090"
         serversTransport: insecureTransport
-
-    openclaw:
-      loadBalancer:
-        servers:
-          - url: "http://192.168.1.14:18789"
 
   serversTransports:
     insecureTransport:
