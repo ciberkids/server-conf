@@ -1,0 +1,29 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Hermes Agent (Nous Research) - personal assistant gateway
+Requires=network-online.target
+Wants=ollama.service
+After=ollama.service network-online.target
+
+[Container]
+ContainerName=hermes
+# Built from source (github.com/nousresearch/hermes-agent) — no upstream registry image.
+# Rebuild + reload manually; AutoUpdate cannot track a locally-built image.
+Image=localhost/hermes-agent:latest
+# host networking matches upstream compose and lets the agent reach local Ollama
+# at http://localhost:11434 and bind the localhost-only dashboard/API server.
+Network=host
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/home/matteo/docker_persistent/hermes/data:/opt/data:Z
+Environment="TZ=Europe/Zurich"
+# Secrets (Telegram bot token, OpenRouter key, HERMES_UID/GID=1000) — never in git.
+EnvironmentFile=/etc/containers/secrets/hermes.env
+# s6-overlay /init is the image entrypoint; this is the CMD it supervises.
+Exec=gateway run
+
+[Service]
+Restart=always
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

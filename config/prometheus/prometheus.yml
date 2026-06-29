@@ -81,7 +81,6 @@ scrape_configs:
           - https://ollama.bumblebee.favarohome.com
           - https://comfyui-launcher.bumblebee.favarohome.com
           - https://opencode.bumblebee.favarohome.com
-          - https://openclaw.bumblebee.favarohome.com
           - https://cloud-drive-sync.bumblebee.favarohome.com
     relabel_configs:
       - source_labels: [__address__]
