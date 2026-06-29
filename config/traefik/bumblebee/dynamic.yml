@@ -8,12 +8,26 @@ http:
       tls:
         certResolver: cloudflare
 
+    hermes:
+      rule: "Host(`hermes.bumblebee.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: hermes
+      tls:
+        certResolver: cloudflare
+
   services:
     cockpit:
       loadBalancer:
         servers:
           - url: "https://192.168.1.14:9090"
         serversTransport: insecureTransport
+
+    # Hermes Agent dashboard (built-in basic auth on non-loopback bind)
+    hermes:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.14:9119"
 
   serversTransports:
     insecureTransport:
