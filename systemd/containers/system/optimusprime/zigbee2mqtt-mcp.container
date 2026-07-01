@@ -1,0 +1,23 @@
+[Unit]
+Description=Zigbee2MQTT MCP Server
+After=network-online.target mqtt5.service zigbee2mqtt.service
+Wants=network-online.target
+OnFailure=notify-failure@%n.service
+
+[Container]
+Image=localhost/zigbee2mqtt-mcp:latest
+ContainerName=zigbee2mqtt-mcp
+EnvironmentFile=/etc/containers/secrets/zigbee2mqtt-mcp.env
+# Network=host: podman published-port proxy was not reachable cross-host
+# (bumblebee/Hermes) on this multi-NIC box; host net binds 0.0.0.0:3235 directly.
+Network=host
+Volume=/mnt/data/docker_persistent/zigbee2mqtt-mcp/data:/data
+
+[Service]
+Restart=always
+# Cold start is slow (~90s): the app ingests the full retained MQTT device
+# state synchronously before starting the HTTP listener.
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target default.target
