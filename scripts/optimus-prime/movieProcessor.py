@@ -11,13 +11,17 @@ Usage:
   movieProcessor.py FILE.mkv --dry-run
 """
 
-import os, sys, re, json, subprocess, logging, argparse
+import os, sys, re, json, time, datetime, subprocess, logging, argparse
 import urllib.request, urllib.parse
 
 TOFIX_DIR     = "/mnt/MovieAndTvShows/ToFix/"
 MOVIES_DIR    = "/mnt/MovieAndTvShows/Movies/"
 SAGAS_DIR     = os.path.join(MOVIES_DIR, "1 Sagas")
 QUARANTINE_DIR = os.path.join(TOFIX_DIR, "_quarantine")
+
+# A top-level .mkv still present after a full run AND older than this many seconds
+# is considered "stuck" (not an in-flight copy) and triggers a Telegram alert.
+STUCK_FILE_AGE_SECS = 30 * 60
 
 TMDB_TOKEN       = os.environ.get("TMDB_TOKEN", "")
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN", "")
@@ -278,6 +282,58 @@ def send_telegram(msg):
         logging.warning(f"Telegram notify failed: {e}")
 
 
+# ── Quarantine ──────────────────────────────────────────────────────────────
+
+def quarantine_file(filepath, reason, message, dry_run=False, **extra):
+    """
+    Move a file that cannot be filed into _quarantine/ and drop a JSON sidecar
+    (<filename>.quarantine.json) recording why. Returns False (never a success).
+
+    Quarantining — rather than leaving the file in ToFix — is what keeps the
+    level-triggered .path watcher from re-firing forever on an un-filable file
+    (the old start-limit-hit jam). `extra` kwargs are merged into the sidecar.
+    """
+    filename = os.path.basename(filepath)
+    if dry_run:
+        print(f"  → QUARANTINE [{reason}] {message}")
+        logging.warning(f"[DRY] would quarantine [{reason}]: {filename}")
+        return False
+
+    os.makedirs(QUARANTINE_DIR, exist_ok=True)
+    dest = os.path.join(QUARANTINE_DIR, filename)
+    proc = subprocess.run(
+        ["rsync", "-av", "--remove-source-files", filepath, dest],
+        capture_output=True, text=True
+    )
+    if proc.returncode != 0:
+        # Could not even move to quarantine — surface it; the file stays put.
+        err = f"❌ PipelineB: failed to quarantine <code>{filename}</code>:\n{proc.stderr[:300]}"
+        logging.error(err)
+        send_telegram(err)
+        return False
+
+    record = {
+        "quarantined_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "reason": reason,
+        "message": message,
+        "original_filename": filename,
+    }
+    record.update(extra)
+    try:
+        with open(dest + ".quarantine.json", "w") as fh:
+            json.dump(record, fh, indent=2, ensure_ascii=False)
+    except OSError as e:
+        logging.warning(f"Could not write quarantine sidecar for {filename}: {e}")
+
+    notify = (
+        f"🟡 PipelineB quarantined <code>{filename}</code>\n"
+        f"reason: <b>{reason}</b>\n{message}"
+    )
+    logging.warning(notify)
+    send_telegram(notify)
+    return False
+
+
 # ── File processor ──────────────────────────────────────────────────────────
 
 def process_file(filepath, dry_run=False):
@@ -287,21 +343,24 @@ def process_file(filepath, dry_run=False):
 
     raw_title, year, quality = parse_filename(filename)
     if not raw_title or not year:
-        msg = f"⚠️ PipelineB: Cannot parse filename:\n<code>{filename}</code>"
-        logging.error(msg)
-        if not dry_run:
-            send_telegram(msg)
-        return False
+        return quarantine_file(
+            filepath,
+            reason="unparseable_filename",
+            message="Could not parse a title and 4-digit year from the filename.",
+            dry_run=dry_run,
+        )
 
     logging.info(f"  Parsed title='{raw_title}' year={year} quality={quality}")
 
     result = tmdb_search(raw_title, year)
     if not result:
-        msg = f"⚠️ PipelineB: TMDb no result for <code>{filename}</code>"
-        logging.error(msg)
-        if not dry_run:
-            send_telegram(msg)
-        return False
+        return quarantine_file(
+            filepath,
+            reason="tmdb_no_result",
+            message=f"No TMDb match for parsed title '{raw_title}' ({year}).",
+            dry_run=dry_run,
+            parsed={"title": raw_title, "year": year, "quality": quality},
+        )
 
     details = tmdb_details(result["id"])
     title_en = details.get("title", raw_title)
@@ -321,50 +380,49 @@ def process_file(filepath, dry_run=False):
 
     if confidence == "low" or dest is None:
         collection_name = collection["name"] if collection else "none"
-        if dry_run:
-            print(f"  → QUARANTINE (collection='{collection_name}', no matching saga folder)")
-        else:
-            os.makedirs(QUARANTINE_DIR, exist_ok=True)
-            quarantine_path = os.path.join(QUARANTINE_DIR, filename)
-            send_telegram(
-                f"📦 PipelineB moving to quarantine:\n<code>{title_en} ({actual_year})</code>"
-            )
-            subprocess.run(["rsync", "-av", "--remove-source-files", filepath, quarantine_path], check=True)
-            send_telegram(
-                f"🟡 PipelineB: No saga folder found for:\n<code>{filename}</code>\n"
-                f"TMDb: {title_en} ({actual_year})\n"
-                f"Collection: {collection_name}\n"
-                f"→ quarantine"
-            )
-        return False
+        return quarantine_file(
+            filepath,
+            reason="no_saga_folder",
+            message=f"TMDb collection '{collection_name}' has no matching saga folder in '1 Sagas'.",
+            dry_run=dry_run,
+            parsed={"title": raw_title, "year": year, "quality": quality},
+            tmdb={"title": title_en, "year": actual_year, "collection": collection_name},
+        )
 
     dest_rel = dest.replace(MOVIES_DIR, "")
+
+    # Check for an existing destination BEFORE the dry-run short-circuit so a dry
+    # run also reports would-be duplicates instead of claiming a clean move.
+    if os.path.exists(dest):
+        return quarantine_file(
+            filepath,
+            reason="destination_exists",
+            message=f"A file already exists at the destination: {dest_rel}",
+            dry_run=dry_run,
+            parsed={"title": raw_title, "year": year, "quality": quality},
+            tmdb={"title": title_en, "year": actual_year},
+            intended_destination=dest_rel,
+        )
+
     if dry_run:
         print(f"  → {dest_rel}")
         return True
 
-    if os.path.exists(dest):
-        msg = (
-            f"⚠️ PipelineB: Destination exists, skipping:\n"
-            f"<code>{dest_rel}</code>"
-        )
-        logging.warning(msg)
-        send_telegram(msg)
-        return False
-
     os.makedirs(os.path.dirname(dest), exist_ok=True)
-    send_telegram(
-        f"📦 PipelineB moving:\n<code>{title_en} ({actual_year})</code>\n→ <code>{dest_rel}</code>"
-    )
     proc = subprocess.run(
         ["rsync", "-av", "--remove-source-files", filepath, dest],
         capture_output=True, text=True
     )
     if proc.returncode != 0:
-        msg = f"❌ PipelineB: rsync failed for <code>{filename}</code>:\n{proc.stderr[:300]}"
-        logging.error(msg)
-        send_telegram(msg)
-        return False
+        return quarantine_file(
+            filepath,
+            reason="rsync_failed",
+            message=f"rsync to the library failed: {proc.stderr[:300]}",
+            dry_run=dry_run,
+            parsed={"title": raw_title, "year": year, "quality": quality},
+            tmdb={"title": title_en, "year": actual_year},
+            intended_destination=dest_rel,
+        )
 
     msg = (
         f"✅ PipelineB moved:\n"
@@ -405,6 +463,31 @@ def main():
 
     for f in sorted(files):
         process_file(f, dry_run=args.dry_run)
+
+    # Watchdog: after a full real run every file should have been filed or
+    # quarantined, so ToFix top-level should be empty. Anything still here and
+    # older than STUCK_FILE_AGE_SECS (i.e. not a fresh in-flight copy) is stuck —
+    # signal it instead of letting it silently sit / re-trigger the watcher.
+    if not args.dry_run and not args.file:
+        now = time.time()
+        stuck = []
+        for f in os.listdir(TOFIX_DIR):
+            if not f.endswith(".mkv") or f.startswith("."):
+                continue
+            path = os.path.join(TOFIX_DIR, f)
+            try:
+                if now - os.path.getmtime(path) >= STUCK_FILE_AGE_SECS:
+                    stuck.append(f)
+            except OSError:
+                continue
+        if stuck:
+            names = "\n".join(f"  • {x}" for x in sorted(stuck))
+            alert = (
+                f"⚠️ PipelineB: {len(stuck)} file(s) stuck in ToFix "
+                f"(unprocessed &gt;{STUCK_FILE_AGE_SECS // 60}min):\n{names}"
+            )
+            logging.warning(alert)
+            send_telegram(alert)
 
 
 if __name__ == "__main__":
