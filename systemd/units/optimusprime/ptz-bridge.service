@@ -1,0 +1,15 @@
+[Unit]
+Description=PTZ HTTP->ONVIF bridge for Jooan camera
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=matteo
+EnvironmentFile=/home/matteo/.config/ptzbridge.env
+ExecStart=/usr/bin/python3 /home/matteo/ptzBridge.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
