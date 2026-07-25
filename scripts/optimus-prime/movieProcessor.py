@@ -468,6 +468,12 @@ def main():
     # quarantined, so ToFix top-level should be empty. Anything still here and
     # older than STUCK_FILE_AGE_SECS (i.e. not a fresh in-flight copy) is stuck —
     # signal it instead of letting it silently sit / re-trigger the watcher.
+    # NOTE: age by ctime, NOT mtime. toCopyProcessor.sh copies files in with
+    # `rsync -a` (--times), which preserves the SOURCE mtime (often days old =
+    # the release date). A file that landed in ToFix seconds ago would then look
+    # >30min old by mtime and falsely trip this alert. ctime = inode-change time,
+    # stamped by the local write/rename and un-preservable by rsync, so it
+    # reflects true dwell time in ToFix.
     if not args.dry_run and not args.file:
         now = time.time()
         stuck = []
@@ -476,7 +482,7 @@ def main():
                 continue
             path = os.path.join(TOFIX_DIR, f)
             try:
-                if now - os.path.getmtime(path) >= STUCK_FILE_AGE_SECS:
+                if now - os.path.getctime(path) >= STUCK_FILE_AGE_SECS:
                     stuck.append(f)
             except OSError:
                 continue
