@@ -1,0 +1,12 @@
+[Unit]
+Description=Zigbee coordinator wedge watchdog (auto PoE-recover SLZB-06)
+Documentation=https://github.com/ciberkids/server-conf scripts/optimus-prime/zigbee-watchdog.py
+After=network-online.target zigbee2mqtt.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Secrets (UNIFI_API_KEY, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID) — NOT in git
+EnvironmentFile=/home/matteo/.config/zigbee-watchdog.env
+ExecStart=/usr/bin/python3 /home/matteo/zigbee-watchdog.py
+# runs as root: needs systemctl restart zigbee2mqtt on recovery
