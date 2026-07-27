@@ -11,9 +11,27 @@
 
 Scanned paper arrives in Google Drive. Get it (a) filed into the right folder with a sensible
 name, with human approval, and (b) into Paperless for OCR and search — without ever putting the
-Drive originals at risk.
+Drive originals at risk. Separately, keep a **safety copy** of the whole `ManuAndI` tree.
 
-Two halves, deliberately separate:
+## Four independent pipelines
+
+Deliberately decoupled — each can fail or be paused without stopping the others. This matters
+because Nextcloud has already proven it can go down (see #48), and a Nextcloud outage must not
+stop documents being filed or OCR'd.
+
+| # | Pipeline | Purpose | Trigger |
+|---|---|---|---|
+| **A** | Drive ↔ local (`cloud-drive-sync`, `two_way`) | transport | continuous, 30 s poll |
+| **B** | scan → propose → approve → file **+** Paperless | document processing | event (new file) |
+| **C** | **`ManuAndI` → Nextcloud** | **safety copy — nothing else** | timer, async |
+| **D** | Paperless → Nextcloud + Drive | protect Paperless's own data | timer, async |
+
+**C is not part of the Paperless idea at all.** It exists purely so a second copy of the folder
+tree exists somewhere other than Google Drive. It reads only, never writes back to the source, and
+knows nothing about scans, proposals, approvals or OCR. If B were deleted tomorrow, C would still
+be worth running.
+
+### LIVE vs BACKLOG (applies to pipeline B only)
 
 | | Scope |
 |---|---|
@@ -50,7 +68,7 @@ pressed — one under `ManuAndI`, one for personal documents outside it.
 
 ### Bidirectional sync is correct here
 
-Initially argued for `download_only` as the safe option. **Wrong for this goal:** step 4 below
+Initially argued for `download_only` as the safe option. **Wrong for this goal:** step 8 below
 moves and renames the file, and that move has to propagate *up* to Drive. `download_only` cannot
 do that. So both pairs are `two_way`.
 
@@ -119,6 +137,54 @@ a copy. Two consequences:
 - Nothing of yours can be destroyed by Paperless's normal behaviour, so letting it delete its own
   copy is fine and needs no configuration.
 
+### Pipeline C — `ManuAndI` → Nextcloud: a backup, not a mirror
+
+This is the one rule that defines the whole pipeline:
+
+> **No `--delete`. Ever.**
+
+`★` A mirror propagates deletions, so it gives no protection against the most common way data is
+lost — someone deleting it. Today is the proof: `gdrive-sync` went from **7.0 GB to empty**. A
+`--delete` mirror would have faithfully emptied the Nextcloud copy too, and the 331 scanned PDFs
+would be gone. They survived *only* because the old sync was `upload_only` with no deletion
+propagation.
+
+Consequences of that choice, accepted deliberately:
+
+- The Nextcloud copy **accumulates** and will diverge from Drive over time. That is the point.
+- It is **append-only**, so it protects against deletion but not against a bad *overwrite* — a file
+  corrupted in place would overwrite the good copy. Out-of-band writes get **no Nextcloud version
+  history and no trash**, so Nextcloud won't save you either. `rsync --backup
+  --backup-dir=…/_versions/<date>/` closes that gap cheaply and is recommended.
+- Pruning is a **manual, deliberate** act, never automatic. If it ever prunes itself it has stopped
+  being a backup.
+
+Shape:
+
+```bash
+SRC=/home/matteo/gdrive-sync/ManuAndI/
+DST=/mnt/data/docker_persistent/nextcloud/data/matteofavaro@gmail.com/files/Documents/ManuAndI/
+
+# no --delete;  --backup keeps superseded versions instead of losing them
+rsync -a --backup --backup-dir="../_ManuAndI_versions/$(date +%F)/" "$SRC" "$DST"
+
+# only after rsync exits 0, and always scoped
+ssh 192.168.1.10 'sudo podman exec nextcloud-app php /app/www/public/occ \
+  files:scan --path="/matteofavaro@gmail.com/files/Documents/ManuAndI"'
+```
+
+Notes specific to C:
+
+- **The destination already exists and has content** — `Documents/ManuAndI`, 2888 files / 3.8 G,
+  left by the old `upload_only` bridge. So the first run reconciles rather than seeds.
+- **Runs over NFS, not WebDAV** — same reasoning as everywhere else in this plan.
+- **Async by timer**, nightly. It must not be chained to pipeline B: a scan being filed should not
+  wait on a backup, and a backup should not be skipped because no scans arrived.
+- **Source is read-only** to this pipeline. C never writes into `gdrive-sync`, so it cannot
+  disturb pipeline A or B.
+- If local is empty (as it is right now), a no-`--delete` rsync copies nothing and harms nothing —
+  which is exactly the failure mode this design is built to survive.
+
 ### "Backup Paperless" means two different things
 
 | Want | Mechanism |
@@ -156,6 +222,23 @@ lands locally; create one locally, confirm it reaches Drive.
 
 **Verify:** both directions work; `cloud-drive-sync.log` stays small (the logrotate rule now caps
 it at 100 MB × 5, compressed).
+
+### Track C (independent) — `ManuAndI` → Nextcloud safety copy
+
+**Not part of the B sequence — build it whenever.** Possible as soon as pipeline A is populating
+`gdrive-sync/ManuAndI` (i.e. right after step 1), and deliberately *before* the Paperless work —
+it is the cheapest real safety gain in this plan and has no dependency on n8n, Telegram or OCR.
+
+1. `.service` + `.timer` on bumblebee, nightly.
+2. `rsync -a --backup --backup-dir=…` — **no `--delete`** — into the NFS-mounted Nextcloud path.
+3. Scoped `occ files:scan --path=…` on OP, only on rsync exit 0.
+
+**Verify:**
+- a file added in Drive appears in Nextcloud on the next run **and is visible in the Nextcloud UI**
+  (proves `files:scan` registered it, not just that bytes landed);
+- a file **deleted** in Drive **still exists** in Nextcloud afterwards — this is the acceptance
+  test for the whole pipeline, and the reason it exists;
+- a file **modified** in Drive leaves its previous version under `_ManuAndI_versions/<date>/`.
 
 ### Step 2 — answer the rename question
 
@@ -216,7 +299,7 @@ the "decide later" fallback.
 **Verify:** original present in Drive at its new path; Paperless ingested and deleted its own copy;
 nothing left in `Scanned`.
 
-### Step 9 — the two backup legs
+### Step 9 — the two backup legs (pipeline D)
 
 - **Paperless → Nextcloud**: `document_exporter` → `rsync` over NFS → scoped `occ files:scan`
 - **Paperless → Drive**: separate `cloud-drive-sync` pair
@@ -251,10 +334,16 @@ Bulk-load existing documents into Paperless as copies.
 | Edited file on retry | new content hash → Paperless treats it as a new document. Decide: skip on retry, or accept the duplicate |
 | Nextcloud out-of-band writes | scoped `occ files:scan` **after** rsync; no versions/trash for such files (fine for a backup copy) |
 | `occ files:scan --all` | never — heavy on a 4.2 T instance. Always `--path=` |
+| **Backup mirroring a deletion** | pipeline C uses **no `--delete`**. Today's 7 GB→empty event would have emptied the backup too |
+| Bad overwrite reaching the backup | `rsync --backup --backup-dir=` keeps the superseded copy; out-of-band writes get no Nextcloud versions/trash |
+| Pipelines coupled together | A/B/C/D are independent; a Nextcloud outage must not stop filing or OCR |
 | cloud-drive-sync log growth | capped by `/etc/logrotate.d/cloud-drive-sync` (100 MB × 5, compress, **copytruncate**) |
 
 ## Deferred
 
-- **GDrive → Nextcloud backup via rclone** — second iteration, independent of everything above.
+- **Whole-of-Drive → Nextcloud backup via rclone** — second iteration. Note pipeline C already
+  covers `ManuAndI` specifically; this would extend the same idea to the rest of Drive. rsync over
+  the NFS mount may make rclone unnecessary for anything already synced locally — rclone earns its
+  keep only for Drive folders that are *not* mirrored to local disk.
 - Whether `ManuAndIDocs` is a live tree or dead data. It had no sync pair and was stale since
   April; the local copy is now deleted, and Nextcloud holds `Documents/ManuAndI` (2888 files).
