@@ -264,6 +264,47 @@ units in Keller / Tech room / Stairs):
   spare USB stick.
 - Check each model's datasheet for its specific reset sequence *before* starting, not midway.
 
+### Candidate replacement: SLZB-MR2 (added 2026-07-27)
+
+Being considered as the replacement. Vendor description: compact multi-radio adapter with
+**CC2652P + EFR32MG21 + ESP32**, running Zigbee 3.0 and Matter-over-Thread simultaneously on
+separate SoCs. Ethernet, Wi-Fi or USB, with PoE. SLZB-OS with OTA firmware updates, VPN, HA
+integration, 20+ languages, IPv6, Ethernet-to-Wi-Fi bridge.
+
+**The good news, and it's the decisive point: the MR2 carries a CC2652P — the same radio family
+as the SLZB-06.** So this lands in the middle row of the table above: a same-chip-family swap,
+where restoring `coordinator_backup.json` recreates the identical network (PAN ID, extended PAN
+ID, channel, network key). **No re-pairing, and no touching the in-wall switches.** The
+cross-family risk that would have made this painful does not apply.
+
+**The caution, and it is a real one: this may not fix the thermal problem, which is the whole
+reason for replacing the SLZB-06.** The current unit sits at ~90 °C radio / ~94 °C ESP, and the
+ESP being *hotter than the radio* points at the onboard **PoE-to-5V converter** as the heat
+source, not the radio. The MR2 packs **three** SoCs into a compact enclosure and still offers
+PoE — so powered over PoE it could plausibly run as hot or hotter. Buying it and running it on
+PoE risks reproducing the exact failure we are trying to escape.
+
+Worth resolving before ordering:
+
+- **Plan to power it over USB, not PoE**, if the goal is thermal. That alone removes ~20–30 °C on
+  the current unit and would likely do the same here. If USB is the plan, the MR2's PoE support
+  is a nice-to-have rather than the reason to buy it.
+- **⚠️ USB power breaks the auto-recovery watchdog.** `zigbee-watchdog` recovers a wedged
+  coordinator by **PoE-cycling switch `24:5a:4c:a0:df:56` port 2** via the UniFi API. On USB power
+  there is no PoE port to cycle, so recovery would need a different lever — a smart plug on the
+  USB supply is the obvious substitute, and the watchdog's `poe_cycle()` would need swapping for a
+  plug toggle. Decide this *with* the power decision, not after.
+- If it stays on PoE, check whether the switch port changes, and update `SW_MAC` / `SW_PORT` in
+  `scripts/optimus-prime/zigbee-watchdog.py` accordingly.
+- Look for real-world temperature reports for the MR2 specifically (three SoCs, compact case)
+  before assuming it runs cooler than the 06.
+- The EFR32MG21 gives a Thread/Matter radio we have no current use for — genuine future value,
+  but it isn't a reason to migrate today, and it does add heat.
+
+**Net:** the MR2 makes the *migration* easy (same radio family → backup restore → no re-pairing).
+Whether it fixes the *problem* depends entirely on how it's powered. Sorting the power/cooling
+question is the higher-value work; the hardware swap is the easy part.
+
 ### Ordering suggestion when we do this
 
 1. Firmware update first — it addresses the pending `20260425` item at essentially no risk, and
