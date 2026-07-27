@@ -116,10 +116,70 @@ consume OP's array, not bumblebee's 70 G root — this is unrelated to the root-
 
 ## 2. Immich — why aren't all features enabled/available to every user?
 
-**Added:** 2026-07-27
+**Added:** 2026-07-27 · **ANSWERED 2026-07-27 — nothing is broken. Action pending a decision.**
 
-**The question:** not all Immich features appear to be enabled, or available to all users —
-the example given is **folder creation**. Want to understand why, and enable what should be on.
+### Answer: they are per-user preferences that default to OFF
+
+Immich **v3.0.3** on Optimus Prime (`immich-server`, `immich-database`, `immich-machine-learning`,
+`immich-redis`, `immich-infra`).
+
+Folders, Star rating, Tags and Google Cast are **not** server features that someone forgot to
+switch on. They are **per-user preferences**, and Immich ships them **disabled by default**. The
+"Features" panel on the admin user page is a **read-only status display** — it reports what each
+user has, it is not a place to change anything.
+
+Three independent pieces of evidence:
+
+1. **Immich stores only *deviations* from defaults**, as sparse JSON in
+   `user_metadata` (key = `preferences`). Actual rows:
+
+   | User | `preferences` row |
+   |---|---|
+   | Antonella | `{"cast": {"gCastEnabled": true}}` |
+   | Matteo (admin) | `{"cast": {"gCastEnabled": true}}` |
+   | Stefania | `{"cast": {"gCastEnabled": true}}` |
+   | **Vanni** | **no row at all** |
+   | **Manuela** | **no row at all** |
+
+2. **Vanni has no `user_metadata` rows whatsoever** — so the screenshotted Features panel *is*
+   Immich's default set, read straight off a user with zero overrides:
+   - default **ON**: Email notifications, Memories, People, Shared links, Supporter badge
+   - default **OFF**: **Folders, Star rating, Tags, Google Cast**
+
+3. The server code confirms it — `gCastEnabled: false` is the built-in default. And the
+   server-level flags (`/api/server/features`) contain **no** entry for folders/ratings/tags/cast
+   at all; that list is `smartSearch, facialRecognition, duplicateDetection, map,
+   reverseGeocoding, importFaces, sidecar, search, trash, oauth, ocr, passwordLogin, email,
+   realtimeTranscoding`. So there is no server-side gate on these four.
+
+Proof they are user-toggleable: three users have exactly `{"cast":{"gCastEnabled":true}}` — they
+turned Cast on themselves and only that one deviation got stored.
+
+**So the current reality: nobody has Folders, Tags or Star rating on. Cast is on for 3 of 5.**
+
+### Two ways to change it
+
+- **Per user, in the UI:** each person signs in → **Account Settings → Features** → toggle.
+- **Centrally, as admin:** `PUT /api/admin/users/{id}/preferences`. **Verified this route exists**
+  on 3.0.3 by probing it — it returns **401** (auth required), not 404. Needs an admin API key.
+  This can enable the features for everyone without asking each person to log in.
+
+Prefer the API over writing `user_metadata` directly: a direct DB write bypasses app validation
+and any cache invalidation.
+
+### Side finding worth knowing: email notifications can't actually send
+
+Every user shows **Email notifications ✓** — but that is the *user preference*. The **server** has
+`email: false` in `/api/server/features`, i.e. no SMTP configured. So the preference is on and no
+mail can leave. Either configure SMTP or treat that ✓ as cosmetic.
+
+### Decision needed
+
+Which of Folders / Tags / Star rating / Google Cast to enable, and for whom — just the admin
+account, or all five users. Enabling features on other people's accounts is a change to their
+accounts, so that is a call to make deliberately rather than by default.
+
+### Original framing (superseded by the answer above)
 
 **What to work out when we pick this up:**
 - Which specific features are missing, and missing *for whom* — only for non-admin users, or
