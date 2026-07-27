@@ -15,7 +15,14 @@ Environment=POSTGRES_USER=paperless
 EnvironmentFile=/etc/containers/secrets/paperless.env
 
 HealthCmd=pg_isready -U paperless -d paperless
-HealthInterval=5s
+# 5s -> 30s on 2026-07-27. podman logs a health_status line to syslog on EVERY check, not
+# only on state changes (unlike docker), so 5s meant 17,280 x ~330-byte lines/day from this
+# one container -- the single largest contributor to log volume once Traefik's API access
+# log was silenced. Nothing consumes the fast signal: there is no Notify= (systemd is not
+# gated on health) and no HealthOnFailure=, so the check only sets an informational label.
+# 30s matches paperless.container. Worst-case detection is HealthRetries x HealthInterval
+# = 150s; raise the interval further only if you accept slower detection.
+HealthInterval=30s
 HealthTimeout=5s
 HealthRetries=5
 

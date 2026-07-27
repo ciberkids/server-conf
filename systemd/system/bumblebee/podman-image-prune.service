@@ -1,0 +1,24 @@
+[Unit]
+Description=Monthly deep prune of tagged-but-unused podman images
+After=network.target
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+# `podman system prune -f` (weekly) only removes DANGLING images, so tagged images that no
+# container references accumulate forever. On 2026-07-27 that was ~5 G of stale GitLab CI
+# images, the oldest untouched for 13 months (cirruslabs/flutter:3.41.0 alone was 4.5 G).
+#
+# -a removes every image not referenced by a container. That is safe -- images are
+# re-pullable, no data is lost -- but not free: the next CI pipeline re-downloads its base
+# images. Hence MONTHLY, not weekly, which bounds accumulation to ~1 month while making a
+# re-pull an occasional cost rather than a weekly one.
+#
+# NOTE: do NOT try to soften this with `--filter until=<age>`. That filter matches the
+# image's upstream BUILD timestamp, not when it was pulled or last used -- verified
+# 2026-07-27: a freshly pulled alpine:latest (built 5 weeks prior) was immediately removed
+# by `until=720h`. It looks like a safety net and is not one. Podman tracks no last-used
+# time for images, so cadence is the only honest lever.
+ExecStart=/usr/bin/podman image prune -a -f
+StandardOutput=journal
+StandardError=journal

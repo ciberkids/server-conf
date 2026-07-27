@@ -1,9 +1,17 @@
 [Unit]
 Description=Prune dangling podman images and stopped containers
 After=network.target
+OnFailure=notify-failure@%n.service
 
 [Service]
 Type=oneshot
+# Dangling (untagged) images, stopped containers, unused networks. This exists to clean up
+# after podman-auto-update-notify.timer (00:07), which pulls new images nightly and orphans
+# the old ones -- roughly 8 G/week.
+#
+# Deliberately no -a: tagged images are never touched here. Tagged-but-unused images are
+# handled monthly by podman-image-prune.service, because evicting them weekly would mean
+# repeatedly re-pulling large GitLab CI base images.
 ExecStart=/usr/bin/podman system prune -f
 StandardOutput=journal
 StandardError=journal
