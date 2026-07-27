@@ -196,11 +196,34 @@ Traefik's container-discovery provider polls the podman REST API at ~9.5 req/s, 
 `podman.service` runs `--log-level=info`, which logs every single request to syslog — ~180 MB/day.
 Fixed with a drop-in (`systemd/system/bumblebee/podman-log-level.conf` →
 `/etc/systemd/system/podman.service.d/log-level.conf`) setting `--log-level=warn`.
-Post-fix volume is ~3 MB/day.
 
 `podman.service` is socket-activated (`podman.socket` enabled, service disabled), so apply with
 `systemctl stop podman.service` — the socket re-activates it on the next request. Traefik logs one
 `unexpected EOF` provider error and retries cleanly.
+
+### Current log volume
+
+| | Rate | Dominant source |
+|---|---|---|
+| Before (Apr–Jul 2026) | ~180 MB/day | podman REST API access log (Traefik polling), 92% |
+| After the drop-in | **~41 MB/day** | podman container `health_status` events, **85%** |
+
+Silencing Traefik's polling did not make the log quiet — it just promoted the next-noisiest
+source. `paperless-db` and `paperless-broker` emit a ~300-character `health_status` line every
+few seconds. That is now the thing to attack if the log ever needs to be smaller (lengthen
+`HealthCmd` intervals in those quadlets, or filter the pattern in rsyslog).
+
+Retention is bounded by two directives added to `/etc/logrotate.conf` on 2026-07-27
+(also applied by the playbook, backup at `/etc/logrotate.conf.bak-20260727`):
+
+```
+compress          # ~25x on this data — 1.4 G of retained history becomes ~60 M
+maxsize 500M      # rotate early if a log blows past this inside the weekly window
+```
+
+Both must sit **before** the `include /etc/logrotate.d` line — global options only apply to
+includes that follow them. Effective config is now
+`weekly / rotate 4 / create / dateext / compress / maxsize 500M`.
 
 ### Installed Models (Ollama)
 

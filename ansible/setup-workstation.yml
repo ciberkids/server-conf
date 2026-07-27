@@ -94,6 +94,29 @@
         state: present
 
     # =========================================================
+    # 4b. Log rotation hardening
+    #
+    # /var/log/messages reached 17 G unrotated (Apr-Jul 2026) and took root to 90%.
+    # The rsyslog-logrotate package (in `packages` above) supplies the missing rule;
+    # these two directives bound the retained size. journald on this host is volatile,
+    # so /var/log/messages is the ONLY persistent log — hence compress rather than a
+    # shorter retention. See docs/bumblebee.md#logging.
+    # =========================================================
+    - name: Compress rotated logs (this data compresses ~25x)
+      lineinfile:
+        path: /etc/logrotate.conf
+        regexp: '^#?compress$'
+        line: compress
+        insertbefore: '^include /etc/logrotate.d'
+
+    - name: Cap log size between weekly rotations (guard against a chatty service)
+      lineinfile:
+        path: /etc/logrotate.conf
+        regexp: '^maxsize '
+        line: maxsize 500M
+        insertbefore: '^include /etc/logrotate.d'
+
+    # =========================================================
     # 5. NVIDIA driver (580 legacy for GTX 1080 Ti)
     # =========================================================
     - name: Add NVIDIA CUDA repository
