@@ -201,7 +201,7 @@ correspondents or dates. The `export` volume already exists in the quadlet for t
 
 Ordered so that **nothing before step 7 can lose data.**
 
-### Step 0 — reclaim the dead 8.8 GB
+### Step 0 — reclaim the dead 8.8 GB  ✅ DONE 2026-07-27
 
 `state.db` is 4.4 G + 4.4 G WAL with 0 rows and 99.999% free pages. Needs the daemon stopped
 (it holds the connection open):
@@ -214,6 +214,17 @@ sudo systemctl start cloud-drive-sync
 ```
 
 **Verify:** file drops to KB; daemon starts and reopens the DB cleanly.
+
+**Outcome:** `state.db` 4,674,633,728 → **65,536 bytes**; WAL 4,697,364,472 → **0**; data dir
+**8.9 G → 28 M** (the 28 M is the compressed rotated log). All 6 tables intact,
+`schema_version = 4`, `integrity_check: ok`, daemon reopened cleanly, HTTP 200 on :8090.
+bumblebee `/home` 46 G → 38 G used.
+
+The checkpoint returned `0|0|0` — zero WAL frames — proving the 4.4 GB WAL held **no unflushed
+data**; it had simply never been truncated, because a daemon that holds the connection open for
+months never triggers the truncating checkpoint that happens on clean close. Confirms #49 + its
+comment empirically. **Order matters: checkpoint before vacuum**, so any WAL-only pages are folded
+in before the file is compacted.
 
 ### Step 1 — one sync pair, and prove a round trip
 
