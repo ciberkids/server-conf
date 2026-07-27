@@ -116,7 +116,7 @@ consume OP's array, not bumblebee's 70 G root — this is unrelated to the root-
 
 ## 2. Immich — why aren't all features enabled/available to every user?
 
-**Added:** 2026-07-27 · **ANSWERED 2026-07-27 — nothing is broken. Action pending a decision.**
+**Added:** 2026-07-27 · **RESOLVED same day — nothing was broken; Tags/Ratings/Cast enabled for all 5 users.**
 
 ### Answer: they are per-user preferences that default to OFF
 
