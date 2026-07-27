@@ -208,7 +208,9 @@ else.
 Users may still change any of this themselves in **Account Settings → Features**; this only moved
 the starting point.
 
-**The API key used was a temporary admin key and should be revoked** in Account Settings → API Keys.
+**The temporary admin API key was revoked 2026-07-27 and the revocation verified** — it now returns
+401 where it returned 200 before. Settings are unaffected by the revocation (confirmed in Postgres
+afterwards); the key was only the means of writing them.
 
 ### Authoritative defaults (from `server/dist/utils/preferences.js`, v3.0.3)
 
