@@ -116,6 +116,17 @@
         line: maxsize 500M
         insertbefore: '^include /etc/logrotate.d'
 
+    # maxsize can rotate EARLY under a spike, and `rotate` bounds how many rotations are
+    # kept — so the stock `rotate 4` would leave only days of history in exactly the
+    # incident where you want it. journald here is volatile, so /var/log/messages is the
+    # only persistent log. compress makes depth cheap (~11 MB/rotation), so buy more of it.
+    - name: Keep 12 rotations rather than 4 (history depth; cheap once compressed)
+      lineinfile:
+        path: /etc/logrotate.conf
+        regexp: '^rotate '
+        line: rotate 12
+        insertbefore: '^include /etc/logrotate.d'
+
     # =========================================================
     # 5. NVIDIA driver (580 legacy for GTX 1080 Ti)
     # =========================================================

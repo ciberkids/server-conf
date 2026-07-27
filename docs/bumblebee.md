@@ -213,17 +213,37 @@ source. `paperless-db` and `paperless-broker` emit a ~300-character `health_stat
 few seconds. That is now the thing to attack if the log ever needs to be smaller (lengthen
 `HealthCmd` intervals in those quadlets, or filter the pattern in rsyslog).
 
-Retention is bounded by two directives added to `/etc/logrotate.conf` on 2026-07-27
+Retention is bounded by three directives changed in `/etc/logrotate.conf` on 2026-07-27
 (also applied by the playbook, backup at `/etc/logrotate.conf.bak-20260727`):
 
 ```
-compress          # ~25x on this data — 1.4 G of retained history becomes ~60 M
+compress          # ~25x on this data — measured 17.5 G -> 655 M
 maxsize 500M      # rotate early if a log blows past this inside the weekly window
+rotate 12         # was 4 — see the trade-off below
 ```
 
-Both must sit **before** the `include /etc/logrotate.d` line — global options only apply to
-includes that follow them. Effective config is now
-`weekly / rotate 4 / create / dateext / compress / maxsize 500M`.
+These must sit **before** the `include /etc/logrotate.d` line — global options only apply to
+includes that follow them. Effective config:
+`weekly / rotate 12 / create / dateext / compress / maxsize 500M`.
+
+**The `maxsize` trade-off, stated plainly:** `maxsize` is not free upside. `rotate` bounds how
+many rotations are kept, so when `maxsize` fires early under a spike you keep N *spike-length*
+windows instead of N weeks — with the stock `rotate 4` that could mean only a few days of
+history, in precisely the incident you'd want logs for. Since journald here is volatile, that
+history loss is unrecoverable. `rotate` was raised 4 → 12 to compensate; compression makes the
+depth cheap:
+
+| Scenario | Active file | Retained history | Total |
+|---|---|---|---|
+| Normal (41 MB/day) | ~287 MB/week | 12 × ~11 MB | ~430 MB |
+| Spike (maxsize fires) | ≤ 500 MB | 12 × ~20 MB | ~740 MB |
+
+Both are comfortable against ~29 G free. If you ever prefer a hard size ceiling over history
+depth, lower `rotate` — but know that you are trading away the only persistent log on this host.
+
+**Verified working 2026-07-27** via `logrotate -f`: rotated 506 K → 36 K `.gz`, `gzip -t` passed
+with all lines intact, and a `logger` marker landed in the freshly created file — confirming the
+`sharedscripts` postrotate HUP wins the race against compression.
 
 ### Installed Models (Ollama)
 
