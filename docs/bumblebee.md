@@ -251,8 +251,39 @@ Fixed with a drop-in (`systemd/system/bumblebee/podman-log-level.conf` →
 `/etc/systemd/system/podman.service.d/log-level.conf`) setting `--log-level=warn`.
 
 `podman.service` is socket-activated (`podman.socket` enabled, service disabled), so apply with
-`systemctl stop podman.service` — the socket re-activates it on the next request. Traefik logs one
-`unexpected EOF` provider error and retries cleanly.
+`systemctl stop podman.service` — the socket re-activates it on the next request.
+
+> ### ⚠️ After cycling podman.service, RESTART TRAEFIK
+>
+> Traefik discovers containers through the podman compat API and watches its **event stream**.
+> Cycling `podman.service` kills that stream. Traefik logs one `unexpected EOF`, reconnects, and
+> **keeps serving its existing routing table** — but it has stopped learning about container
+> changes. Every container restarted afterwards gets a new IP that Traefik never sees, and its
+> backend goes stale. Result: **502 Bad Gateway**, while the container is perfectly healthy.
+>
+> Hit exactly this on 2026-07-27: podman cycled at 10:19, then frigate and filebrowser were
+> restarted at ~10:47–11:21. Traefik still pointed at `frigate → 10.88.0.9` when the container had
+> moved to `10.88.0.27`. Fixed by `systemctl restart traefik.service`.
+>
+> **Checking "traefik still knows 18 routers" is NOT sufficient** — the router *count* stays
+> correct while the backend *IPs* rot. That check was made and passed while the fault was already
+> present. Verify the actual backend IPs against the containers:
+>
+> ```bash
+> sudo podman exec traefik wget -qO- http://localhost:8080/api/http/services |
+>   python3 -c 'import json,sys,re
+> for s in json.load(sys.stdin):
+>     for sv in (s.get("loadBalancer") or {}).get("servers") or []:
+>         print(s["name"], sv["url"])'
+> # compare against:
+> for c in $(sudo podman ps --format '{{.Names}}'); do
+>   echo "$c $(sudo podman inspect $c --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}')"
+> done
+> ```
+>
+> Or just end any session that cycled podman with a Traefik restart and an end-to-end HTTP sweep
+> of the routed hostnames — note the hostname is **not** always the service name
+> (searxng is routed as `search.bumblebee.favarohome.com`).
 
 ### Current log volume
 
