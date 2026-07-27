@@ -173,11 +173,65 @@ Every user shows **Email notifications ✓** — but that is the *user preferenc
 `email: false` in `/api/server/features`, i.e. no SMTP configured. So the preference is on and no
 mail can leave. Either configure SMTP or treat that ✓ as cosmetic.
 
-### Decision needed
+### APPLIED 2026-07-27 — Tags, Star rating and Cast enabled for all 5 users
 
-Which of Folders / Tags / Star rating / Google Cast to enable, and for whom — just the admin
-account, or all five users. Enabling features on other people's accounts is a change to their
-accounts, so that is a call to make deliberately rather than by default.
+Decision: enable **Tags, Star rating, Google Cast** for **all five users**. **Folders deliberately
+left OFF** (verified still `false` afterwards).
+
+Done via `PUT /api/admin/users/{id}/preferences` with an admin API key, payload:
+
+```json
+{"tags": {"enabled": true, "sidebarWeb": true},
+ "ratings": {"enabled": true},
+ "cast": {"gCastEnabled": true}}
+```
+
+**`tags.sidebarWeb` matters:** `tags` has *two* flags. Setting only `enabled` turns the feature on
+but leaves it **invisible in the sidebar** — both are needed for "enable Tags" to mean anything.
+`ratings` has no `sidebarWeb` (ratings appear on the asset detail panel, not as a sidebar entry).
+
+Before → after, all five users:
+
+| User | tags | tags.sidebarWeb | ratings | cast | folders |
+|---|---|---|---|---|---|
+| Antonella | false→**true** | false→**true** | false→**true** | true | false (unchanged) |
+| Vanni | false→**true** | false→**true** | false→**true** | false→**true** | false (unchanged) |
+| Manuela | false→**true** | false→**true** | false→**true** | false→**true** | false (unchanged) |
+| Matteo | false→**true** | false→**true** | false→**true** | true | false (unchanged) |
+| Stefania | false→**true** | false→**true** | false→**true** | true | false (unchanged) |
+
+Verified three ways: the PUT responses, an independent fresh GET, and the `user_metadata` rows in
+Postgres. Vanni and Manuela now have `preferences` rows where they previously had none. The
+sparse-storage behaviour is visible in the result — only those three deviations are stored, nothing
+else.
+
+Users may still change any of this themselves in **Account Settings → Features**; this only moved
+the starting point.
+
+**The API key used was a temporary admin key and should be revoked** in Account Settings → API Keys.
+
+### Authoritative defaults (from `server/dist/utils/preferences.js`, v3.0.3)
+
+Useful reference — this is why the panel looked the way it did:
+
+```
+folders:            { enabled: false, sidebarWeb: false }
+tags:               { enabled: false, sidebarWeb: false }
+ratings:            { enabled: false }
+cast:               { gCastEnabled: false }
+recentlyAdded:      { sidebarWeb: false }
+memories:           { enabled: true,  duration: 5 }
+people:             { enabled: true,  sidebarWeb: false, minimumFaces: 3 }
+sharedLinks:        { enabled: true,  sidebarWeb: false }
+emailNotifications: { enabled: true,  albumInvite: true, albumUpdate: true }
+purchase:           { showSupportBadge: true, ... }
+albums:             { defaultAssetOrder: Desc }
+download:           { archiveSize: 4 GiB, includeEmbeddedVideos: false }
+```
+
+Note several `sidebarWeb` flags default `false` even where the feature is enabled (people,
+sharedLinks) — so those features work but don't appear in the sidebar. Worth knowing if anyone
+asks "why isn't People in my sidebar".
 
 ### Original framing (superseded by the answer above)
 
