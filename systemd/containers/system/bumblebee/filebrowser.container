@@ -21,6 +21,13 @@ Environment=TZ=Europe/Zurich
 Environment=PGID=1000
 Environment=PUID=1000
 
+# Override the healthcheck interval baked into the s6 image, which polls every 5s. podman
+# writes a health_status line to syslog on EVERY check (not just on state changes), so the
+# image default cost ~17,280 log lines/day. Added 2026-07-27; nothing here consumes the fast
+# signal (no Notify=, no HealthOnFailure=). There is no HealthCmd= here on purpose — the
+# image's own HEALTHCHECK command is kept, only its cadence is overridden.
+HealthInterval=30s
+
 AutoUpdate=registry
 
 Label=traefik.enable=true

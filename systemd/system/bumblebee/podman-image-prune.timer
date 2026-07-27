@@ -1,0 +1,14 @@
+[Unit]
+Description=Monthly deep podman image prune timer
+Requires=podman-image-prune.service
+
+[Timer]
+# Explicit 02:30 rather than OnCalendar=monthly, which means *-*-01 00:00 and would land
+# (with the randomized delay) on top of podman-auto-update-notify at 00:07 and
+# podman-prune at 00:11. A deep prune must never race a pull.
+OnCalendar=*-*-01 02:30:00
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target

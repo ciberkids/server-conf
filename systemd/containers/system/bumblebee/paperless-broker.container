@@ -11,7 +11,9 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/paperless/redis:/data:rw,Z
 
 HealthCmd=redis-cli ping
-HealthInterval=10s
+# 10s -> 30s on 2026-07-27; see paperless-db.container for the full rationale. podman emits
+# a health_status syslog line on every check, and nothing here consumes the fast signal.
+HealthInterval=30s
 HealthTimeout=5s
 HealthRetries=5
 

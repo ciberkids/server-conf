@@ -380,6 +380,106 @@
       notify: reload systemd
 
     # =========================================================
+    # 9b. Image pruning (two cadences, deliberately)
+    #
+    # weekly  `podman system prune -f`   -> dangling images + stopped containers. Cleans up
+    #                                       after the nightly auto-update (~8 G/week).
+    # monthly `podman image prune -a -f` -> tagged-but-unused images. system prune never
+    #                                       touches these, which let ~5 G of GitLab CI
+    #                                       images accumulate (oldest 13 months) by Jul 2026.
+    #
+    # Monthly rather than weekly because -a evicts CI base images and the next pipeline
+    # re-pulls them. Do NOT "soften" it with --filter until=<age>: that filter matches the
+    # image's upstream BUILD date, not pull or last-used time, so it spares nothing useful
+    # (verified 2026-07-27). Cadence is the only honest lever.
+    # =========================================================
+    - name: Deploy podman prune units
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/{{ item }}"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - podman-prune.service
+        - podman-prune.timer
+        - podman-image-prune.service
+        - podman-image-prune.timer
+      notify: reload systemd
+
+    - name: Enable podman prune timers
+      systemd:
+        name: "{{ item }}"
+        daemon_reload: yes
+        enabled: yes
+        state: started
+      loop:
+        - podman-prune.timer
+        - podman-image-prune.timer
+
+    # =========================================================
+    # 9c. Persistent journald
+    #
+    # This host shipped volatile (no /var/log/journal), so journalctl only ever showed the
+    # current boot. That is why a 17 G unrotated /var/log/messages was the only history.
+    # The size caps matter: journald defaults SystemMaxUse to 10% of the fs (~7 G here).
+    #
+    # The rsyslog drop-in is not optional. On EL9 rsyslog reads system messages from
+    # journald via imjournal, tracking position in a state file. If journald restarts, that
+    # cursor goes stale and rsyslog silently stops writing /var/log/messages while staying
+    # active and exit-0. PartOf= makes rsyslog restart whenever journald does.
+    # =========================================================
+    - name: Create drop-in directories for journald and rsyslog
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - /etc/systemd/journald.conf.d
+        - /etc/systemd/system/rsyslog.service.d
+
+    - name: Deploy journald persistence drop-in
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/journald-persistent.conf"
+        dest: /etc/systemd/journald.conf.d/persistent.conf
+        owner: root
+        group: root
+        mode: "0644"
+      register: journald_conf
+
+    - name: Deploy rsyslog follow-journald drop-in
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/rsyslog-follow-journald.conf"
+        dest: /etc/systemd/system/rsyslog.service.d/follow-journald.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Create the journal directory (its existence is what enables persistence)
+      file:
+        path: /var/log/journal
+        state: directory
+        owner: root
+        group: systemd-journal
+        mode: "2755"
+
+    - name: Apply journal directory ACLs (journald needs these for non-root reads)
+      command: systemd-tmpfiles --create --prefix /var/log/journal
+      changed_when: false
+
+    - name: Restart journald then rsyslog when journald config changed
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - systemd-journald
+        - rsyslog
+      when: journald_conf.changed
+
+    # =========================================================
     # 10. Secrets directory
     # =========================================================
     - name: Create secrets directory for container env files

@@ -53,12 +53,36 @@ nightly and interact:
 | `podman-auto-update-notify.timer` | 00:07 | pulls new images (`AutoUpdate=registry`), orphaning the old ones |
 | `podman-prune.timer` | 00:11 (weekly) | `podman system prune -f` — reclaims those orphans (~8 G/week) |
 
-**The gap:** `podman system prune -f` without `-a` only removes *dangling* (untagged) images. It
-handles the auto-update churn perfectly, but **tagged-yet-unused** images accumulate forever. On
-2026-07-27 that was 8 stale GitLab CI images totalling ~5 G, the oldest untouched for 13 months
-(`cirruslabs/flutter:3.41.0` alone was 4.5 G).
+**The gap that existed until 2026-07-27:** `podman system prune -f` without `-a` only removes
+*dangling* (untagged) images. It handles the auto-update churn perfectly, but
+**tagged-yet-unused** images accumulated forever — 8 stale GitLab CI images totalling ~5 G, the
+oldest untouched for 13 months (`cirruslabs/flutter:3.41.0` alone was 4.5 G).
 
-Check for them periodically:
+Closed by adding a **second, monthly** timer rather than making the weekly one aggressive:
+
+| Timer | When | Command | Removes |
+|-------|------|---------|---------|
+| `podman-prune.timer` | weekly | `podman system prune -f` | dangling images, stopped containers, unused networks |
+| `podman-image-prune.timer` | monthly, `*-*-01 02:30` | `podman image prune -a -f` | **tagged-but-unused** images |
+
+Monthly, not weekly, because `-a` evicts GitLab CI base images and the next pipeline re-pulls
+them — a Flutter job means a 4.5 G download. Monthly bounds accumulation to ~1 month while
+making that an occasional cost. Nothing is at risk either way: images are re-pullable, no data
+is involved. The 02:30 slot is deliberate — clear of the 00:07 auto-update and 00:11 weekly
+prune, so a deep prune never races a pull.
+
+> #### Do NOT "soften" the deep prune with `--filter until=<age>`
+>
+> It looks like a safety net that would spare recently-used caches. It is not. `until` matches
+> the image's **upstream build timestamp from its metadata**, not when you pulled it or last
+> used it. **Verified 2026-07-27:** a freshly pulled `alpine:latest` — pulled seconds earlier,
+> but built 5 weeks prior — was immediately deleted by `--filter until=720h`. Meanwhile
+> `python:3-alpine` reports `Created=2026-06-16`, i.e. Docker Hub's build date.
+>
+> Podman tracks **no last-used time for images at all**, so cadence is the only honest lever.
+
+To audit unused images by hand (note `{{.Size}}` emits two whitespace-separated fields, so this
+needs tab delimiters — a naive `read id repo size` silently reports everything as unused):
 
 ```bash
 sudo podman system df                                   # look at RECLAIMABLE
@@ -67,17 +91,7 @@ sudo podman images --no-trunc --format $'{{.ID}}\t{{.Repository}}:{{.Tag}}\t{{.S
   while IFS=$'\t' read -r id repo size; do
     grep -q "^${id#sha256:}" /tmp/used || printf 'UNUSED  %-12s %s\n' "$size" "$repo"
   done
-sudo podman image prune -a -f                            # removes ALL unused, incl. tagged
 ```
-
-`prune -a` is safe but not free: it evicts GitLab CI base images, so the next pipeline re-pulls
-them (a Flutter job means a 4.5 G download). It was **not** added to the weekly timer for that
-reason — run it by hand when root gets tight.
-
-> `systemd/units/bumblebee/podman-prune.{service,timer}` is a **stale duplicate** (Apr 2026) that
-> specifies `podman image prune -a -f`. The deployed and authoritative copy is
-> `systemd/system/bumblebee/` (May 2026, verified byte-identical to the host). Don't deploy the
-> `units/` copy — it would silently start evicting CI caches weekly.
 
 ## NFS Mounts (from Optimus Prime)
 
@@ -171,10 +185,49 @@ cat /etc/logrotate.d/rsyslog        # must exist; covers cron/maillog/messages/s
 sudo logrotate -d /etc/logrotate.d/rsyslog   # dry run — confirms the files are considered
 ```
 
-**2. journald is volatile on this host — rsyslog holds the only persistent history.**
-There is no `/var/log/journal`, so journald runs RAM-backed out of `/run/log/journal` and loses
-everything on reboot (`journalctl` only ever shows the current boot). That makes
-`/var/log/messages` the sole long-term log. **Never just truncate it** — archive first.
+**2. journald was volatile — FIXED 2026-07-27, but read the rsyslog trap below.**
+There was no `/var/log/journal`, so journald ran RAM-backed out of `/run/log/journal` and lost
+everything on reboot (`journalctl` only ever showed the current boot). That made
+`/var/log/messages` the sole long-term log — which is how a 17 G file went unnoticed.
+
+Now persistent via `systemd/system/bumblebee/journald-persistent.conf` →
+`/etc/systemd/journald.conf.d/persistent.conf`:
+
+```
+Storage=persistent      SystemMaxUse=2G       SystemKeepFree=2G
+Compress=yes            SystemMaxFileSize=128M   MaxRetentionSec=3month
+```
+
+The caps are the point: journald defaults `SystemMaxUse` to **10% of the filesystem**, which is
+~7 G on this 70 G root. Note that persistence is really triggered by the *existence* of
+`/var/log/journal` (with `Storage=auto`, the default) — `Storage=persistent` is set explicitly
+so it does not silently depend on a directory. Create that directory with
+`systemd-tmpfiles --create --prefix /var/log/journal`, not bare `mkdir`, because journald needs
+setgid + `systemd-journal` group ACLs for non-root reads.
+
+> ### ⚠️ Restarting journald silently kills rsyslog
+>
+> On EL9, rsyslog does **not** read `/dev/log` for system messages — it pulls them from
+> journald via the `imjournal` module, tracking its position in
+> `/var/lib/rsyslog/imjournal.state`. Restart journald and that cursor goes stale: rsyslog
+> logs a cheerful `imjournal: journal files changed, reloading...` and then writes **nothing
+> further**, while remaining `active` with exit 0. `/var/log/messages` just flatlines.
+>
+> Observed live on 2026-07-27 while switching journald to persistent — `/var/log/messages`
+> stopped dead at the exact second journald restarted. Fixed by `systemctl restart rsyslog`.
+>
+> Guarded permanently by `systemd/system/bumblebee/rsyslog-follow-journald.conf` →
+> `/etc/systemd/system/rsyslog.service.d/follow-journald.conf`, which sets
+> `PartOf=systemd-journald.service` so systemd restarts rsyslog whenever journald restarts.
+> **Verified** by restarting journald and confirming rsyslogd got a new PID and logging
+> continued. If you ever see `/var/log/messages` stop while journald is fine, check this first.
+
+Both logs now persist, which is deliberately redundant — journald (2 G cap) and rsyslog
+(~91 MB/week, compressed on rotation). Total well under 3 G. `/var/log/messages` could be
+slimmed now that journald survives reboots, but it is kept because existing tooling and
+runbooks grep it.
+
+**Never just truncate `/var/log/messages`** — archive first (procedure below).
 
 To reclaim it safely (rsyslog holds the fd, so the order matters):
 
@@ -203,15 +256,36 @@ Fixed with a drop-in (`systemd/system/bumblebee/podman-log-level.conf` →
 
 ### Current log volume
 
+All measured on this host, 2026-07-27:
+
 | | Rate | Dominant source |
 |---|---|---|
 | Before (Apr–Jul 2026) | ~180 MB/day | podman REST API access log (Traefik polling), 92% |
-| After the drop-in | **~41 MB/day** | podman container `health_status` events, **85%** |
+| After the podman drop-in | ~37 MB/day | podman container `health_status` events, 85% |
+| After the healthcheck fix | **~13 MB/day** | ordinary system chatter |
 
-Silencing Traefik's polling did not make the log quiet — it just promoted the next-noisiest
-source. `paperless-db` and `paperless-broker` emit a ~300-character `health_status` line every
-few seconds. That is now the thing to attack if the log ever needs to be smaller (lengthen
-`HealthCmd` intervals in those quadlets, or filter the pattern in rsyslog).
+Silencing Traefik's polling did not make the log quiet — it promoted the next-noisiest source.
+
+**The `health_status` mechanism, because it is not obvious:** podman writes a syslog line on
+**every healthcheck run**, not only when health *changes* (this differs from docker). Each line
+is ~330 characters. So a 5-second interval costs 17,280 lines/day from a single container.
+
+Four containers were polling aggressively — three of them pointlessly:
+
+| Container | Was | Now | Where the interval came from |
+|---|---|---|---|
+| `paperless-db` | 5s | 30s | quadlet `HealthInterval=` (upstream compose default) |
+| `filebrowser` | 5s | 30s | the **image's own `HEALTHCHECK`** — needed a quadlet override to add |
+| `paperless-broker` | 10s | 30s | quadlet `HealthInterval=` |
+| `paperless` | 30s | 30s | unchanged, already sane |
+
+That is 32 → 8 health events/min. Raising them was risk-free because **nothing consumed the
+fast signal**: none of the three has `Notify=` (so systemd readiness is not gated on health)
+or `HealthOnFailure=` (so nothing restarts on it). The check only set an informational label.
+Worst-case failure detection is now `HealthRetries × HealthInterval` = 150s.
+
+`prometheus-podman-exporter` does scrape health status, so its view can now be up to 30s
+stale — irrelevant for dashboards, worth knowing if you ever alert on it.
 
 Retention is bounded by three directives changed in `/etc/logrotate.conf` on 2026-07-27
 (also applied by the playbook, backup at `/etc/logrotate.conf.bak-20260727`):
