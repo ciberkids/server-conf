@@ -1,0 +1,23 @@
+# cloud-drive-sync writes its own log with no rotation and no size cap. On this host it
+# reached 4.6 GB (334k lines, ~440 KB per line) because failed WebDAV actions log the
+# entire request payload -- see ciberkids/cloud-drive-sync#48. Until that is fixed
+# upstream, bound it here.
+#
+# copytruncate is REQUIRED: the daemon holds the log fd open for its whole lifetime and
+# has no SIGHUP reopen. A normal rename-based rotation would leave it writing to the
+# renamed inode forever, so the "new" log would stay empty while the old one kept growing.
+#
+# su root root: the log is root-owned but sits in a matteo-owned directory, which logrotate
+# refuses to touch without an explicit su.
+#
+# size (not daily): growth is bursty -- an error storm can add GB in hours, so rotate on
+# size rather than on a calendar.
+/home/matteo/docker_persistent/cloud-drive-sync/data/cloud-drive-sync.log {
+    su root root
+    size 100M
+    rotate 5
+    compress
+    missingok
+    notifempty
+    copytruncate
+}

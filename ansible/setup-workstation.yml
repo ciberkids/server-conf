@@ -380,6 +380,23 @@
       notify: reload systemd
 
     # =========================================================
+    # 9a. logrotate rule for cloud-drive-sync's own log
+    #
+    # The app writes its own log with no rotation and no size cap; on this host it reached
+    # 4.6 GB (334k lines averaging ~440 KB each) because failed WebDAV actions log the whole
+    # request payload -- ciberkids/cloud-drive-sync#48. copytruncate is REQUIRED: the daemon
+    # holds the log fd for its whole lifetime with no SIGHUP reopen, so a rename-based
+    # rotation would leave it writing to the renamed inode forever.
+    # =========================================================
+    - name: Deploy logrotate rule for cloud-drive-sync
+      copy:
+        src: "{{ playbook_dir }}/../config/logrotate/bumblebee/cloud-drive-sync"
+        dest: /etc/logrotate.d/cloud-drive-sync
+        owner: root
+        group: root
+        mode: "0644"
+
+    # =========================================================
     # 9b. Image pruning (two cadences, deliberately)
     #
     # weekly  `podman system prune -f`   -> dangling images + stopped containers. Cleans up
