@@ -8,7 +8,7 @@ so the reasoning stays findable.
 
 ## 1. Frigate NVR — false positives + video retention
 
-**Added:** 2026-07-27 · **False positives: FIXED same day. Retention: awaiting a decision.**
+**Added:** 2026-07-27 · **RESOLVED same day — false positives fixed, retention set.**
 
 ### Outcome (2026-07-27)
 
@@ -58,43 +58,53 @@ config, harmless.
 > committable with secrets pulled from an env file. Worth doing as its own task.
 > Backup of the pre-change config: `config.yml.bak-objectmask-1785143182`.
 
-### Retention — still to decide
+### Retention — the storage premise was wrong
 
-**The storage premise was mostly wrong, and worth saying plainly:** Frigate is using **2.6 G
-total** (2.2 G recordings + 356 M clips) of an **11 T** mount with 3.9 T free, and retention is
-*already* bounded by Frigate's defaults — 10 days for alerts, detections and snapshots, with
-continuous recording **not** retained (`record.retain` unset). Nothing is running away.
+Worth saying plainly: Frigate was using **2.6 G total** (2.2 G recordings + 356 M clips) of an
+**11 T** mount with 3.9 T free, and retention was *already* bounded by Frigate's defaults — 10
+days for alerts, detections and snapshots, with no 24/7 footage kept
+(`record.continuous.days: 0`). Nothing was running away.
 
 So the real waste was proportional, not absolute: 83% of events were the coat, and each carried a
-clip plus a snapshot. Masking it removes that at the source.
+clip plus a snapshot. Masking it removes that at the source. What retention work remained was
+making it **deliberate rather than inherited** — nothing to reclaim.
 
-What remains is making retention **deliberate rather than inherited**. Nothing to reclaim — just
-a decision to record explicitly so it survives a rebuild and reflects intent.
+### Retention — DECIDED AND APPLIED 2026-07-27
 
-**The problem:** the AI object-recognition feature produces a lot of false positives. Two costs:
-noise in the alerts, and wasted storage from recording events that aren't real. Separately, video
-retention isn't configured, so footage accumulates without bound.
+Chosen: longer explicit event retention, no 24/7 recording.
 
-**Two goals, related but distinct:**
+| Setting | Was (inherited) | Now (explicit) |
+|---|---|---|
+| `record.continuous.days` | 0 | **0** — no 24/7 footage, as chosen |
+| `record.motion.days` | 0 | **0** |
+| `record.alerts.retain` | 10 d | **30 d** |
+| `record.detections.retain` | 10 d | **14 d** |
+| `snapshots.retain.default` | 10 d | **30 d** |
 
-1. **Cut the false positives.** Improve detection accuracy so Frigate stops recording
-   non-events.
-2. **Set up retention.** Bound how long recordings and event clips are kept, so storage is
-   predictable regardless of detection accuracy.
+Every value only *increases* retention, so nothing was deleted. Verified in the effective config
+on both cameras.
 
-**Where to start when we pick this up:**
-- Which cameras are worst, and what's being mis-detected as what (person vs. car vs. animal;
-  shadows, headlights, rain, moving foliage, spiders on the lens at night are the usual
-  suspects).
-- Current `detect` / `objects` / `record` config per camera, and whether `zones` and
-  `filters` (min/max `area`, `threshold`, `min_score`, `ratio`) are set at all — untuned
-  defaults are the most common cause of exactly this.
-- `snapshots`/`record` retain settings, plus whether `record.alerts` /
-  `record.detections` retention differs from continuous recording.
-- Actual disk consumption today and the growth rate, so retention can be chosen from real
-  numbers rather than guessed.
+> ⚠️ **Frigate 0.17 has no `record.retain` key.** It was split into `record.continuous` and
+> `record.motion`. Setting `record.retain` puts Frigate into **SAFE MODE** — cameras stop and the
+> detector falls back to CPU. This happened during this change and was rolled back within ~90 s.
+> The subtle part: reading the effective config, `record.get("retain")` returns `None` whether the
+> key is *absent* or *null*, so it looked configurable when it no longer exists. **Check
+> `/api/config/schema.json` and validate keys against it before editing this block** —
+> `RecordConfig` allows only `enabled, sync_recordings, expire_interval, continuous, motion,
+> detections, alerts, export, preview`. Backups: `config.yml.bak-retention-*`.
 
-**Context already known:** Frigate runs on bumblebee, GPU object detection via the
+### Original ask (for the record)
+
+> "a bunch of false positives on the ai recognition feature and I would like to fix them in order
+> to limit the waste of storage, also I would like to set up the retention of the videos for the
+> same reason"
+
+Both parts are now done. The false-positive cause turned out to be a single physical object, and
+the storage motivation turned out not to apply — see above.
+
+### Environment
+
+Frigate runs on bumblebee, GPU object detection via the
 TensorRT build, reachable at `frigate.bumblebee.favarohome.com`. MQTT is enabled and it's
 integrated into Home Assistant. Config is bind-mounted from
 `/etc/containers/frigate/config`; recordings go to `/mnt/data/frigate` — verified, and
@@ -211,5 +221,57 @@ against a fuller one.)
 3. Whether HA should retry failed `set` commands, so a single lost packet doesn't silently
    skip a pump schedule. That is arguably the highest-value fix: it makes the schedule robust
    regardless of mesh health.
+
+---
+
+## 4. Does upgrading/changing the Zigbee coordinator force re-pairing every device?
+
+**Added:** 2026-07-27. Prompted by two pending items: the SLZB-06 firmware update
+(`20260310` → `20260425`) and the possibility of swapping the coordinator hardware to escape its
+~90 °C thermal problem. The worry: devices installed **behind wall switches** can't easily be
+factory-reset by hand.
+
+### Short answer: in the two most likely cases, no re-pairing
+
+A Zigbee device doesn't bond to a *coordinator*; it joins a *network*, identified by **PAN ID,
+extended PAN ID, channel, and the network key**. Preserve those four and devices keep working —
+they neither know nor care that the radio hardware changed.
+
+| Scenario | Re-pair needed? | Why |
+|---|---|---|
+| **Firmware update, same SLZB-06** | **No** | A normal CC2652 firmware flash preserves NVRAM (network config + device table). This is the low-risk path and the one already queued. |
+| **Replace with same chip family** (another CC2652 stick) | **No**, if the coordinator backup is restored | z2m keeps `coordinator_backup.json` and writes the saved PAN ID / keys onto the new adapter, so the network is recreated identically. |
+| **Cross-family** (CC2652 → Silabs EFR32, e.g. SLZB-07) | **Maybe** | zigbee-herdsman can convert backups between stacks and z2m documents adapter migration, but this is the genuinely risky path and wants its own research before committing. |
+
+**We already have the backup:** `/mnt/data/docker_persistent/zigbee2mqtt/data/coordinator_backup.json`
+(15,846 bytes, last written 2026-07-25). z2m refreshes it on start/stop. **Confirm it is fresh
+immediately before any swap** — a stale backup is the one thing that would turn a no-re-pair
+migration into a re-pair-everything migration.
+
+### If re-pairing ever *is* needed, physical access is not the only option
+
+This is the part worth knowing given the in-wall switches (the Vesternet/Sunricher VES-ZB-SWI-005
+units in Keller / Tech room / Stairs):
+
+- **The breaker is the reset button.** Most in-wall Zigbee switches reset via a power-cycle
+  *pattern* (a set number of off/on cycles). That's done at the fuse box — no need to open the
+  wall plate or remove the switch.
+- **Ask the device to leave and rejoin** from the coordinator side (ZDO leave with `rejoin=true`),
+  no physical contact at all. Only works while the device is still reachable — so if a migration
+  is planned, do this *before* tearing anything down, not after.
+- **Touchlink reset** works for Zigbee Light Link devices without physical access, but needs the
+  coordinator physically near the device — awkward for a PoE-mounted SLZB-06, easier with a
+  spare USB stick.
+- Check each model's datasheet for its specific reset sequence *before* starting, not midway.
+
+### Ordering suggestion when we do this
+
+1. Firmware update first — it addresses the pending `20260425` item at essentially no risk, and
+   might even help the recurring wedge. Do it while nothing else is changing.
+2. Only then consider hardware. The real driver for a swap is thermal (~90 °C radio / ~94 °C ESP,
+   see [[project-z2m-radio-stuck-bootloader]]) — but note that simply **moving the SLZB-06 to USB
+   power instead of PoE** removes ~20–30 °C without touching the network at all. Try that before
+   any migration.
+3. Verify `coordinator_backup.json` is current, and copy it somewhere off-box, before either step.
 
 ---
