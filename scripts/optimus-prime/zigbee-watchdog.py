@@ -124,9 +124,12 @@ def recover():
             ok = True
             break
     if ok:
+        # Don't name a firmware version here. An earlier version of this message pointed at
+        # "fw 20260425", which does not exist -- the radio is already on the newest coordinator
+        # build (20260311). Verified 2026-07-27; see docs and memory. Cooling is the real lever.
         telegram("✅ <b>Zigbee watchdog</b>: recovered — device traffic resumed. "
                  "⚠️ This is the recurring coordinator wedge (radio ~90 °C) — a stopgap, "
-                 "not a fix. Permanent fix = cooling/relocation (USB power) + fw 20260425.")
+                 "not a fix. Permanent fix = cooling (USB power instead of PoE) / relocation.")
         log("recovery OK")
     else:
         telegram("⚠️ <b>Zigbee watchdog</b>: PoE-cycled + restarted z2m but traffic hasn't "

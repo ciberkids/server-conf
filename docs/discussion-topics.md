@@ -342,10 +342,48 @@ against a fuller one.)
 
 ## 4. Does upgrading/changing the Zigbee coordinator force re-pairing every device?
 
-**Added:** 2026-07-27. Prompted by two pending items: the SLZB-06 firmware update
-(`20260310` → `20260425`) and the possibility of swapping the coordinator hardware to escape its
-~90 °C thermal problem. The worry: devices installed **behind wall switches** can't easily be
+**Added:** 2026-07-27. Prompted by the possibility of swapping the coordinator hardware to escape
+its ~90 °C thermal problem. The worry: devices installed **behind wall switches** can't easily be
 factory-reset by hand.
+
+> ### ⚠️ Correction 2026-07-27 — the "firmware update" I recommended does not exist
+>
+> This topic originally cited a pending SLZB-06 update `20260310` → `20260425`. **Both halves of
+> that were wrong**, and the user was right to push back. Verified against the device and
+> SMLIGHT's own manifest:
+>
+> - The device runs **`zb_version = 20260311`** (not 20260310), `zb_type = 0` = **ZB_COORDINATOR**,
+>   `zb_hw = CC2652P`, SLZB-OS `sw_version = v3.3.1`.
+> - **`20260425` does not exist** — for any type, any model, anywhere in the manifest.
+> - **20260311 is already the newest coordinator build** for SLZB-06. There is nothing to update
+>   to. (`20260310` is the *same build* at 460800 baud rather than 115200 — switching would mean
+>   matching z2m's adapter baud rate, so it is a config change, not an upgrade.)
+> - SLZB-OS v3.3.1 is also the newest **non-dev** release; only `v3.3.5.dev1` is ahead of it.
+>
+> **The user's underlying point was correct and important even though the version number was
+> wrong:** SLZB firmware *is* mode-specific, and the OTA list mixes the modes together.
+> `RADIO_MODE` = `0 ZB_COORDINATOR, 1 ZB_ROUTER, 2 THREAD_RCP, 3 MULTIPAN, 4 ZHUB, 8 THREAD_BR`,
+> and the flash call passes `&fwType=`. Newest per type for SLZB-06: **coordinator 20260311,
+> router 20250403, Thread 20260304**. Flashing a *router* build onto the coordinator would stop it
+> being a coordinator and take the whole network down. Always cross-check the manifest `type`
+> against `Info.zb_type`.
+>
+> Sources: device `http://192.168.1.69/ha_info`; manifest
+> `https://updates.smlight.tech/services/api/slzb-06x-ota.php?type=ZB&format=slzb` (JSON keyed by
+> model ID — **SLZB-06 is key `"0"`**).
+>
+> **A genuinely new lead came out of this: the coordinator is running a BETA build.** 20260311 has
+> `prod: None` and is labelled *(Beta)*; the only `prod: true` coordinator builds are **20240710**
+> and 20221226. Its release notes describe precisely the layer that fails in these wedges —
+> *"Removed one layer of abstraction in the UART path… Optimized UART RX/TX ring buffers… Optimized
+> NPI task stack usage… Optimized DMA and UART priorities… Optimized FIFO thresholds."* A wedge
+> where SYS-ping still answers but AF-dataRequest times out is consistent with an NPI/UART fault.
+> So the available lever is a **downgrade to 20240710**, not an update.
+>
+> **But weigh the counter-evidence:** that build is dated 11 Mar 2026 and the wedges only started
+> in late July — peak summer. Rising ambient on a device already sitting at ~90 °C explains the
+> timing better than a firmware that had been stable for four months. **Test cooling first**
+> (USB power), keep the beta-downgrade as the second lever, and change one variable at a time.
 
 ### Short answer: in the two most likely cases, no re-pairing
 
@@ -423,12 +461,20 @@ question is the higher-value work; the hardware swap is the easy part.
 
 ### Ordering suggestion when we do this
 
-1. Firmware update first — it addresses the pending `20260425` item at essentially no risk, and
-   might even help the recurring wedge. Do it while nothing else is changing.
-2. Only then consider hardware. The real driver for a swap is thermal (~90 °C radio / ~94 °C ESP,
-   see [[project-z2m-radio-stuck-bootloader]]) — but note that simply **moving the SLZB-06 to USB
-   power instead of PoE** removes ~20–30 °C without touching the network at all. Try that before
-   any migration.
-3. Verify `coordinator_backup.json` is current, and copy it somewhere off-box, before either step.
+Revised after the firmware correction above — there is no update to do, so cooling moves to first
+place. **Change one variable at a time**, or you won't know which one worked.
+
+1. **Copy `coordinator_backup.json` off-box first**, and confirm it is current. Cheap, and it is
+   the thing that makes every later step reversible without re-pairing.
+2. **Power the SLZB-06 from USB instead of PoE.** Costs nothing, needs no hardware purchase, and
+   directly targets the leading suspect (~20–30 °C reduction; the ESP running *hotter* than the
+   radio points at the PoE-to-5V converter). ⚠️ **This disables the watchdog's recovery path** —
+   it PoE-cycles switch `24:5a:4c:a0:df:56` port 2, and there is no port to cycle on USB. Put a
+   smart plug on the USB supply and swap `poe_cycle()` for a plug toggle in the same change.
+3. **If wedges persist after it runs cool, downgrade the radio to 20240710** (last `prod: true`
+   coordinator build) to test the beta-firmware hypothesis. Same chip, same mode — no re-pairing.
+4. **Only then consider the hardware swap** (SLZB-MR2). By that point you will know whether the
+   problem is heat or firmware, which is exactly what decides whether new hardware would help —
+   and whether to run it on PoE or USB.
 
 ---
