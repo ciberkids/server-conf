@@ -25,11 +25,59 @@ Secondary workstation with GPU compute capability.
 
 | Mount | Device | Filesystem | Size | Purpose |
 |-------|--------|-----------|------|---------|
-| `/` | almalinux_bumblebee-root | xfs | — | Root |
-| `/boot` | UUID partition | xfs | — | Boot |
-| `/boot/efi` | UUID partition | vfat | — | EFI |
-| `/home` | almalinux_bumblebee-home | xfs | — | Home |
-| swap | almalinux_bumblebee-swap | swap | — | Swap |
+| `/` | almalinux_bumblebee-root | xfs | 70 G | Root — **the tight one**; holds `/var/lib/containers` (~37 G of images) |
+| `/boot` | UUID partition | xfs | 960 M | Boot |
+| `/boot/efi` | UUID partition | vfat | 599 M | EFI |
+| `/home` | almalinux_bumblebee-home | xfs | 386 G | Home — lots of headroom (~335 G free) |
+| swap | almalinux_bumblebee-swap | swap | 7.84 G | LV exists but **not active** (commented out in `/etc/fstab`) |
+
+Root is the only constrained filesystem. If it tightens again there is an escape hatch —
+the VG has the inactive 7.84 G swap LV, and `/home` is oversized relative to use. XFS grows
+online, so root can be extended without downtime:
+
+```bash
+sudo lvextend -L +10G /dev/almalinux_bumblebee/root
+sudo xfs_growfs /                     # xfs can only grow, never shrink
+```
+
+Reclaiming space from `/home` first requires shrinking it — and **XFS cannot shrink**, so that
+path means backup + recreate. Prefer taking the free VG extents or the swap LV.
+
+### Container image growth (and what the weekly prune does *not* catch)
+
+`/var/lib/containers` is the largest consumer on root (~37 G for 21 active images). Two jobs run
+nightly and interact:
+
+| Timer | When | What |
+|-------|------|------|
+| `podman-auto-update-notify.timer` | 00:07 | pulls new images (`AutoUpdate=registry`), orphaning the old ones |
+| `podman-prune.timer` | 00:11 (weekly) | `podman system prune -f` — reclaims those orphans (~8 G/week) |
+
+**The gap:** `podman system prune -f` without `-a` only removes *dangling* (untagged) images. It
+handles the auto-update churn perfectly, but **tagged-yet-unused** images accumulate forever. On
+2026-07-27 that was 8 stale GitLab CI images totalling ~5 G, the oldest untouched for 13 months
+(`cirruslabs/flutter:3.41.0` alone was 4.5 G).
+
+Check for them periodically:
+
+```bash
+sudo podman system df                                   # look at RECLAIMABLE
+sudo podman ps -a --no-trunc --format '{{.ImageID}}' | sed 's|^sha256:||' | sort -u > /tmp/used
+sudo podman images --no-trunc --format $'{{.ID}}\t{{.Repository}}:{{.Tag}}\t{{.Size}}' |
+  while IFS=$'\t' read -r id repo size; do
+    grep -q "^${id#sha256:}" /tmp/used || printf 'UNUSED  %-12s %s\n' "$size" "$repo"
+  done
+sudo podman image prune -a -f                            # removes ALL unused, incl. tagged
+```
+
+`prune -a` is safe but not free: it evicts GitLab CI base images, so the next pipeline re-pulls
+them (a Flutter job means a 4.5 G download). It was **not** added to the weekly timer for that
+reason — run it by hand when root gets tight.
+
+> `systemd/units/bumblebee/podman-prune.{service,timer}` is a **stale duplicate** (Apr 2026) that
+> specifies `podman image prune -a -f`. The deployed and authoritative copy is
+> `systemd/system/bumblebee/` (May 2026, verified byte-identical to the host). Don't deploy the
+> `units/` copy — it would silently start evicting CI caches weekly.
 
 ## NFS Mounts (from Optimus Prime)
 
@@ -61,6 +109,9 @@ All mounts use `defaults,_netdev` and are in `/etc/fstab`.
 - samba, samba-client
 - nfs-utils
 - policycoreutils-python-utils (semanage)
+- rsyslog, **rsyslog-logrotate** (the second one is a separate package on EL9 and is
+  mandatory — without it `/var/log/messages` never rotates; see [Logging](#logging-read-this-before-debugging-a-full-root-filesystem))
+- pigz (parallel gzip — used for log archiving)
 - fastfetch (enabled for all users via `/etc/profile.d/fastfetch.sh`)
 - btop
 - nvtop
@@ -102,6 +153,54 @@ OpenClaw workspace is at `/home/matteo/openclaw-workspace/` (mount symlinks to p
 | Service | Port | Description |
 |---------|------|-------------|
 | Cockpit | 9090 | Server management UI |
+
+## Logging (read this before debugging a full root filesystem)
+
+Two traps here bit us on 2026-07-27, when `/var/log/messages` had grown to **17 G** and root
+hit 90%.
+
+**1. `rsyslog-logrotate` is a separate package on EL9 — and it was missing.**
+Older RHEL shipped `/etc/logrotate.d/rsyslog` inside the `rsyslog` package. EL9 split it into
+`rsyslog-logrotate`. Without it, logrotate runs daily, exits 0, and rotates **nothing** —
+`/var/log/messages` grew unrotated for 97 days. `rpm -V rsyslog` comes back clean because the
+missing file was never owned by that package, so nothing flags it.
+
+```bash
+rpm -q rsyslog-logrotate            # MUST be installed
+cat /etc/logrotate.d/rsyslog        # must exist; covers cron/maillog/messages/secure/spooler
+sudo logrotate -d /etc/logrotate.d/rsyslog   # dry run — confirms the files are considered
+```
+
+**2. journald is volatile on this host — rsyslog holds the only persistent history.**
+There is no `/var/log/journal`, so journald runs RAM-backed out of `/run/log/journal` and loses
+everything on reboot (`journalctl` only ever shows the current boot). That makes
+`/var/log/messages` the sole long-term log. **Never just truncate it** — archive first.
+
+To reclaim it safely (rsyslog holds the fd, so the order matters):
+
+```bash
+sudo pigz -c /var/log/messages > /home/matteo/logarchive/messages-<range>.gz
+pigz -dc /home/matteo/logarchive/messages-<range>.gz | wc -l   # verify CRC before destroying
+sudo truncate -s 0 /var/log/messages
+sudo systemctl kill -s HUP rsyslog.service   # REQUIRED: reopens at offset 0
+```
+
+Skipping the HUP leaves rsyslog writing at its old offset, producing a **sparse** file that
+reports 17 G in `ls -l` forever. Verify with `df -h /` **and** `du -sh /var/log/messages`.
+
+Log volume compresses ~25x (17.5 G → 655 M). Archives live in `/home/matteo/logarchive/`
+(deliberately on `/home`, not root).
+
+**3. The podman API access log was 92% of the volume.**
+Traefik's container-discovery provider polls the podman REST API at ~9.5 req/s, and the packaged
+`podman.service` runs `--log-level=info`, which logs every single request to syslog — ~180 MB/day.
+Fixed with a drop-in (`systemd/system/bumblebee/podman-log-level.conf` →
+`/etc/systemd/system/podman.service.d/log-level.conf`) setting `--log-level=warn`.
+Post-fix volume is ~3 MB/day.
+
+`podman.service` is socket-activated (`podman.socket` enabled, service disabled), so apply with
+`systemctl stop podman.service` — the socket re-activates it on the next request. Traefik logs one
+`unexpected EOF` provider error and retries cleanly.
 
 ### Installed Models (Ollama)
 

@@ -50,6 +50,13 @@
       - btop
       - nvtop
       - epel-release
+      # rsyslog-logrotate is a SEPARATE package on EL9 (it was bundled into rsyslog on
+      # older RHEL). Without it logrotate has no rule for /var/log/messages, exits 0
+      # daily, and rotates nothing — that is how messages reached 17 G and filled root
+      # in Jul 2026. rpm -V rsyslog stays clean, so nothing warns you. Keep it listed.
+      - rsyslog
+      - rsyslog-logrotate
+      - pigz            # parallel gzip, for archiving large logs off root
 
   tasks:
     # =========================================================
@@ -315,6 +322,28 @@
         daemon_reload: yes
         enabled: yes
         state: started
+
+    # Quiet the podman REST API access log. Traefik's container-discovery provider
+    # polls this API ~9.5 req/s and the packaged unit ships --log-level=info, which
+    # logs every request to syslog (~180 MB/day, 92% of a 17 G /var/log/messages in
+    # Jul 2026). A drop-in survives podman package updates; editing the vendor unit
+    # in /usr/lib/systemd/system would not.
+    - name: Create podman.service drop-in directory
+      file:
+        path: /etc/systemd/system/podman.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy podman API log-level drop-in
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/podman-log-level.conf"
+        dest: /etc/systemd/system/podman.service.d/log-level.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload systemd
 
     # =========================================================
     # 10. Secrets directory
