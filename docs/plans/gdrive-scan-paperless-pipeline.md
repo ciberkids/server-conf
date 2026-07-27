@@ -225,9 +225,25 @@ it at 100 MB × 5, compressed).
 
 ### Track C (independent) — `ManuAndI` → Nextcloud safety copy
 
-**Not part of the B sequence — build it whenever.** Possible as soon as pipeline A is populating
-`gdrive-sync/ManuAndI` (i.e. right after step 1), and deliberately *before* the Paperless work —
-it is the cheapest real safety gain in this plan and has no dependency on n8n, Telegram or OCR.
+**Not part of the B sequence — build it before the Paperless work.** It needs neither n8n, Telegram
+nor OCR, and is the cheapest real safety gain in this plan.
+
+> ### ⛔ Prerequisite: wait for pipeline A to reach a STABLE sync first
+>
+> Do not build C while the initial `ManuAndI` download is still running. With no `--delete` an early
+> run is *harmless* — it cannot lose anything — but it makes the **verification worthless**: a file
+> absent from the backup is indistinguishable from a file that simply hasn't downloaded yet. A
+> backup you cannot validate is not meaningfully a backup.
+>
+> "Stable" is measurable, not a feeling. All four should hold:
+>
+> 1. the pair reports **idle / sync complete** in the UI (:8090), not in-progress;
+> 2. **no pending or partial transfers** — `partial_transfers` empty in `state.db`;
+> 3. local file count **and** total bytes match the Drive folder;
+> 4. **a full poll cycle (30 s) passes with zero changes**, twice in a row — one quiet cycle can
+>    just be a gap between batches.
+>
+> Only then does the acceptance test below mean anything.
 
 1. `.service` + `.timer` on bumblebee, nightly.
 2. `rsync -a --backup --backup-dir=…` — **no `--delete`** — into the NFS-mounted Nextcloud path.
@@ -337,6 +353,7 @@ Bulk-load existing documents into Paperless as copies.
 | **Backup mirroring a deletion** | pipeline C uses **no `--delete`**. Today's 7 GB→empty event would have emptied the backup too |
 | Bad overwrite reaching the backup | `rsync --backup --backup-dir=` keeps the superseded copy; out-of-band writes get no Nextcloud versions/trash |
 | Pipelines coupled together | A/B/C/D are independent; a Nextcloud outage must not stop filing or OCR |
+| Backing up mid-download | C waits for a **stable** A sync — otherwise "missing from backup" and "not yet downloaded" look identical and the verification proves nothing |
 | cloud-drive-sync log growth | capped by `/etc/logrotate.d/cloud-drive-sync` (100 MB × 5, compress, **copytruncate**) |
 
 ## Deferred
