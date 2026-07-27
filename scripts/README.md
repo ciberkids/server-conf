@@ -1,15 +1,94 @@
 # Scripts
 
-Utility scripts for managing homelab services. All scripts are designed to run on **Optimus Prime** (192.168.1.10) unless noted otherwise.
+Utility scripts for managing homelab services.
+
+**Where each runs:** `optimus-prime/` on OP (192.168.1.10), `bumblebee/` on bumblebee
+(192.168.1.14), `file-tools/` on either (host-agnostic). Everything else defaults to
+**Optimus Prime** unless noted.
+
+Note that scripts under `optimus-prime/` and `bumblebee/` are the git copy — editing them here does
+**not** deploy them. They must be copied to the host (see `feedback_deploy_quadlets_to_server` in
+memory); several are referenced by systemd units in `systemd/` or by `ansible/setup-workstation.yml`.
 
 ## Directory Structure
 
 ```
 scripts/
-├── jellyfin/        # Jellyfin media server utilities
-├── influxdb/        # InfluxDB data migration & maintenance
-└── grafana/         # Grafana dashboard management
+├── optimus-prime/    # Host-specific: OP systemd units, metrics, movie pipeline, PTZ bridge
+├── bumblebee/        # Host-specific: notifications, nvidia-reboot, opencode setup
+├── file-tools/       # Host-agnostic: compare/dedupe/merge directory trees
+├── jellyfin/         # Jellyfin media server utilities
+├── influxdb/         # InfluxDB data migration & maintenance
+├── grafana/          # Grafana dashboard management
+├── city_hunter_rip/  # One-off DVD rip/encode pipelines
+├── gits_rip/         # ditto
+├── yattaman_split/   # ditto
+└── alarm             # Alertmanager per-service silence helper
 ```
+
+## file-tools
+
+Host-agnostic utilities for reconciling two directory trees — written 2026-07-27 while
+consolidating the PS2 ROM collection (see `reference_ps2_rom_collection` in memory).
+They are a **deliberate pair**, and picking the wrong one is the main hazard:
+
+| Script | Compares by | Use when |
+|--------|-------------|----------|
+| `find_missing_or_duplicated.sh` | **content** (sha256) | You need to know what's genuinely redundant regardless of filename. Read-only — reports, never modifies. |
+| `merge_dirs.sh` | **name / relative path** | You want to actually merge A into B. Dry-run by default; quarantines duplicates instead of deleting them. |
+
+`merge_dirs.sh` says so itself: *"this is NAME/PATH-based, not content-based… same content under a
+different name/path is NOT detected (use the hash script for that)."*
+
+### find_missing_or_duplicated.sh
+
+```bash
+./find_missing_or_duplicated.sh [--format text|json] [--summary] \
+    [--cache FILE] [--resume] <original_dir> <other_dir1> [other_dir2] ...
+```
+
+Hashes every file in `<original_dir>` and looks for that hash in the other directories. JSON
+output needs `jq`. `--cache FILE` persists hashes so an interrupted run resumes and only
+new/changed files (by size+mtime) are re-hashed — worth using on hundreds of GB.
+
+> ### ⚠️ "missing" does NOT mean the file is gone
+>
+> It means **missing from the *other* directories** — i.e. the file exists **only** in
+> `<original_dir>`. So in the output:
+>
+> - **`missing` = unique = the files to KEEP** (often the only copy in existence)
+> - **`duplicated` = redundant in the original = safe to delete there**
+>
+> Reading it the intuitive way deletes exactly the wrong files. On 2026-07-27 the 19 "missing"
+> entries were the only surviving copies of the alphabetical head of the PS2 collection.
+
+### merge_dirs.sh
+
+```bash
+./merge_dirs.sh [--apply] [--duplicates DIR] <A_dir> <B_dir>
+```
+
+Without `--apply` it is a **dry run** (`rsync -n`) and changes nothing. With `--apply`:
+
+1. `rsync --ignore-existing --remove-source-files` copies only files unique to A into B, removing
+   them from A as they transfer. Files already in B are skipped, so they stay in A.
+2. Whatever is left in A is therefore a duplicate → moved to `--duplicates DIR`
+   (default `./duplicates`) rather than deleted.
+3. The empty directory skeleton left in A is removed.
+
+You then review the quarantine directory and delete it yourself. Nothing is destroyed by the
+script itself.
+
+### Checks worth repeating for any dedupe of media
+
+- **Never split a `.cue`/`.bin` pair** — deleting one half silently breaks the disc image. Group by
+  filename stem and confirm both halves have the same status before acting.
+- **Re-verify the copy you're keeping still exists, immediately before each delete** — a report is
+  a point-in-time claim, not a live fact.
+- **Relocate irreplaceable files first, delete redundant ones second**, so aborting mid-run can't
+  lose anything.
+- **Same filesystem → `mv`/`rename` is instant** (metadata only). Check with `stat -c %d` first;
+  only reach for `rsync` across filesystems.
 
 ## Jellyfin
 
