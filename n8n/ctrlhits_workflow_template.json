@@ -51,7 +51,7 @@
             },
             {
               "name": "language",
-              "value": "it"
+              "value": "en-US"
             }
           ]
         },
@@ -77,7 +77,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Multi-item: pair each TMDb response with its Extract item by index.\n// The HTTP node ran once per Extract output item, preserving order, so\n// tmdbItems[idx] corresponds to extractItems[idx].\nconst tmdbItems = $input.all();\nconst extractItems = $('Extract 1080p Info').all();\nconst out = [];\nfor (let idx = 0; idx < tmdbItems.length; idx++) {\n  const tmdb = tmdbItems[idx].json;\n  const prev = extractItems[idx].json;\n  const results = tmdb.results || [];\n  if (!results.length) continue;\n  const m = results[0];\n  out.push({ json: {\n    tmdbId: m.id, tmdbTitle: m.title,\n    year: prev.year, newsId: prev.newsId,\n    articleUrl: prev.articleUrl, cleanTitle: prev.cleanTitle\n  }});\n}\nreturn out;\n"
+        "jsCode": "// Multi-item: pair each TMDb response with its Extract item by index.\n// The HTTP node ran once per Extract output item, preserving order, so\n// tmdbItems[idx] corresponds to extractItems[idx].\nconst tmdbItems = $input.all();\nconst extractItems = $('Extract 1080p Info').all();\nconst out = [];\nfor (let idx = 0; idx < tmdbItems.length; idx++) {\n  const tmdb = tmdbItems[idx].json;\n  const prev = extractItems[idx].json;\n  const results = tmdb.results || [];\n  if (!results.length) continue;\n  const m = results[0];\n  let posterPath = m.poster_path || null;\n  try {\n    const img = await this.helpers.httpRequest({\n      method: 'GET',\n      url: 'https://api.themoviedb.org/3/movie/' + m.id + '/images',\n      qs: { include_image_language: 'en,null' },\n      headers: { Authorization: 'Bearer {TMDB_READ_TOKEN}' },\n      json: true\n    });\n    const ps = (img && img.posters) || [];\n    const pick = ps.find(p => p.iso_639_1 === null) || ps.find(p => p.iso_639_1 === 'en') || ps[0];\n    if (pick && pick.file_path) posterPath = pick.file_path;\n  } catch (e) {}\n  out.push({ json: {\n    tmdbId: m.id, tmdbTitle: m.title, posterPath: posterPath,\n    year: prev.year, newsId: prev.newsId,\n    articleUrl: prev.articleUrl, cleanTitle: prev.cleanTitle,\n    overview: m.overview || ''\n  }});\n}\nreturn out;\n"
       },
       "id": "wf2-node-0003",
       "name": "Process TMDb 1080p",
@@ -110,7 +110,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Multi-item: build one Telegram notification per movie. The 4K RSS text is the\n// same feed for every movie, so fetch it once outside the loop.\nconst movies = $('Process TMDb 1080p').all();\nconst rss4kResp = $('Fetch 4K RSS').first().json;\nconst rss4kText = typeof rss4kResp === 'string' ? rss4kResp : (rss4kResp.data || rss4kResp.body || '');\nconst itemsRaw = rss4kText.match(/<item>[\\s\\S]*?<\\/item>/gi) || [];\n\nconst store = $getWorkflowStaticData('global');\nif (!store.pending) store.pending = {};\n// MarkdownV2 escape — now includes '-' (Telegram reserves it; the omission was\n// crashing notifications for any title containing a hyphen).\nconst esc = s => String(s).replace(/([_*[\\]()~`>#+\\-=|{}\\\\.!])/g, '\\\\$1');\n\nconst out = [];\nfor (const mv of movies) {\n  const prev = mv.json;\n\n  let has4k = false, articleUrl4k = null, newsId4k = null;\n  const word0 = prev.cleanTitle.toLowerCase().split(/\\s+/)[0];\n  for (const it of itemsRaw) {\n    const tm = it.match(/<title>(.*?)<\\/title>/);\n    const lm = it.match(/<link>(.*?)<\\/link>/) || it.match(/<guid[^>]*>(.*?)<\\/guid>/);\n    if (!tm || !lm) continue;\n    const t4 = tm[1].replace(/&amp;/g, '&').replace(/&#39;/g, \"'\");\n    if (t4.includes('(' + prev.year + ')') && t4.toLowerCase().includes(word0)) {\n      has4k = true;\n      articleUrl4k = lm[1];\n      const n4m = lm[1].match(/\\/(\\d+)-/);\n      newsId4k = n4m ? n4m[1] : null;\n      break;\n    }\n  }\n\n  const packageName = prev.tmdbTitle + ' (' + prev.year + ')';\n  const oldMessageId = (store.pending[prev.newsId] || {}).messageId || null;\n\n  store.pending[prev.newsId] = {\n    articleUrl: prev.articleUrl, packageName,\n    tmdbId: prev.tmdbId, cleanTitle: prev.cleanTitle, year: prev.year,\n    has4k, articleUrl4k, newsId4k, messageId: oldMessageId, messageId4k: null\n  };\n  if (has4k && newsId4k) {\n    if (!store.pending4k) store.pending4k = {};\n    store.pending4k[newsId4k] = { articleUrl4k, packageName, newsId4k, messageId4k: null };\n  }\n\n  let keyboard;\n  if (has4k) {\n    keyboard = [\n      [\n        { text: '⬇️ 1080p',       callback_data: 'dl:'     + prev.newsId },\n        { text: '⬇️ 1080p + 4K',  callback_data: 'dlboth:' + prev.newsId }\n      ],\n      [\n        { text: '⬇️ 4K only',      callback_data: '4k:'    + newsId4k    },\n        { text: '❌ Skip',               callback_data: 'skip:'  + prev.newsId }\n      ]\n    ];\n  } else {\n    keyboard = [[\n      { text: '⬇️ Download 1080p', callback_data: 'dl:'   + prev.newsId },\n      { text: '❌ Skip',                 callback_data: 'skip:' + prev.newsId }\n    ]];\n  }\n\n  const msgText = '🎥 *' + esc(prev.tmdbTitle) + ' \\\\(' + prev.year + '\\\\)*' + (has4k ? '\\n_4K x265 also available_' : '');\n\n  let tgMethod, tgBody;\n  if (oldMessageId) {\n    tgMethod = 'editMessageText';\n    tgBody = JSON.stringify({\n      chat_id: '12373499',\n      message_id: oldMessageId,\n      text: msgText,\n      parse_mode: 'MarkdownV2',\n      reply_markup: { inline_keyboard: keyboard }\n    });\n  } else {\n    tgMethod = 'sendMessage';\n    tgBody = JSON.stringify({\n      chat_id: '12373499',\n      text: msgText,\n      parse_mode: 'MarkdownV2',\n      reply_markup: { inline_keyboard: keyboard }\n    });\n  }\n  out.push({ json: { newsId: prev.newsId, tgBody, tgMethod } });\n}\nreturn out;\n"
+        "jsCode": "// Multi-item: build one Telegram notification per movie. The 4K RSS text is the\n// same feed for every movie, so fetch it once outside the loop.\nconst movies = $('Process TMDb 1080p').all();\nconst rss4kResp = $('Fetch 4K RSS').first().json;\nconst rss4kText = typeof rss4kResp === 'string' ? rss4kResp : (rss4kResp.data || rss4kResp.body || '');\nconst itemsRaw = rss4kText.match(/<item>[\\s\\S]*?<\\/item>/gi) || [];\n\nconst store = $getWorkflowStaticData('global');\nif (!store.pending) store.pending = {};\n// MarkdownV2 escape — now includes '-' (Telegram reserves it; the omission was\n// crashing notifications for any title containing a hyphen).\nconst esc = s => String(s).replace(/([_*[\\]()~`>#+\\-=|{}\\\\.!])/g, '\\\\$1');\n// Trim a synopsis to a sentence boundary. Done on the RAW text, before esc():\n// escaping adds backslashes, so the budget is deliberately well under\n// Telegram's 1024-char sendPhoto caption limit to leave room for inflation.\nconst trimSyn = (s, budget = 400) => {\n  let t = String(s || '').replace(/\\s+/g, ' ').trim();\n  if (t.length <= budget) return t;\n  const cut = t.slice(0, budget);\n  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));\n  return (stop > 150 ? cut.slice(0, stop + 1) : cut.slice(0, cut.lastIndexOf(' '))) + ' \\u2026';\n};\n\nconst out = [];\nfor (const mv of movies) {\n  const prev = mv.json;\n\n  const posterUrl = prev.posterPath ? ('https://image.tmdb.org/t/p/w500' + prev.posterPath) : '';\n\n  let has4k = false, articleUrl4k = null, newsId4k = null;\n  const word0 = prev.cleanTitle.toLowerCase().split(/\\s+/)[0];\n  for (const it of itemsRaw) {\n    const tm = it.match(/<title>(.*?)<\\/title>/);\n    const lm = it.match(/<link>(.*?)<\\/link>/) || it.match(/<guid[^>]*>(.*?)<\\/guid>/);\n    if (!tm || !lm) continue;\n    const t4 = tm[1].replace(/&amp;/g, '&').replace(/&#39;/g, \"'\");\n    if (t4.includes('(' + prev.year + ')') && t4.toLowerCase().includes(word0)) {\n      has4k = true;\n      articleUrl4k = lm[1];\n      const n4m = lm[1].match(/\\/(\\d+)-/);\n      newsId4k = n4m ? n4m[1] : null;\n      break;\n    }\n  }\n\n  const packageName = prev.tmdbTitle + ' (' + prev.year + ')';\n  const oldMessageId = (store.pending[prev.newsId] || {}).messageId || null;\n\n  store.pending[prev.newsId] = {\n    articleUrl: prev.articleUrl, packageName, posterUrl,\n    tmdbId: prev.tmdbId, cleanTitle: prev.cleanTitle, year: prev.year,\n    has4k, articleUrl4k, newsId4k, messageId: oldMessageId, messageId4k: null,\n    overview: prev.overview || ''\n  };\n  if (has4k && newsId4k) {\n    if (!store.pending4k) store.pending4k = {};\n    store.pending4k[newsId4k] = { articleUrl4k, packageName, newsId4k, messageId4k: null };\n  }\n\n  let keyboard;\n  if (has4k) {\n    keyboard = [\n      [\n        { text: '⬇️ 1080p',       callback_data: 'dl:'     + prev.newsId },\n        { text: '⬇️ 1080p + 4K',  callback_data: 'dlboth:' + prev.newsId }\n      ],\n      [\n        { text: '⬇️ 4K only',      callback_data: '4k:'    + newsId4k    },\n        { text: '❌ Skip',               callback_data: 'skip:'  + prev.newsId }\n      ]\n    ];\n  } else {\n    keyboard = [[\n      { text: '⬇️ Download 1080p', callback_data: 'dl:'   + prev.newsId },\n      { text: '❌ Skip',                 callback_data: 'skip:' + prev.newsId }\n    ]];\n  }\n\n  const msgText = '🎥 *' + esc(prev.tmdbTitle) + ' \\\\(' + prev.year + '\\\\)*' + (has4k ? '\\n_4K x265 also available_' : '');\n  // Synopsis block. 1024 is Telegram's hard caption cap for sendPhoto; if the\n  // escaped text would blow it, ship the card without the synopsis rather\n  // than have the whole send 400 out.\n  let caption = msgText;\n  if (prev.overview) {\n    const block = '\\n\\n_' + esc(trimSyn(prev.overview)) + '_';\n    if ((caption + block).length <= 1024) caption = caption + block;\n  }\n\n  let tgMethod, tgBody;\n  if (oldMessageId) {\n    tgMethod = 'editMessageCaption';\n    tgBody = JSON.stringify({\n      chat_id: '12373499',\n      message_id: oldMessageId,\n      caption: caption,\n      parse_mode: 'MarkdownV2',\n      reply_markup: { inline_keyboard: keyboard }\n    });\n  } else {\n    tgMethod = 'sendPhoto';\n    tgBody = JSON.stringify({\n      chat_id: '12373499',\n      photo: posterUrl,\n      caption: caption,\n      parse_mode: 'MarkdownV2',\n      reply_markup: { inline_keyboard: keyboard }\n    });\n  }\n  out.push({ json: { newsId: prev.newsId, tgBody, tgMethod } });\n}\nreturn out;\n"
       },
       "id": "wf2-node-0005",
       "name": "Prepare Pending + Notify",
@@ -285,7 +285,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d = (store.pending || {})[inp.newsId];\nif (!d || !d.articleUrl) return [];\n// messageId: use inp (clicked message) not d (stored, may be stale)\nreturn [{ json: { ...inp, ...d, messageId: inp.messageId } }];\n"
+        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nconst d = (store.pending || {})[inp.newsId];\nif (!d || !d.articleUrl) {\n  // LOUD FAILURE (2026-08-03). This used to be a bare `return []`, which ends\n  // the branch with a green checkmark and no download — the user sees a click\n  // that does nothing. Cause: `pending` writes are reverted when the RSS poll\n  // fires seconds after an n8n restart, so the record for a live card can\n  // vanish. Warn in Telegram instead of dying quietly.\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/sendMessage',\n      body: {\n        chat_id: inp.chatId || '12373499',\n        text: '\\u26a0\\ufe0f Dead card \\u2014 no 1080p approval record for newsId '\n            + inp.newsId + '.\\nIts pending entry was lost (n8n restart race), so this '\n            + 'button cannot start a download. Re-fire the title through the '\n            + 'ctrlhits-test-trigger webhook to get a working card.',\n        reply_to_message_id: inp.messageId,\n        allow_sending_without_reply: true\n      },\n      json: true\n    });\n  } catch (e) {}\n  return [];\n}\n// messageId: use inp (clicked message) not d (stored, may be stale)\nreturn [{ json: { ...inp, ...d, messageId: inp.messageId } }];\n"
       },
       "id": "wf2-node-0014",
       "name": "Load 1080p Pending",
@@ -402,11 +402,11 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
+        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageCaption",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, text: \"✅ 1080p queued: \" + $(\"Load 1080p Pending\").first().json.packageName + \" — \" + $(\"Extract 1080p Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 1080p Pending\").first().json.messageId, caption: \"✅ 1080p queued: \" + $(\"Load 1080p Pending\").first().json.packageName + \" — \" + $(\"Extract 1080p Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0019",
@@ -421,11 +421,11 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
+        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageCaption",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $json.messageId, text: \"❌ Skipped\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $json.messageId, caption: \"❌ Skipped\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0024",
@@ -439,7 +439,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nlet newsId4k = inp.newsId;\nlet d = (store.pending4k || {})[newsId4k];\nif (!d) {\n  const p = (store.pending || {})[inp.newsId];\n  if (p && p.newsId4k) {\n    newsId4k = p.newsId4k;\n    d = (store.pending4k || {})[newsId4k];\n  }\n}\nif (!d || !d.articleUrl4k) return [];\n// messageId: always use the clicked message from callback\nreturn [{ json: { ...inp, ...d, newsId: newsId4k, messageId: inp.messageId } }];\n"
+        "jsCode": "\nconst inp = $input.first().json;\nconst store = $getWorkflowStaticData('global');\nlet newsId4k = inp.newsId;\nlet d = (store.pending4k || {})[newsId4k];\nif (!d) {\n  const p = (store.pending || {})[inp.newsId];\n  if (p && p.newsId4k) {\n    newsId4k = p.newsId4k;\n    d = (store.pending4k || {})[newsId4k];\n  }\n}\nif (!d || !d.articleUrl4k) {\n  // LOUD FAILURE (2026-08-03). This used to be a bare `return []`, which ends\n  // the branch with a green checkmark and no download — the user sees a click\n  // that does nothing. Cause: `pending` writes are reverted when the RSS poll\n  // fires seconds after an n8n restart, so the record for a live card can\n  // vanish. Warn in Telegram instead of dying quietly.\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/sendMessage',\n      body: {\n        chat_id: inp.chatId || '12373499',\n        text: '\\u26a0\\ufe0f Dead card \\u2014 no 4K approval record for newsId '\n            + inp.newsId + '.\\nIts pending entry was lost (n8n restart race), so this '\n            + 'button cannot start a download. Re-fire the title through the '\n            + 'ctrlhits-test-trigger webhook to get a working card.',\n        reply_to_message_id: inp.messageId,\n        allow_sending_without_reply: true\n      },\n      json: true\n    });\n  } catch (e) {}\n  return [];\n}\n// messageId: always use the clicked message from callback\nreturn [{ json: { ...inp, ...d, newsId: newsId4k, messageId: inp.messageId } }];\n"
       },
       "id": "wf2-node-0025",
       "name": "Load 4K Pending",
@@ -556,11 +556,11 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
+        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageCaption",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId, text: \"✅ 4K queued: \" + $(\"Load 4K Pending\").first().json.packageName + \" — \" + $(\"Extract 4K Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: \"12373499\", message_id: $(\"Load 4K Pending\").first().json.messageId, caption: \"✅ 4K queued: \" + $(\"Load 4K Pending\").first().json.packageName + \" — \" + $(\"Extract 4K Links\").first().json.count + \" parts\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-0030",
@@ -588,11 +588,11 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
+        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageCaption",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, text: \"\\u23F3 Fetching 1080p links\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, caption: \"\\u23F3 Fetching 1080p links\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-edit-dl-start",
@@ -607,11 +607,11 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
+        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageCaption",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, text: \"\\uD83D\\uDD17 \" + $json.count + \" links found, sending to JDownloader\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, caption: \"\\uD83D\\uDD17 \" + $json.count + \" links found, sending to JDownloader\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-edit-links-found",
@@ -626,11 +626,11 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageText",
+        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/editMessageCaption",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, text: \"\\u23F3 Fetching 4K links\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
+        "body": "={{ JSON.stringify({ chat_id: $json.chatId, message_id: $json.messageId, caption: \"\\u23F3 Fetching 4K links\\u2026\", reply_markup: { inline_keyboard: [] } }) }}",
         "options": {}
       },
       "id": "wf2-node-edit-4k-start",
@@ -711,7 +711,7 @@
         1120
       ],
       "parameters": {
-        "jsCode": "const d = $input.first().json;\nif (d.noStuck) return [];\nlet keyboard;\nif (d.has4k) {\n  keyboard = [\n    [\n      { text: '\\u2b07\\ufe0f 1080p',       callback_data: 'dl:'     + d.newsId },\n      { text: '\\u2b07\\ufe0f 1080p + 4K',  callback_data: 'dlboth:' + d.newsId }\n    ],\n    [\n      { text: '\\u2b07\\ufe0f 4K only',      callback_data: '4k:'    + d.newsId4k },\n      { text: '\\u274c Skip',                callback_data: 'skip:'  + d.newsId }\n    ]\n  ];\n} else {\n  keyboard = [[\n    { text: '\\u2b07\\ufe0f Download 1080p', callback_data: 'dl:'   + d.newsId },\n    { text: '\\u274c Skip',                  callback_data: 'skip:' + d.newsId }\n  ]];\n}\nconst esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst title = d.cleanTitle || d.packageName;\nconst msgText = '\\ud83c\\udfa5 <b>' + esc(title) + ' (' + d.year + ')</b>'\n  + (d.has4k ? '\\n<i>4K x265 also available</i>' : '')\n  + '\\n<i>(recovery)</i>';\nconst tgBody = JSON.stringify({\n  chat_id: '12373499',\n  text: msgText,\n  parse_mode: 'HTML',\n  reply_markup: { inline_keyboard: keyboard }\n});\nreturn [{ json: { newsId: d.newsId, tgBody } }];\n"
+        "jsCode": "const d = $input.first().json;\nif (d.noStuck) return [];\nlet keyboard;\nif (d.has4k) {\n  keyboard = [\n    [\n      { text: '\\u2b07\\ufe0f 1080p',       callback_data: 'dl:'     + d.newsId },\n      { text: '\\u2b07\\ufe0f 1080p + 4K',  callback_data: 'dlboth:' + d.newsId }\n    ],\n    [\n      { text: '\\u2b07\\ufe0f 4K only',      callback_data: '4k:'    + d.newsId4k },\n      { text: '\\u274c Skip',                callback_data: 'skip:'  + d.newsId }\n    ]\n  ];\n} else {\n  keyboard = [[\n    { text: '\\u2b07\\ufe0f Download 1080p', callback_data: 'dl:'   + d.newsId },\n    { text: '\\u274c Skip',                  callback_data: 'skip:' + d.newsId }\n  ]];\n}\nconst esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst title = d.cleanTitle || d.packageName;\nconst posterUrl = d.posterUrl || '';\nconst trimSyn = (s, budget = 500) => {\n  let t = String(s || '').replace(/\\s+/g, ' ').trim();\n  if (t.length <= budget) return t;\n  const cut = t.slice(0, budget);\n  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));\n  return (stop > 150 ? cut.slice(0, stop + 1) : cut.slice(0, cut.lastIndexOf(' '))) + ' \\u2026';\n};\nlet msgText = '\\ud83c\\udfa5 <b>' + esc(title) + ' (' + d.year + ')</b>'\n  + (d.has4k ? '\\n<i>4K x265 also available</i>' : '')\n  + '\\n<i>(recovery)</i>';\nif (d.overview) {\n  const block = '\\n\\n<i>' + esc(trimSyn(d.overview)) + '</i>';\n  if ((msgText + block).length <= 1024) msgText = msgText + block;\n}\nconst tgBody = JSON.stringify({\n  chat_id: '12373499',\n  photo: posterUrl,\n  caption: msgText,\n  parse_mode: 'HTML',\n  reply_markup: { inline_keyboard: keyboard }\n});\nreturn [{ json: { newsId: d.newsId, tgBody } }];\n"
       }
     },
     {
@@ -725,7 +725,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/sendMessage",
+        "url": "https://api.telegram.org/bot{{TELEGRAM_TOKEN}}/sendPhoto",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -1130,7 +1130,9 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
   },
   "pinData": {}
 }
