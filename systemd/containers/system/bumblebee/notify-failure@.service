@@ -3,4 +3,10 @@ Description=Send Telegram notification on service failure
 
 [Service]
 Type=oneshot
-ExecStart=/home/matteo/notify-failure.sh %i
+# /usr/local/bin, NOT /home/matteo. SELinux is enforcing here and /home/matteo is
+# labelled container_file_t (from a :Z volume relabel), which systemd's init_t may
+# not execute: every invocation failed with 203/EXEC "Permission denied"
+# (16 failures, 0 successes up to 2026-08-05), so NO failure alert ever arrived —
+# which is why Hermes could stay down for 4 days unnoticed. /usr/local/bin gets
+# bin_t and is on systemd's default PATH (where telegram-send also lives).
+ExecStart=/usr/local/bin/notify-failure.sh %i

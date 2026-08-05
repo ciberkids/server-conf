@@ -1,6 +1,9 @@
 [Unit]
 Description=Weekly podman image prune timer
-Requires=podman-prune.service
+# NO Requires=/Wants= on the service here — see podman-image-prune.timer. It makes
+# the service run on every boot and daemon-reload instead of on OnCalendar.
+# Persistent stays true: this one only prunes DANGLING images, which is safe to
+# run at boot; the deep -a prune is the one that must never race container start.
 
 [Timer]
 OnCalendar=weekly

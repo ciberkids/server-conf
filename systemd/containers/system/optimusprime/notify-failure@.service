@@ -3,5 +3,16 @@ Description=Send Telegram notification on service failure
 
 [Service]
 Type=oneshot
+# Runs as matteo on purpose: the script calls bare `telegram-send`, which reads
+# ~/.config/telegram-send.conf (there is no /etc/telegram-send.conf on this host).
 User=matteo
+# The script keeps per-service alert counters under /run/notify-failure, but a
+# non-root user cannot mkdir in /run — every invocation died with
+# "mkdir: cannot create directory '/run/notify-failure': Permission denied"
+# (9 failures, 0 successes up to 2026-08-05), so NO failure alert ever arrived.
+# Let systemd create it with the right owner instead.
+RuntimeDirectory=notify-failure
+# Without this, systemd deletes the directory when this oneshot exits, wiping the
+# counters that drive alert suppression.
+RuntimeDirectoryPreserve=yes
 ExecStart=/home/matteo/notify-failure.sh %i
