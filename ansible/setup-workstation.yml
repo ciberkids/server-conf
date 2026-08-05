@@ -309,6 +309,18 @@
         state: present
         executable: pip3
 
+    # Must live in /usr/local/bin, not /home/matteo: SELinux is enforcing and
+    # /home/matteo is labelled container_file_t, which systemd's init_t cannot
+    # execute — the unit failed 203/EXEC on every invocation until 2026-08-05, so
+    # no failure alert had ever been delivered. /usr/local/bin gets bin_t.
+    - name: Deploy notify-failure script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/bumblebee/notify-failure.sh"
+        dest: /usr/local/bin/notify-failure.sh
+        mode: "0755"
+        owner: root
+        group: root
+
     - name: Deploy notify-failure@ template service
       copy:
         src: "{{ quadlets_src }}/notify-failure@.service"
@@ -409,6 +421,14 @@
     # re-pulls them. Do NOT "soften" it with --filter until=<age>: that filter matches the
     # image's upstream BUILD date, not pull or last-used time, so it spares nothing useful
     # (verified 2026-07-27). Cadence is the only honest lever.
+    #
+    # 2026-08-05: `-a` is unrecoverable for locally-built localhost/* images (no registry
+    # to re-pull from). Two defects let it delete localhost/hermes-agent:latest and keep
+    # Hermes down 4 days: (1) the timers carried Requires=<service> in [Unit], which starts
+    # the service on every boot and daemon-reload, ignoring OnCalendar — the "monthly" job
+    # ran 6x in 10 days; (2) a boot-time run lands BEFORE container units start, so every
+    # image looks unused. Both fixed in the .timer files. Hermes remains the only
+    # locally-built image here — pushing it to ghcr.io would remove the class of risk.
     # =========================================================
     - name: Deploy podman prune units
       copy:

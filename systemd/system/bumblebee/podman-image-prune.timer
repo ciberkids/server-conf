@@ -1,6 +1,10 @@
 [Unit]
 Description=Monthly deep podman image prune timer
-Requires=podman-image-prune.service
+# NO Requires=/Wants= on the service here. A timer already activates the unit of
+# the same name when it elapses; naming the service as a dependency ALSO starts it
+# whenever the *timer unit* is activated — i.e. on every boot and every
+# `systemctl daemon-reload` — silently bypassing OnCalendar. That turned this
+# "monthly" job into an every-boot job (6 runs in the 10 days to 2026-08-05).
 
 [Timer]
 # Explicit 02:30 rather than OnCalendar=monthly, which means *-*-01 00:00 and would land
@@ -8,7 +12,14 @@ Requires=podman-image-prune.service
 # podman-prune at 00:11. A deep prune must never race a pull.
 OnCalendar=*-*-01 02:30:00
 RandomizedDelaySec=1800
-Persistent=true
+# Persistent=false deliberately: a catch-up run fires early in boot, BEFORE the
+# container units are up, so `podman image prune -a` sees every image as "tagged
+# but unused" and deletes it. Harmless for registry images (re-pulled), FATAL for
+# locally-built localhost/* ones. On 2026-08-01 04:05:18 a catch-up run deleted
+# localhost/hermes-agent:latest two minutes before hermes.service started, and
+# Hermes stayed down for 4 days. Missing a month of housekeeping because the host
+# was off is a non-event; losing an unrecoverable image is not.
+Persistent=false
 
 [Install]
 WantedBy=timers.target
