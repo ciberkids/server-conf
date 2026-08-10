@@ -91,6 +91,11 @@ MIN_KEEP_LEN_M = 0.60
 MAX_HATCH_LEN_PT = 17.0                    # a stroke longer than ~30 cm isn't hatch
 MIN_HATCH_PER_M = 4.0                      # strokes per metre of wall to qualify
 
+# How close two circle centres must be to count as the same (concentric) fixture. The
+# inner and outer rings of a recessed fixture do not share an exact centre once bbox
+# midpoints are rounded, so this must be a proximity test, not equality.
+CONCENTRIC_TOL_PT = 1.5                    # ~2.6 cm at 1:50
+
 
 def pdf_to_svg(pdf: Path) -> str:
     """Convert a single-page vector PDF to SVG text via pdftocairo."""
@@ -185,34 +190,49 @@ def colour_of(p: dict) -> str | None:
 
 
 def extract_luminaires(paths: list[dict]) -> list[dict]:
-    """Blue circle glyphs = luminaire outlets. Returns positions in metres."""
-    found = defaultdict(set)
+    """Blue circle glyphs = luminaire outlets. Returns positions in metres.
+
+    A recessed fixture is drawn as TWO concentric rings (8.50 pt inside 11.91 pt), so the
+    two rings must collapse to one fixture. Doing that with a set union over rounded
+    centres does NOT work — the two rings round to marginally different centres, so each
+    concentric fixture survives twice. On the ground floor that inflated 39 real fixtures
+    to 45, i.e. 6 phantom outlets with no entity behind them.
+
+    So cluster by proximity instead, and let the presence of the outer ring decide class.
+    """
+    circles = []
     for p in paths:
         if colour_of(p) != BLUE or p["ncmd"] != 5:
             continue
         w, h = p["x1"] - p["x0"], p["y1"] - p["y0"]
         if abs(w - h) > 0.2 or not 7.0 < w < 13.0:
             continue                      # not one of the two circle classes
-        cx, cy = (p["x0"] + p["x1"]) / 2, (p["y0"] + p["y1"]) / 2
-        found[round(w, 1)].add((round(cx, 2), round(cy, 2)))
+        circles.append(
+            (
+                round((p["x0"] + p["x1"]) / 2, 2),
+                round((p["y0"] + p["y1"]) / 2, 2),
+                round(w, 1),
+            )
+        )
 
-    # Concentric pairs are ONE fixture drawn with two rings, not two fixtures.
-    small = found.get(8.5, set())
-    large = found.get(11.9, set())
-    concentric = {s for s in small for l in large
-                  if abs(s[0] - l[0]) < 1.0 and abs(s[1] - l[1]) < 1.0}
+    clusters = []
+    for cx, cy, dia in sorted(set(circles)):
+        for c in clusters:
+            if abs(c["x"] - cx) < CONCENTRIC_TOL_PT and abs(c["y"] - cy) < CONCENTRIC_TOL_PT:
+                c["dia"].add(dia)
+                break
+        else:
+            clusters.append({"x": cx, "y": cy, "dia": {dia}})
 
     lums = []
-    for cx, cy in sorted(small | large):
-        is_double = (cx, cy) in concentric or any(
-            abs(cx - l[0]) < 1.0 and abs(cy - l[1]) < 1.0 for l in large
-        )
+    for c in sorted(clusters, key=lambda c: (c["x"], c["y"])):
         lums.append(
             {
-                "x_m": round(cx / PT_PER_M, 3),
-                "y_m": round(cy / PT_PER_M, 3),
-                "class": "recessed" if is_double else "surface",
-                "plan_pt": [cx, cy],
+                "x_m": round(c["x"] / PT_PER_M, 3),
+                "y_m": round(c["y"] / PT_PER_M, 3),
+                "class": "recessed" if max(c["dia"]) > 10.0 else "surface",
+                "rings": len(c["dia"]),
+                "plan_pt": [c["x"], c["y"]],
                 "entity_id": None,          # filled in by hand / by the mapping step
             }
         )
