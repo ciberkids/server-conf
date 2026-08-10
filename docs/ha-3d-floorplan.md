@@ -77,23 +77,33 @@ containment) rather than another tolerance tweak.
 Everything above produces *positions*. Turning a position into a control needs an
 `entity_id`, and two gaps must close first.
 
-### 1. Unassigned areas
+### 1. Unassigned areas — ✅ done 2026-08-10
 
 26 of 47 `light.*` entities had `area: null`, including nearly everything
-floorplan-relevant. A reviewed mapping is required before placing icons — doing it
-afterwards means redoing the placement.
+floorplan-relevant. All 31 assignments are now applied; the only entities left without an
+area are the two deliberately excluded test lights (`light.test_lights`,
+`light.matteo_office_test_lamp`).
 
-Five entities have **no matching area in the registry at all**:
+Three areas had to be **created**, and the plans settled which floor each belongs to
+rather than a guess — `pdftotext` on `51 erdgeschoss` finds "reduit" twice, and on
+`52 obergeschoss` finds both "bad" and "abstellraum":
 
-* `light.main_bathroom_1_light_sink`, `light.main_bathroom_2_light_bathtub`,
-  `light.main_bathroom_2_light_l2` — there is **no bathroom area anywhere**. The only wet
-  room in the registry is `toilet` on the Ground Floor.
-* `light.reduit`, `light.reduit_upstairs` — no `Reduit` area exists.
+| new area | floor | evidence |
+|---|---|---|
+| `main_bathroom` — Main Bathroom | first_floor | "bad" on `52 obergeschoss` |
+| `reduit` — Reduit | ground_floor | "reduit" ×2 on `51 erdgeschoss` |
+| `reduit_upstairs` — Reduit Upstairs | first_floor | the "abstellraum" on `52 obergeschoss` |
 
 Excluded from the floorplan entirely: `light.ap_first_floor_nano_hd_led` and
-`light.ap_ground_floor_u6_lr_led` (UniFi AP status LEDs, `platform: unifi`, both
-mis-assigned to Living Room), plus `light.test_lights` and
-`light.matteo_office_test_lamp`.
+`light.ap_ground_floor_u6_lr_led` (UniFi AP status LEDs, `platform: unifi`, both still
+mis-assigned to Living Room — left alone pending a decision), plus `light.test_lights`
+and `light.matteo_office_test_lamp`.
+
+**Watch out for `switch_as_x`.** A large share of these "lights" are Feller/zeptrion wall
+switches wrapped as lights (`light.living_room_main_light_l1` wraps
+`switch.living_room_stove_main_light_l1`). Those are **on/off only** — no brightness, no
+colour. Only the true Zigbee bulbs (`0x…` unique_id) dim. A binary emissive material in
+the 3D model for the former, full colour control for the latter.
 
 See also `docs/discussion-topics.md` for six related area-registry oddities that were
 deliberately *not* touched.
@@ -119,12 +129,13 @@ duplicates; they are group and bulb.
 ## Build order
 
 1. ~~Extract walls + luminaire positions from the CAD plans~~ ✅
-2. Close the entity map (areas, then outlet → entity binding) ← **blocking**
-3. Blender: extrude walls to the heights above, stack three storeys, place lamp objects
-4. Phase 1: isometric renders + per-light overlay PNGs + `picture-elements` dashboard
+2. ~~Assign the missing areas~~ ✅
+3. Outlet → entity binding ← **blocking the dashboard** (not the wall model)
+4. Blender: extrude walls to the heights above, stack three storeys, place lamp objects
+5. Phase 1: isometric renders + per-light overlay PNGs + `picture-elements` dashboard
    on a **new** dashboard (do not overwrite the existing `ground-floor` / `first-floor` /
    `under-ground-floor` dashboards)
-5. Phase 2: GLB export, Floor3D Pro via HACS, entity bindings, mobile performance check
+6. Phase 2: GLB export, Floor3D Pro via HACS, entity bindings, mobile performance check
 
 ## Files
 
