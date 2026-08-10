@@ -81,11 +81,19 @@ voice aliases), so nothing was touched. Flagging for a decision:
 5. **Two UniFi AP status LEDs (`light.ap_first_floor_nano_hd_led`, `light.ap_ground_floor_u6_lr_led`)
    are assigned to "Living Room".** They're `platform: unifi`, not lamps. Harmless until something
    does "turn off all lights in the Living Room" — then the AP LED goes dark too.
-6. **26 of 47 lights have no area at all.** Mostly z2m groups and the newer individual bulbs. This
-   one genuinely blocks the floorplan and should be fixed as step 1 of that project.
+6. ~~**26 of 47 lights have no area at all.**~~ ✅ **RESOLVED 2026-08-10** — all 31 assignments
+   applied, plus three new areas created (`main_bathroom` → first_floor, `reduit` → ground_floor,
+   `reduit_upstairs` → first_floor), with the floors confirmed from the CAD plans rather than
+   guessed. Only the two test lights remain unassigned, deliberately.
 
-**What to look at when we pick this up:** `ha_list_floors_areas` output vs the physical house;
-`ha_set_entity(area_id=…)` for the 26 unassigned. See `[[reference-ha-light-entity-map]]`.
+Items 1–5 are still open. Item 5 (the AP LEDs) has gone from latent to **live**: six more real
+lights were just assigned to `living_room`, and the floorplan being built is precisely the kind of
+thing that generates area-scoped "turn off the Living Room" actions — which would also switch off
+the access-point LEDs. Either move them out of `living_room` or exclude them by entity_id in the
+dashboard config.
+
+**What to look at when we pick this up:** `ha_list_floors_areas` output vs the physical house.
+See `[[reference-ha-light-entity-map]]` and `docs/ha-3d-floorplan.md`.
 
 ---
 

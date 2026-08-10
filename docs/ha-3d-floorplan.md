@@ -60,9 +60,10 @@ Ridge at +7.76. The 35 cm between +2.50 and +2.85 is the intermediate slab build
 
 ```
 floor      walls   total length   light outlets
-ground        69        114.0 m      45  (26 recessed / 19 surface)
+ground        69        114.0 m      39  (20 recessed / 19 surface)
 first         35        116.1 m      22  (11 / 11)
 basement      11         54.6 m       5  (0 / 5)
+                                     66  total
 ```
 
 Total wall length is the sanity metric: a house with a ~54 m perimeter plus interior
@@ -110,7 +111,7 @@ deliberately *not* touched.
 
 ### 2. Outlet → entity binding
 
-This is the long-lead item and the plans cannot answer it. The ground floor has **45
+This is the long-lead item and the plans cannot answer it. The ground floor has **39
 outlets against roughly 20 relevant entities**, because outlets are ganged:
 
 * the 6-lamp kitchen grid is `light.kitchen_spots_l1` / `l2`
@@ -119,6 +120,12 @@ outlets against roughly 20 relevant entities**, because outlets are ganged:
 
 `scripts/floorplan/lamp_overlay.py` renders every outlet with an index over the real
 plan; the mapping is then just a list of index → entity_id.
+
+⚠️ A recessed fixture is drawn as **two concentric rings** (8.50 pt inside 11.91 pt), and
+collapsing them by set-union over rounded centres does not work — the rings round to
+marginally different centres, so each concentric fixture survives twice. That reported 45
+outlets on the ground floor when there are 39, i.e. 6 phantom markers with no entity
+behind them. `extract_luminaires` clusters by proximity for this reason.
 
 Useful shortcut when binding: an entity's `unique_id` says what it is. A small **integer**
 (`7_light_zigbee2mqtt`) is a Zigbee2MQTT **group** — the right target for a whole-room
