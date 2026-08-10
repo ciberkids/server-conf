@@ -82,6 +82,15 @@ DEFAULT_JOIN_GAP_CM = 20.0
 # partition stub in the house but well above the furniture outlines.
 MIN_KEEP_LEN_M = 0.60
 
+# The decisive discriminator: in these plans WALLS ARE HATCHED and furniture is not.
+# The hatch is drawn as thousands of short strokes (measured: 782 in the 5-30 cm band
+# on the ground floor). So a candidate wall rectangle that contains no hatch strokes is
+# a kitchen counter, a terrace paving line or a symbol box — not a wall. Requiring a
+# minimum hatch density per metre rejects those on evidence rather than on another
+# tolerance tweak.
+MAX_HATCH_LEN_PT = 17.0                    # a stroke longer than ~30 cm isn't hatch
+MIN_HATCH_PER_M = 4.0                      # strokes per metre of wall to qualify
+
 
 def pdf_to_svg(pdf: Path) -> str:
     """Convert a single-page vector PDF to SVG text via pdftocairo."""
@@ -236,6 +245,75 @@ def merge_collinear(faces, join_gap_pt):
     return merged
 
 
+def hatch_points(paths):
+    """Midpoints of every short black stroke — i.e. the hatch fill inside walls."""
+    pts = []
+    for p in paths:
+        if colour_of(p) != BLACK:
+            continue
+        for (xa, ya), (xb, yb) in p["segments"]:
+            if abs(xb - xa) + abs(yb - ya) <= MAX_HATCH_LEN_PT:
+                pts.append(((xa + xb) / 2, (ya + yb) / 2))
+    return pts
+
+
+def keep_hatched(walls, hatch, min_per_m=MIN_HATCH_PER_M):
+    """Drop candidate walls whose rectangle contains too little hatch fill."""
+    # bucket hatch points into 20 pt cells so each wall only tests nearby points
+    cell = 20.0
+    grid = defaultdict(list)
+    for x, y in hatch:
+        grid[(int(x // cell), int(y // cell))].append((x, y))
+
+    kept = []
+    for w in walls:
+        half = w["thickness_cm"] / 100 / 2 * PT_PER_M
+        c = w["centre_m"] * PT_PER_M
+        lo, hi = w["start_m"] * PT_PER_M, w["end_m"] * PT_PER_M
+        if w["axis"] == "h":
+            x0, x1, y0, y1 = lo, hi, c - half, c + half
+        else:
+            x0, x1, y0, y1 = c - half, c + half, lo, hi
+
+        n = 0
+        for gx in range(int(x0 // cell), int(x1 // cell) + 1):
+            for gy in range(int(y0 // cell), int(y1 // cell) + 1):
+                for x, y in grid.get((gx, gy), ()):
+                    if x0 <= x <= x1 and y0 <= y <= y1:
+                        n += 1
+        w = dict(w, hatch_per_m=round(n / max(w["length_m"], 0.01), 1))
+        if w["hatch_per_m"] >= min_per_m:
+            kept.append(w)
+    return kept
+
+
+def drop_contained(walls, overlap_frac=0.70):
+    """Remove thin walls that sit inside a thicker wall at the same place.
+
+    Ground-floor exterior walls are COMPOSITE (concrete + insulation + facing), so they
+    draw several parallel faces. Sub-pairs at 13/15/20 cm then match inside the real
+    28 cm wall, are all genuinely hatched, and so survive the hatch filter — they are
+    the same wall counted several times. Keep the thickest, drop what it swallows.
+    """
+    order = sorted(walls, key=lambda w: (-w["thickness_cm"], -w["length_m"]))
+    kept = []
+    for w in order:
+        swallowed = False
+        for k in kept:
+            if k["axis"] != w["axis"]:
+                continue
+            # is w's centre-line inside k's footprint?
+            if abs(k["centre_m"] - w["centre_m"]) > k["thickness_cm"] / 100 / 2 + 0.01:
+                continue
+            ov = min(k["end_m"], w["end_m"]) - max(k["start_m"], w["start_m"])
+            if ov >= overlap_frac * w["length_m"]:
+                swallowed = True
+                break
+        if not swallowed:
+            kept.append(w)
+    return sorted(kept, key=lambda w: (w["axis"], w["centre_m"], w["start_m"]))
+
+
 def consolidate(walls, min_len_m=MIN_KEEP_LEN_M):
     """Collapse the raw pair-matches into one entry per physical wall.
 
@@ -345,12 +423,19 @@ def extract_walls(paths: list[dict], join_gap_cm=DEFAULT_JOIN_GAP_CM):
 
     hw, h_unmatched = pair_up(horiz, "h")
     vw, v_unmatched = pair_up(vert, "v")
+    candidates = hw + vw
+
+    hatched = keep_hatched(candidates, hatch_points(paths))
+    final = drop_contained(hatched)
     stats = {
         "join_gap_cm": join_gap_cm,
         "horiz_faces": len(horiz), "vert_faces": len(vert),
         "horiz_unmatched": h_unmatched, "vert_unmatched": v_unmatched,
+        "candidates_before_hatch_filter": len(candidates),
+        "rejected_unhatched": len(candidates) - len(hatched),
+        "rejected_contained": len(hatched) - len(final),
     }
-    return hw + vw, stats
+    return final, stats
 
 
 def write_verify_svg(dest: Path, walls, lums, extent):
@@ -431,10 +516,15 @@ def main():
         "luminaires": lums,
     }
 
+    total_len = sum(w["length_m"] for w in walls)
     print(f"floor {args.floor}: {len(walls)} walls, {len(lums)} luminaires")
     print(f"  faces: {stats['horiz_faces']}h / {stats['vert_faces']}v   "
           f"unmatched: {stats['horiz_unmatched']}h / {stats['vert_unmatched']}v")
+    print(f"  hatch filter: {stats['candidates_before_hatch_filter']} candidates -> "
+          f"{len(walls)} kept ({stats['rejected_unhatched']} unhatched, "
+          f"{stats['rejected_contained']} contained)")
     print(f"  extent: {extent[1]-extent[0]:.2f} m x {extent[3]-extent[2]:.2f} m")
+    print(f"  total wall length: {total_len:.1f} m")
     by_class = defaultdict(int)
     for l in lums:
         by_class[l["class"]] += 1
