@@ -60,6 +60,33 @@ months of data, which is consistent with that theory but doesn't prove it.
 apexcharts card, `series[1]`. Cheapest test is whether it starts resolving on its own after
 1 Sept 2026 — if it does, nothing to fix.
 
+## Area/floor registry oddities found while scoping the 3D floorplan
+
+**Added:** 2026-08-10
+
+Surfaced while inventorying entities for the interactive floorplan project. None of these are
+broken today — they're cosmetic or latent — and renames break consumers (dashboards, automations,
+voice aliases), so nothing was touched. Flagging for a decision:
+
+1. **`area_id: mia_s_room` is named "Aria's Room".** The slug is stale from a previous name. Renaming
+   the *area* is safe-ish, but the `area_id` itself is what automations and templates reference —
+   worth grepping before changing.
+2. **Floor `"Ground  Floor"` has a double space** in its display name (`ground_floor` id is fine).
+   Purely cosmetic, one-field fix.
+3. **A `no_floor` pseudo-floor holds 3 areas**: `Home`, `Stairs Down`, `Stairs up`. `Home` is
+   probably deliberate (whole-house entities), but the two stairwells arguably belong to real
+   floors — and the floorplan will want them somewhere concrete.
+4. **`light.main_bedroom_night_light` is assigned to area "Corridor upstairs"**, not Main Bedroom.
+   Could be genuinely mounted in the corridor — needs a physical check, not a config guess.
+5. **Two UniFi AP status LEDs (`light.ap_first_floor_nano_hd_led`, `light.ap_ground_floor_u6_lr_led`)
+   are assigned to "Living Room".** They're `platform: unifi`, not lamps. Harmless until something
+   does "turn off all lights in the Living Room" — then the AP LED goes dark too.
+6. **26 of 47 lights have no area at all.** Mostly z2m groups and the newer individual bulbs. This
+   one genuinely blocks the floorplan and should be fixed as step 1 of that project.
+
+**What to look at when we pick this up:** `ha_list_floors_areas` output vs the physical house;
+`ha_set_entity(area_id=…)` for the 26 unassigned. See `[[reference-ha-light-entity-map]]`.
+
 ---
 
 *(previously cleared 2026-07-27, after Frigate, Immich, the pool pump and the coordinator
