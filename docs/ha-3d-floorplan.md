@@ -118,8 +118,17 @@ outlets against roughly 20 relevant entities**, because outlets are ganged:
 * the evenly-spaced garage row is one switch
 * some outlets have no HA entity at all
 
-`scripts/floorplan/lamp_overlay.py` renders every outlet with an index over the real
-plan; the mapping is then just a list of index → entity_id.
+The binding lives in **`docs/floorplan-light-bindings.yaml`** — generated pre-filled and
+editable, one line per outlet, grouped into lettered clusters. `lamp_overlay.py` draws the
+same letters on the plan, so cluster `D` in the file is the group marked `D` on the image.
+
+⚠️ **Room membership is not derivable — don't try.** Two automated attempts failed:
+nearest-room-label put 23 of 39 ground-floor outlets in the `reduit` broom cupboard, and
+flood-filling the walls (even sealed with `--join-gap-cm 150`) leaked the exterior into the
+interior and called 38 of 39 "outside". Outlet *positions* are surveyed and exact; room
+*membership* needs a complete sealed wall set we don't have and don't need. Outlets are
+therefore grouped by proximity (0.95 m single-linkage, chosen from the measured
+nearest-neighbour spectrum) and named by a human. See `scripts/floorplan/README.md`.
 
 ⚠️ A recessed fixture is drawn as **two concentric rings** (8.50 pt inside 11.91 pt), and
 collapsing them by set-union over rounded centres does not work — the rings round to
@@ -147,9 +156,13 @@ duplicates; they are group and bulb.
 ## Files
 
 ```
-scripts/floorplan/extract_plan.py    walls + luminaires -> JSON in metres
-scripts/floorplan/lamp_overlay.py    numbered outlet reference image
-scripts/floorplan/README.md          extraction detail + gotchas
+scripts/floorplan/extract_plan.py           walls + luminaires -> JSON in metres
+scripts/floorplan/lamp_overlay.py           numbered + lettered reference image
+scripts/floorplan/make_binding_proposal.py  the editable binding YAML
+scripts/floorplan/entities_snapshot.json    HA light list, so this works offline
+scripts/floorplan/regen.sh                  rebuild every artifact in one command
+scripts/floorplan/README.md                 extraction detail + gotchas
+docs/floorplan-light-bindings.yaml          <-- THE FILE TO FILL IN
 ```
 
 Renders, `.blend` files and GLB exports are build artifacts and are **not** committed.
