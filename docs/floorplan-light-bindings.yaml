@@ -1,0 +1,286 @@
+# ============================================================================
+#  LIGHT OUTLET  ->  HOME ASSISTANT ENTITY  BINDING
+# ============================================================================
+#
+#  Fill in `entity:` for each outlet, then hand this file back. That is the
+#  only field to edit — everything else is context.
+#
+#  READING AN ENTRY
+#    - {i: 19, xy: [7.6, 6.8], type: recessed, entity: ~}
+#      i      = the NUMBER printed on the overlay PNG for this floor
+#      xy     = metres from that floor's south-west corner (x east, y north)
+#      type   = recessed (double ring on the plan) / surface (single ring)
+#      entity = what to control.  <-- THE ONLY FIELD TO EDIT
+#
+#  Outlets are grouped into lettered CLUSTERS by physical proximity. The same
+#  letters are drawn on the overlay PNGs, so cluster D in this file is the
+#  group marked D on the image. Clusters usually correspond to one switch.
+#
+#  RULES
+#    * Several outlets SHARING one entity is normal — a 6-lamp ceiling grid on
+#      one switch is simply the same entity six times. Whole clusters often
+#      take a single entity; write it on each line.
+#    * Don't know / nothing connected / not in HA  ->  leave `entity: ~`
+#      Those become dim passive dots on the plan, not broken buttons.
+#    * `entity: skip` drops the outlet from the floorplan entirely.
+#
+#  WORTH KNOWING
+#    (switch) = wall switch presented as a light: ON/OFF only, cannot dim.
+#    (bulb)   = real Zigbee bulb, can dim and take colour.
+#    (group)  = controls a whole room at once — usually the right answer when
+#               several outlets sit on one physical switch.
+#
+#  I have NOT guessed which room each outlet is in. Two automated attempts
+#  (nearest-label, and flood-filling the walls) both produced nonsense, and a
+#  confident-looking wrong default is worse than a blank. You have the overlay
+#  image and you know the house — see scripts/floorplan/README.md for why.
+#
+
+# ##########################################################################
+#  GROUND FLOOR  —  39 outlets in 14 clusters  (overlay_ground.png)
+# ##########################################################################
+#  Entities on this floor:
+#    light.kitchen                                        Kitchen (group)
+#    light.kitchen_spots_l1                               Kitchen Fridge area (switch)
+#    light.kitchen_spots_l2                               Kitchen Cooktop (switch)
+#    light.kitchen_table                                  Kitchen Table (bulb)
+#    light.kitchen_table_bottom_light                     Kitchen Table bottom light (bulb)
+#    light.kitchen_table_top_light                        Kitchen Table top light (bulb)
+#    light.living_room                                    Living Room (group)
+#    light.living_room_main_light_l1                      Living room main lights (switch)
+#    light.living_room_stove_main_light_l2                Living Room Stove lights (switch)
+#    light.living_room_couch_front_left_corner_light      Couch Front Left Corner (bulb)
+#    light.living_room_couch_front_right_corner_light     Couch Front Right Corner (bulb)
+#    light.living_room_couch_rear_left_corner_light       Couch Rear Left Corner (bulb)
+#    light.living_room_couch_rear_right_corner_light      Couch Rear Right Corner (bulb)
+#    light.matteooffice                                   Matteo Office (group)
+#    light.matteo_office_light                            Matteo Office Light (bulb)
+#    light.matteo_office_lamp                             Matteo Office Lamp (bulb)
+#    light.matteo_office_lamps                            Matteo Office Lamps (bulb)
+#    light.toilet_room                                    Toilet Room (switch)
+#    light.toilet_l1                                      Sink (switch)
+#    light.toilet_l2                                      Toilet Sink (switch)
+#    light.toilet_l1_2                                    Toilet Shower (switch)
+#    light.reduit                                         Reduit (switch)
+#    light.outdoor_entry_hedge_lights                     Outdoor Entry hedge lights (switch)
+#    light.outdoor_entry_roof_lights                      Outdoor Entry Roof lights (switch)
+#    light.outdoor_backyard_table                         Outdoor Backyard Table (switch)
+#    light.stairs_up                                      Stairs Up (switch)
+#    light.stairs_down                                    Stairs Down (switch)
+ground:
+
+  # ---- A:  single fixture --------------------------------------------------
+  #      north-east of the floor   |   outlets 39
+  #      entity for all of A:  ______________________________
+  - {i: 39, xy: [15.5,  9.9], type: surface , entity: ~}   # A
+
+  # ---- B:  6 outlets over 0.5 x 2.6 m --------------------------------------
+  #      middle-west of the floor   |   outlets 4, 5, 6, 7, 8, 9
+  #      NOTE: symbols ~15 cm apart = draughting shorthand for several lamps on ONE circuit, not separate ceiling points. Expect a single entity here.
+  #      entity for all of B:  ______________________________
+  - {i:  4, xy: [ 1.3,  7.0], type: surface , entity: ~}   # B
+  - {i:  5, xy: [ 1.5,  7.0], type: surface , entity: ~}   # B
+  - {i:  6, xy: [ 1.6,  7.0], type: surface , entity: ~}   # B
+  - {i:  8, xy: [ 1.8,  6.1], type: recessed, entity: ~}   # B
+  - {i:  9, xy: [ 1.8,  5.2], type: recessed, entity: ~}   # B
+  - {i:  7, xy: [ 1.8,  4.4], type: recessed, entity: ~}   # B
+
+  # ---- C:  row of 3, north-south (1.70 m) ----------------------------------
+  #      middle-west of the floor   |   outlets 1, 2, 3
+  #      entity for all of C:  ______________________________
+  - {i:  2, xy: [ 0.7,  6.1], type: recessed, entity: ~}   # C
+  - {i:  1, xy: [ 0.7,  5.2], type: recessed, entity: ~}   # C
+  - {i:  3, xy: [ 0.7,  4.4], type: recessed, entity: ~}   # C
+
+  # ---- D:  8 outlets over 1.4 x 1.1 m --------------------------------------
+  #      middle-west of the floor   |   outlets 16, 18, 19, 20, 21, 23, 24, 27
+  #      NOTE: symbols ~15 cm apart = draughting shorthand for several lamps on ONE circuit, not separate ceiling points. Expect a single entity here.
+  #      entity for all of D:  ______________________________
+  - {i: 16, xy: [ 5.2,  5.9], type: recessed, entity: ~}   # D
+  - {i: 24, xy: [ 5.9,  5.3], type: surface , entity: ~}   # D
+  - {i: 19, xy: [ 5.6,  5.3], type: surface , entity: ~}   # D
+  - {i: 21, xy: [ 5.8,  5.3], type: surface , entity: ~}   # D
+  - {i: 18, xy: [ 5.6,  5.1], type: surface , entity: ~}   # D
+  - {i: 20, xy: [ 5.8,  5.1], type: surface , entity: ~}   # D
+  - {i: 23, xy: [ 5.9,  5.1], type: surface , entity: ~}   # D
+  - {i: 27, xy: [ 6.5,  4.8], type: recessed, entity: ~}   # D
+
+  # ---- E:  6 outlets over 1.0 x 1.1 m --------------------------------------
+  #      middle-west of the floor   |   outlets 10, 11, 12, 13, 14, 15
+  #      NOTE: symbols ~15 cm apart = draughting shorthand for several lamps on ONE circuit, not separate ceiling points. Expect a single entity here.
+  #      entity for all of E:  ______________________________
+  - {i: 15, xy: [ 3.9,  5.9], type: recessed, entity: ~}   # E
+  - {i: 11, xy: [ 2.9,  5.6], type: recessed, entity: ~}   # E
+  - {i: 12, xy: [ 3.3,  5.4], type: surface , entity: ~}   # E
+  - {i: 13, xy: [ 3.4,  5.4], type: surface , entity: ~}   # E
+  - {i: 14, xy: [ 3.8,  5.2], type: surface , entity: ~}   # E
+  - {i: 10, xy: [ 2.9,  4.8], type: recessed, entity: ~}   # E
+
+  # ---- F:  single fixture --------------------------------------------------
+  #      middle-east of the floor   |   outlets 34
+  #      entity for all of F:  ______________________________
+  - {i: 34, xy: [10.0,  5.0], type: surface , entity: ~}   # F
+
+  # ---- G:  single fixture --------------------------------------------------
+  #      south-east of the floor   |   outlets 38
+  #      entity for all of G:  ______________________________
+  - {i: 38, xy: [14.9,  3.7], type: recessed, entity: ~}   # G
+
+  # ---- H:  single fixture --------------------------------------------------
+  #      south-east of the floor   |   outlets 37
+  #      entity for all of H:  ______________________________
+  - {i: 37, xy: [12.8,  3.7], type: recessed, entity: ~}   # H
+
+  # ---- I:  single fixture --------------------------------------------------
+  #      south-east of the floor   |   outlets 35
+  #      entity for all of I:  ______________________________
+  - {i: 35, xy: [10.6,  3.7], type: recessed, entity: ~}   # I
+
+  # ---- J:  single fixture --------------------------------------------------
+  #      south-centre of the floor   |   outlets 26
+  #      entity for all of J:  ______________________________
+  - {i: 26, xy: [ 6.5,  3.5], type: recessed, entity: ~}   # J
+
+  # ---- K:  4 outlets over 1.3 x 1.2 m --------------------------------------
+  #      south-west of the floor   |   outlets 17, 22, 25, 28
+  #      entity for all of K:  ______________________________
+  - {i: 22, xy: [ 5.8,  2.6], type: surface , entity: ~}   # K
+  - {i: 17, xy: [ 5.3,  2.5], type: surface , entity: ~}   # K
+  - {i: 25, xy: [ 6.0,  2.0], type: recessed, entity: ~}   # K
+  - {i: 28, xy: [ 6.6,  1.5], type: surface , entity: ~}   # K
+
+  # ---- L:  4 outlets over 0.6 x 1.0 m --------------------------------------
+  #      south-centre of the floor   |   outlets 30, 31, 32, 33
+  #      NOTE: symbols ~15 cm apart = draughting shorthand for several lamps on ONE circuit, not separate ceiling points. Expect a single entity here.
+  #      entity for all of L:  ______________________________
+  - {i: 30, xy: [ 8.8,  2.4], type: recessed, entity: ~}   # L
+  - {i: 31, xy: [ 8.8,  1.6], type: recessed, entity: ~}   # L
+  - {i: 33, xy: [ 9.5,  1.4], type: surface , entity: ~}   # L
+  - {i: 32, xy: [ 9.3,  1.4], type: surface , entity: ~}   # L
+
+  # ---- M:  single fixture --------------------------------------------------
+  #      south-centre of the floor   |   outlets 29
+  #      entity for all of M:  ______________________________
+  - {i: 29, xy: [ 7.3,  2.4], type: recessed, entity: ~}   # M
+
+  # ---- N:  single fixture --------------------------------------------------
+  #      south-east of the floor   |   outlets 36
+  #      entity for all of N:  ______________________________
+  - {i: 36, xy: [10.6,  2.4], type: recessed, entity: ~}   # N
+
+# ##########################################################################
+#  FIRST FLOOR  —  22 outlets in 10 clusters  (overlay_first.png)
+# ##########################################################################
+#  Entities on this floor:
+#    light.aria_room                                      Aria Room (group)
+#    light.aria_room_light                                Aria Room Light (bulb)
+#    light.devin_room                                     Devin Room (group)
+#    light.devin_room_light                               Devin Room Light (bulb)
+#    light.main_bedroom_light_l1                          Main bedroom spots (switch)
+#    light.main_bathroom_1_light_sink                     Main Bathroom Sink (switch)
+#    light.main_bathroom_2_light_bathtub                  Bathtub (switch)
+#    light.main_bathroom_2_light_l2                       Shower (switch)
+#    light.reduit_upstairs                                Reduit Upstairs (switch)
+#    light.main_bedroom_night_light                       Main Bedroom Night light (bulb)
+first:
+
+  # ---- A:  single fixture --------------------------------------------------
+  #      middle-west of the floor   |   outlets 2
+  #      entity for all of A:  ______________________________
+  - {i:  2, xy: [ 1.4,  6.6], type: surface , entity: ~}   # A
+
+  # ---- B:  11 outlets over 5.3 x 2.7 m -------------------------------------
+  #      centre of the floor   |   outlets 1, 3, 4, 5, 6, 7, 9, 10, 11, 12, 14
+  #      NOTE: symbols ~15 cm apart = draughting shorthand for several lamps on ONE circuit, not separate ceiling points. Expect a single entity here.
+  #      entity for all of B:  ______________________________
+  - {i: 10, xy: [ 4.9,  5.6], type: surface , entity: ~}   # B
+  - {i:  7, xy: [ 4.3,  5.2], type: surface , entity: ~}   # B
+  - {i:  6, xy: [ 4.1,  5.2], type: surface , entity: ~}   # B
+  - {i:  9, xy: [ 4.7,  5.0], type: surface , entity: ~}   # B
+  - {i:  1, xy: [ 1.0,  4.6], type: recessed, entity: ~}   # B
+  - {i:  3, xy: [ 1.9,  4.6], type: recessed, entity: ~}   # B
+  - {i:  4, xy: [ 2.8,  4.6], type: recessed, entity: ~}   # B
+  - {i:  5, xy: [ 3.8,  4.6], type: recessed, entity: ~}   # B
+  - {i: 11, xy: [ 5.2,  4.3], type: recessed, entity: ~}   # B
+  - {i: 12, xy: [ 5.8,  3.7], type: surface , entity: ~}   # B
+  - {i: 14, xy: [ 6.3,  3.0], type: recessed, entity: ~}   # B
+
+  # ---- C:  single fixture --------------------------------------------------
+  #      middle-east of the floor   |   outlets 17
+  #      entity for all of C:  ______________________________
+  - {i: 17, xy: [ 7.0,  5.3], type: surface , entity: ~}   # C
+
+  # ---- D:  single fixture --------------------------------------------------
+  #      middle-east of the floor   |   outlets 15
+  #      entity for all of D:  ______________________________
+  - {i: 15, xy: [ 6.7,  4.3], type: recessed, entity: ~}   # D
+
+  # ---- E:  single fixture --------------------------------------------------
+  #      south-centre of the floor   |   outlets 8
+  #      entity for all of E:  ______________________________
+  - {i:  8, xy: [ 4.4,  3.4], type: surface , entity: ~}   # E
+
+  # ---- F:  row of 3, north-south (0.30 m) ----------------------------------
+  #      south-east of the floor   |   outlets 18, 19, 20
+  #      NOTE: symbols ~15 cm apart = draughting shorthand for several lamps on ONE circuit, not separate ceiling points. Expect a single entity here.
+  #      entity for all of F:  ______________________________
+  - {i: 19, xy: [ 7.3,  3.4], type: surface , entity: ~}   # F
+  - {i: 20, xy: [ 7.3,  3.2], type: surface , entity: ~}   # F
+  - {i: 18, xy: [ 7.3,  3.1], type: surface , entity: ~}   # F
+
+  # ---- G:  single fixture --------------------------------------------------
+  #      south-east of the floor   |   outlets 21
+  #      entity for all of G:  ______________________________
+  - {i: 21, xy: [ 8.0,  2.4], type: recessed, entity: ~}   # G
+
+  # ---- H:  single fixture --------------------------------------------------
+  #      south-east of the floor   |   outlets 22
+  #      entity for all of H:  ______________________________
+  - {i: 22, xy: [ 9.0,  2.1], type: recessed, entity: ~}   # H
+
+  # ---- I:  single fixture --------------------------------------------------
+  #      south-east of the floor   |   outlets 16
+  #      entity for all of I:  ______________________________
+  - {i: 16, xy: [ 7.0,  2.0], type: recessed, entity: ~}   # I
+
+  # ---- J:  single fixture --------------------------------------------------
+  #      south-centre of the floor   |   outlets 13
+  #      entity for all of J:  ______________________________
+  - {i: 13, xy: [ 6.0,  1.1], type: recessed, entity: ~}   # J
+
+# ##########################################################################
+#  BASEMENT FLOOR  —  5 outlets in 4 clusters  (overlay_basement.png)
+# ##########################################################################
+#  Entities on this floor:
+#    light.keller_room_light                              Keller Room Light (bulb)
+#    light.tech_room_light                                Tech Room Light (bulb)
+#    light.guest_room                                     Guest Room (group)
+#    light.guest_room_light                               Guest Room Light (bulb)
+#    light.manuela_office                                 Manuela Office (group)
+#    light.manuela_office_light                           Manuela Office Light (bulb)
+basement:
+
+  # ---- A:  single fixture --------------------------------------------------
+  #      north-centre of the floor   |   outlets 1
+  #      entity for all of A:  ______________________________
+  - {i:  1, xy: [ 4.2,  7.2], type: surface , entity: ~}   # A
+
+  # ---- B:  single fixture --------------------------------------------------
+  #      middle-east of the floor   |   outlets 5
+  #      entity for all of B:  ______________________________
+  - {i:  5, xy: [ 5.7,  5.4], type: surface , entity: ~}   # B
+
+  # ---- C:  single fixture --------------------------------------------------
+  #      south-centre of the floor   |   outlets 2
+  #      entity for all of C:  ______________________________
+  - {i:  2, xy: [ 4.3,  3.3], type: surface , entity: ~}   # C
+
+  # ---- D:  row of 2, north-south (0.28 m) ----------------------------------
+  #      south-east of the floor   |   outlets 3, 4
+  #      entity for all of D:  ______________________________
+  - {i:  3, xy: [ 5.7,  3.1], type: surface , entity: ~}   # D
+  - {i:  4, xy: [ 5.7,  2.8], type: surface , entity: ~}   # D
+
+# ============================================================================
+#  TOTAL 66 outlets — ground 39, first 22, basement 5
+# ============================================================================

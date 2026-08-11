@@ -35,7 +35,18 @@ for spec in "${FLOORS[@]}"; do
     echo "=== $floor"
     ./extract_plan.py "$PLANS/$file" --floor "$floor" \
         --out "$OUT/$floor.json" --verify "$OUT/verify_$floor.svg"
+done
+
+# Must run after extraction (needs every floor's JSON) and before the overlays,
+# because it writes the clusters.json that gives the overlays their letters.
+echo "=== binding proposal"
+./make_binding_proposal.py --build "$OUT" --out ../../docs/floorplan-light-bindings.yaml
+
+for spec in "${FLOORS[@]}"; do
+    floor="${spec%%:*}"
+    file="${spec#*:}"
     ./lamp_overlay.py "$PLANS/$file" "$OUT/$floor.json" \
+        --clusters "$OUT/clusters.json" --floor "$floor" \
         --out "$OUT/overlay_$floor.svg"
 
     if command -v inkscape >/dev/null; then

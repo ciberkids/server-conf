@@ -1,0 +1,67 @@
+{
+  "_comment": "Snapshot of HA light.* entities taken 2026-08-10 after the area fix, so the binding proposal can be generated without HA reachable. Refresh with: ha_search(domain_filter='light'). kind: group = z2m group (integer unique_id, whole-room click target); bulb = one physical Zigbee bulb (0x… IEEE); switch = switch_as_x wall switch, ON/OFF ONLY (no dim/colour); exclude = never put on the floorplan.",
+  "_taken": "2026-08-10",
+  "lights": [
+    {"entity_id": "light.ap_first_floor_nano_hd_led", "name": "AP first floor (nano-HD) LED", "area": "living_room", "kind": "exclude", "why": "UniFi AP status LED, not a lamp"},
+    {"entity_id": "light.ap_ground_floor_u6_lr_led", "name": "AP Ground floor (U6 LR) LED", "area": "living_room", "kind": "exclude", "why": "UniFi AP status LED, not a lamp"},
+    {"entity_id": "light.test_lights", "name": "Test Lights", "area": null, "kind": "exclude", "why": "test entity"},
+    {"entity_id": "light.matteo_office_test_lamp", "name": "Matteo Office Test Lamp", "area": null, "kind": "exclude", "why": "test entity"},
+
+    {"entity_id": "light.kitchen", "name": "Kitchen", "area": "kitchen", "kind": "group"},
+    {"entity_id": "light.kitchen_spots_l1", "name": "Kitchen Fridge area", "area": "kitchen", "kind": "switch"},
+    {"entity_id": "light.kitchen_spots_l2", "name": "Kitchen Cooktop", "area": "kitchen", "kind": "switch"},
+    {"entity_id": "light.kitchen_table", "name": "Kitchen Table", "area": "kitchen", "kind": "bulb"},
+    {"entity_id": "light.kitchen_table_bottom_light", "name": "Kitchen Table bottom light", "area": "dining_table", "kind": "bulb"},
+    {"entity_id": "light.kitchen_table_top_light", "name": "Kitchen Table top light", "area": "dining_table", "kind": "bulb"},
+
+    {"entity_id": "light.living_room", "name": "Living Room", "area": "living_room", "kind": "group"},
+    {"entity_id": "light.living_room_main_light_l1", "name": "Living room main lights", "area": "living_room", "kind": "switch"},
+    {"entity_id": "light.living_room_stove_main_light_l2", "name": "Living Room Stove lights", "area": "living_room", "kind": "switch"},
+    {"entity_id": "light.living_room_couch_front_left_corner_light", "name": "Couch Front Left Corner", "area": "living_room", "kind": "bulb"},
+    {"entity_id": "light.living_room_couch_front_right_corner_light", "name": "Couch Front Right Corner", "area": "living_room", "kind": "bulb"},
+    {"entity_id": "light.living_room_couch_rear_left_corner_light", "name": "Couch Rear Left Corner", "area": "living_room", "kind": "bulb"},
+    {"entity_id": "light.living_room_couch_rear_right_corner_light", "name": "Couch Rear Right Corner", "area": "living_room", "kind": "bulb"},
+
+    {"entity_id": "light.matteooffice", "name": "Matteo Office", "area": "matteo_s_office", "kind": "group"},
+    {"entity_id": "light.matteo_office_light", "name": "Matteo Office Light", "area": "matteo_s_office", "kind": "bulb"},
+    {"entity_id": "light.matteo_office_lamp", "name": "Matteo Office Lamp", "area": "matteo_s_office", "kind": "bulb"},
+    {"entity_id": "light.matteo_office_lamps", "name": "Matteo Office Lamps", "area": "matteo_s_office", "kind": "bulb"},
+
+    {"entity_id": "light.toilet_room", "name": "Toilet Room", "area": "toilet", "kind": "switch"},
+    {"entity_id": "light.toilet_l1", "name": "Sink", "area": "toilet", "kind": "switch"},
+    {"entity_id": "light.toilet_l2", "name": "Toilet Sink", "area": "toilet", "kind": "switch"},
+    {"entity_id": "light.toilet_l1_2", "name": "Toilet Shower", "area": "toilet", "kind": "switch"},
+
+    {"entity_id": "light.reduit", "name": "Reduit", "area": "reduit", "kind": "switch"},
+    {"entity_id": "light.stairs_down", "name": "Stairs Down", "area": "stairs_down", "kind": "switch"},
+    {"entity_id": "light.stairs_up", "name": "Stairs Up", "area": "stairs_up", "kind": "switch"},
+    {"entity_id": "light.outdoor_entry_hedge_lights", "name": "Outdoor Entry hedge lights", "area": "outside_front_door", "kind": "switch"},
+    {"entity_id": "light.outdoor_entry_roof_lights", "name": "Outdoor Entry Roof lights", "area": "outside_front_door", "kind": "switch"},
+    {"entity_id": "light.outdoor_backyard_table", "name": "Outdoor Backyard Table", "area": "garden", "kind": "switch"},
+
+    {"entity_id": "light.aria_room", "name": "Aria Room", "area": "mia_s_room", "kind": "group"},
+    {"entity_id": "light.aria_room_light", "name": "Aria Room Light", "area": "mia_s_room", "kind": "bulb"},
+    {"entity_id": "light.devin_room", "name": "Devin Room", "area": "devin_s_bedroom", "kind": "group"},
+    {"entity_id": "light.devin_room_light", "name": "Devin Room Light", "area": "devin_s_bedroom", "kind": "bulb"},
+    {"entity_id": "light.main_bedroom_light_l1", "name": "Main bedroom spots", "area": "bedroom", "kind": "switch"},
+    {"entity_id": "light.main_bedroom_night_light", "name": "Main Bedroom Night light", "area": "corridor_upstairs", "kind": "bulb", "why": "area may be wrong - needs physical check"},
+    {"entity_id": "light.main_bathroom_1_light_sink", "name": "Main Bathroom Sink", "area": "main_bathroom", "kind": "switch"},
+    {"entity_id": "light.main_bathroom_2_light_bathtub", "name": "Bathtub", "area": "main_bathroom", "kind": "switch"},
+    {"entity_id": "light.main_bathroom_2_light_l2", "name": "Shower", "area": "main_bathroom", "kind": "switch"},
+    {"entity_id": "light.reduit_upstairs", "name": "Reduit Upstairs", "area": "reduit_upstairs", "kind": "switch"},
+
+    {"entity_id": "light.keller_room_light", "name": "Keller Room Light", "area": "keller", "kind": "bulb"},
+    {"entity_id": "light.tech_room_light", "name": "Tech Room Light", "area": "technic_room", "kind": "bulb"},
+    {"entity_id": "light.guest_room", "name": "Guest Room", "area": "guest_room", "kind": "group"},
+    {"entity_id": "light.guest_room_light", "name": "Guest Room Light", "area": "guest_room", "kind": "bulb"},
+    {"entity_id": "light.manuela_office", "name": "Manuela Office", "area": "manu_s_office", "kind": "group"},
+    {"entity_id": "light.manuela_office_light", "name": "Manuela Office Light", "area": "manu_s_office", "kind": "bulb"}
+  ],
+
+  "_room_label_to_area": {
+    "_comment": "German room labels found in the electrical plans, mapped to HA area_ids. null = no HA area exists for that room.",
+    "ground": {"wohnen": "living_room", "essen": "dining_table", "gang": "entry", "zimmer": "matteo_s_office", "wc": "toilet", "reduit": "reduit", "doppelgarage": "garage"},
+    "first": {"zimmer": "AMBIGUOUS", "abstellraum": "reduit_upstairs", "bad": "main_bathroom", "estrich": null},
+    "basement": {"keller": "keller", "waschen": null, "technik": "technic_room", "zimmer": "guest_room", "bad": null, "wc": null}
+  }
+}
