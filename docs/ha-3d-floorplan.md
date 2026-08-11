@@ -112,11 +112,14 @@ deliberately *not* touched.
 ### 2. Outlet → entity binding
 
 This is the long-lead item and the plans cannot answer it. The ground floor has **39
-outlets against roughly 20 relevant entities**, because outlets are ganged:
+outlets against roughly 20 relevant entities**, because outlets are ganged — e.g. the
+west-wing ceiling grids (clusters B/C/E) plausibly sit on `light.kitchen_spots_l1` / `l2`,
+and some outlets have no HA entity at all.
 
-* the 6-lamp kitchen grid is `light.kitchen_spots_l1` / `l2`
-* the evenly-spaced garage row is one switch
-* some outlets have no HA entity at all
+A useful signal: a run of lamp symbols exactly **15 cm** apart is too tight to be separate
+ceiling fixtures — it is draughting shorthand for "N lamps on this circuit", so those
+clusters take a single entity. Clusters B, D, E, L on the ground floor and B, F upstairs
+carry that marker.
 
 The binding lives in **`docs/floorplan-light-bindings.yaml`** — generated pre-filled and
 editable, one line per outlet, grouped into lettered clusters. `lamp_overlay.py` draws the
