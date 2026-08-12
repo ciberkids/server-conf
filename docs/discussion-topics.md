@@ -95,6 +95,101 @@ dashboard config.
 **What to look at when we pick this up:** `ha_list_floors_areas` output vs the physical house.
 See `[[reference-ha-light-entity-map]]` and `docs/ha-3d-floorplan.md`.
 
+## Bind the Living Room remote to a *scene* instead of toggling the group
+
+**Added:** 2026-08-12
+
+> "is it possible to bind a remote to a specific scene in a group? for instance the living room
+> remote is binded to a group called living room but the group is composed by 4 lights and during
+> the night one of these light could be used as night light, now since the remote is toggling the
+> state of the group on and off, clearly if the device are out of sync you have the christmas light
+> effect"
+
+Proposed plan was: (1) bind the remote to an "all bright" scene, (2) have an automation watch for
+the scene activation and, during night hours, **poll** until the lights go off manually, then bring
+the night light back up.
+
+**Why this is worth doing properly:** the remote is a **Ubisys C4** — one of the very few Zigbee
+controllers where the ZCL command each input emits is fully user-authorable (manufacturer cluster
+`0xFC00`, `InputActions`). So scene recall genuinely *is* reachable here, unlike on an IKEA/Tuya
+remote where the firmware only ever emits On/Off/Level. Binding itself is **cluster**-granular, not
+scene-granular — the scene ID travels in the `Scenes.RecallScene` *payload*, so what matters is
+whether the device can be made to emit that command at all.
+
+**Root cause of the Christmas-light effect:** the inputs currently send `Toggle` (`0x02`). Toggle is
+evaluated per-bulb against each bulb's *own* state, so any pre-existing divergence is preserved and
+flipped forever. Group commands are APS **multicast and unacknowledged**, so a bulb that simply
+misses a frame falls behind permanently. `On`/`Off` and `RecallScene` are absolute — a missed frame
+self-heals on the next press. That asymmetry is the whole problem.
+
+### Live `input_actions` as of 2026-08-12 — THIS IS THE ROLLBACK
+
+C4 fw `2.4.0`, dateCode `20240122-DE-FB1`, hw 3, IEEE `0x001fee0000008342`.
+`input_configurations: [0, 0, 0, 0]`
+
+Record layout (z2m presents each record as a flat array of bytes):
+
+| byte(s) | meaning |
+|---|---|
+| 0 | InputAndOptions — which physical input, 0-based |
+| 1 | Transition — internal state-machine edge (press / hold / release) |
+| 2 | Source endpoint on the C4 |
+| 3–4 | Cluster ID, uint16 **little-endian** |
+| 5+ | ZCL command ID, then command payload |
+
+| raw record | input | ep | cluster | command | payload | z2m action |
+|---|---|---|---|---|---|---|
+| `[0,7,1,6,0,2]` | 0 | 1 | `0x0006` genOnOff | `0x02` Toggle | — | `toggle_s1` |
+| `[0,134,1,8,0,5,0,50]` | 0 | 1 | `0x0008` genLevelCtrl | `0x05` Move w/ OnOff | up, rate 50 | `brightness_move_up_s1` |
+| `[0,198,1,8,0,1,1,50]` | 0 | 1 | `0x0008` | `0x01` Move | down, rate 50 | `brightness_move_down_s1` |
+| `[0,11,1,8,0,3]` | 0 | 1 | `0x0008` | `0x03` Stop w/ OnOff | — | `brightness_stop_s1` |
+| `[1,7,2,6,0,2]` | 1 | 2 | `0x0006` | `0x02` Toggle | — | `toggle_s2` |
+| `[1,134,2,8,0,5,0,50]` | 1 | 2 | `0x0008` | `0x05` Move w/ OnOff | up, rate 50 | `brightness_move_up_s2` |
+| `[1,198,2,8,0,1,1,50]` | 1 | 2 | `0x0008` | `0x01` Move | down, rate 50 | `brightness_move_down_s2` |
+| `[1,11,2,8,0,3]` | 1 | 2 | `0x0008` | `0x03` Stop w/ OnOff | — | `brightness_stop_s2` |
+
+**Only inputs 0 and 1 carry actions. Inputs 2 and 3 are empty** — unknown whether they are unwired,
+wired-but-unconfigured, or factory default. The `Transition` byte encodings (`0x07`, `0x86`, `0x0C6`,
+`0x0B`) were **not** verified against the Ubisys technical reference — do not write new records from
+guessed transition values.
+
+### The idea worth building: mutate what the scene *contains*, not which scene is recalled
+
+Zigbee scene tables live **in the bulbs**, and their contents are rewritable at any time. So instead
+of conditionally recalling a different scene at night, keep one "off" scene and have HA rewrite its
+*contents* at sunset/sunrise (night = 3 bulbs off + night light at ~2% warm; day = all 4 off). At
+press time it is pure Zigbee: instant, no HA involvement, no visible off-then-on flash, and it keeps
+working if HA or z2m is down. **This removes the need for the polling loop entirely** — not because
+MQTT pushes state, but because HA never needs to know the state at press time at all.
+
+**What to look at when we pick this up:**
+
+1. **How many physical inputs serve the living room, and which endpoint (s1 or s2)?** This gates
+   everything. Two inputs → the cheapest fix is a one-byte change, Toggle `0x02` → `On` `0x01` on one
+   and `Off` `0x00` on the other; scenes then become an optional upgrade. One input → both the Toggle
+   fix *and* scene recall are unavailable (one button recalls exactly one scene) and it needs either a
+   multi-press transition or HA-side logic. Reprogramming the wrong endpoint hits a different room.
+2. **Which of the 4 couch lights is the night light**, and confirm the group's actual membership.
+3. **Whether ep1/ep2 is bound to group 2 or to the 4 devices individually.** Bindings are *not* in
+   `configuration.yaml` — that only holds groups. They live in the coordinator / `database.db`, and
+   z2m surfaces them in the `zigbee2mqtt/bridge/devices` MQTT payload and the frontend's Bind tab.
+   Three SSH attempts on 2026-08-12 went at the wrong artifact; don't repeat that.
+4. **Whether z2m's `scene_add` can target an individual device while specifying the group_id the
+   scene belongs to.** The trick needs *per-member* values under one shared `(group_id, scene_id)`; a
+   group-level `scene_add` writes identical values to every member. If it can't, the fallback is
+   `scene_store`, which snapshots each bulb's own live state (per-member values for free) but needs
+   the room to briefly *be* in the night configuration to capture it — visible to anyone in the room.
+5. **`Living Room Couch Rear Right Corner Light`** (Nue/3A `3A12S-15`, zclVersion 3, dateCode
+   `20190604`) is the risk device — the other three are Philips Hue with solid Scenes support. Verify
+   it honours Scenes cluster recall *including* the colour/level extension fields before relying on
+   it. Its `power_on_behavior` is currently `on`, which is a separate landmine.
+6. `recall_*_s1` appearing in the z2m action enum only proves z2m can **parse an incoming** scene
+   recall from the C4 — it is *not* evidence the `configure_device_setup` **write** path handles scene
+   records. Different code path, and the enum contains typos (`recal_*_s2`, `recal_*_s4`) suggesting
+   that converter is lightly exercised. Treat as a caution signal.
+
+Related: `[[reference-ha-light-entity-map]]` (group 2 = `light.living_room`).
+
 ---
 
 *(previously cleared 2026-07-27, after Frigate, Immich, the pool pump and the coordinator
