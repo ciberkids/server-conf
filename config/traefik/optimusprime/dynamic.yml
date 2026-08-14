@@ -51,6 +51,60 @@ http:
       tls:
         certResolver: cloudflare
 
+    # --- Moved off Docker labels 2026-08-14 ---------------------------------
+    # These containers sit on dedicated 10.89.x podman networks (needed for
+    # inter-container DNS, e.g. DB_HOST=warracker-db). Traefik is on the
+    # `podman` network at 10.88.0.18 and has NO route to 10.89.x, so
+    # label-based discovery produced backends it could never reach:
+    # connections HUNG for 20s rather than failing fast, Traefik logged
+    # nothing, and its own dashboard reported every server "UP" because the
+    # docker provider assumes UP with no healthcheck. The container
+    # healthchecks passed too -- they curl localhost from *inside* the
+    # container, so they cannot detect a reachability failure.
+    # Fix: route via the already-published host ports (all verified serving).
+    # The quadlets now set traefik.enable=false. Do NOT re-enable them: an
+    # @docker router would collide with the @file router below on the same
+    # Host() rule at equal priority, and which one wins is not deterministic.
+    warracker:
+      rule: "Host(`warracker.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: warracker
+      tls:
+        certResolver: cloudflare
+
+    firefly:
+      rule: "Host(`firefly.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: firefly
+      tls:
+        certResolver: cloudflare
+
+    affine:
+      rule: "Host(`affine.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: affine
+      tls:
+        certResolver: cloudflare
+
+    opensign:
+      rule: "Host(`opensign.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: opensign
+      tls:
+        certResolver: cloudflare
+
+    opensign-server:
+      rule: "Host(`opensign-api.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: opensign-server
+      tls:
+        certResolver: cloudflare
+
   services:
     cockpit:
       loadBalancer:
@@ -74,6 +128,35 @@ http:
       loadBalancer:
         servers:
           - url: "http://192.168.1.14:5678"
+
+    # Host-port backends for the 10.89.x-network containers (see note above).
+    # Ports come from each quadlet's PublishPort= and were each probed on the
+    # host before being written here: 8005->200, 8006->302, 3010->302,
+    # 3001->200, 8081->200.
+    warracker:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:8005"
+
+    firefly:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:8006"
+
+    affine:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:3010"
+
+    opensign:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:3001"
+
+    opensign-server:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:8081"
 
   serversTransports:
     insecureTransport:

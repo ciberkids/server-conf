@@ -31,11 +31,14 @@ HealthStartPeriod=60s
 HealthTimeout=10s
 HealthOnFailure=restart
 
-Label=traefik.enable=true
-Label=traefik.http.routers.warracker.rule=Host(`warracker.optimusprime.favarohome.com`)
-Label=traefik.http.routers.warracker.entrypoints=websecure
-Label=traefik.http.routers.warracker.tls.certresolver=cloudflare
-Label=traefik.http.services.warracker.loadbalancer.server.port=80
+# Routing is via the FILE provider, not labels. This container is on the
+# `warracker` network (10.89.1.x) so DB_HOST=warracker-db resolves; Traefik is on
+# `podman` (10.88.0.x) and has no route there. Label-based routing therefore gave
+# Traefik a backend it could never reach -- 20s hangs, nothing logged, dashboard
+# said "UP". See config/traefik/optimusprime/dynamic.yml -> 192.168.1.10:8005
+# Do NOT set this back to true: the @docker router would collide with the @file
+# router on the same Host() rule at equal priority, winner non-deterministic.
+Label=traefik.enable=false
 
 [Service]
 Restart=always

@@ -27,11 +27,15 @@ HealthStartPeriod=60s
 HealthTimeout=10s
 HealthOnFailure=restart
 
-Label=traefik.enable=true
-Label=traefik.http.routers.opensign-server.rule=Host(`opensign-api.optimusprime.favarohome.com`)
-Label=traefik.http.routers.opensign-server.entrypoints=websecure
-Label=traefik.http.routers.opensign-server.tls.certresolver=cloudflare
-Label=traefik.http.services.opensign-server.loadbalancer.server.port=8080
+# Routing is via the FILE provider, not labels. This container is on the
+# `opensign` network (10.89.0.x) for inter-container DNS; Traefik is on `podman`
+# (10.88.0.x) and has no route there, so label routing gave Traefik an
+# unreachable backend -- 20s hangs, nothing logged, dashboard said "UP".
+# NOTE the hostname here is opensign-api.*, not opensign.*
+# See config/traefik/optimusprime/dynamic.yml -> 192.168.1.10:8081
+# Do NOT set this back to true: the @docker router would collide with the @file
+# router on the same Host() rule at equal priority, winner non-deterministic.
+Label=traefik.enable=false
 
 [Service]
 Restart=always
