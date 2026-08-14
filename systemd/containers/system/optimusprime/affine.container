@@ -26,11 +26,13 @@ Exec=/bin/sh /start.sh
 
 AutoUpdate=registry
 
-Label=traefik.enable=true
-Label=traefik.http.routers.affine.rule=Host(`affine.optimusprime.favarohome.com`)
-Label=traefik.http.routers.affine.entrypoints=websecure
-Label=traefik.http.routers.affine.tls.certresolver=cloudflare
-Label=traefik.http.services.affine.loadbalancer.server.port=3010
+# Routing is via the FILE provider, not labels. Note this container IS dual-homed
+# on `podman` as well as `affine` -- and Traefik still picked the unreachable
+# affine-network IP (10.89.3.6), which is why adding Network=podman alone does not
+# fix this. See config/traefik/optimusprime/dynamic.yml -> 192.168.1.10:3010
+# Do NOT set this back to true: the @docker router would collide with the @file
+# router on the same Host() rule at equal priority, winner non-deterministic.
+Label=traefik.enable=false
 
 [Service]
 Restart=always

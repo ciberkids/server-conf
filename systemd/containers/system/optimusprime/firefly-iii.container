@@ -36,11 +36,14 @@ HealthStartPeriod=120s
 HealthTimeout=10s
 HealthOnFailure=restart
 
-Label=traefik.enable=true
-Label=traefik.http.routers.firefly.rule=Host(`firefly.optimusprime.favarohome.com`)
-Label=traefik.http.routers.firefly.entrypoints=websecure
-Label=traefik.http.routers.firefly.tls.certresolver=cloudflare
-Label=traefik.http.services.firefly.loadbalancer.server.port=8080
+# Routing is via the FILE provider, not labels. This container is on the
+# `firefly-iii` network (10.89.2.x) for DB DNS; Traefik is on `podman`
+# (10.88.0.x) and has no route there, so label routing gave Traefik an
+# unreachable backend -- 20s hangs, nothing logged, dashboard said "UP".
+# See config/traefik/optimusprime/dynamic.yml -> 192.168.1.10:8006
+# Do NOT set this back to true: the @docker router would collide with the @file
+# router on the same Host() rule at equal priority, winner non-deterministic.
+Label=traefik.enable=false
 
 [Service]
 Restart=always
