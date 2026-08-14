@@ -1,0 +1,15 @@
+[Unit]
+Description=Sample SLZB-06 coordinator temperatures every 5 minutes
+
+[Timer]
+# Wall-clock, NOT OnBootSec+OnUnitActiveSec. The monotonic pair only chains once OnBootSec
+# has fired, so enabling it on an already-running host leaves `systemctl list-timers` with
+# NEXT="-" and the timer never fires until the next reboot. (Verified: that is exactly what
+# happened on first enable here.) OnCalendar needs no activation chain.
+OnCalendar=*:0/5
+AccuracySec=10s
+# Fire once on boot if a sample was missed while the host was down.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

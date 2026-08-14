@@ -1,0 +1,17 @@
+[Unit]
+Description=Sample SLZB-06 coordinator temperatures into CSV
+# Source: scripts/optimus-prime/slzb-temp-logger.py in the repo below.
+# Keep Documentation= to ONE valid URL — systemd parses it as a URL list and logs
+# "Invalid URL, ignoring" for a bare path on every daemon-reload.
+Documentation=https://github.com/ciberkids/server-conf
+After=network-online.target
+Wants=network-online.target
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+# Unprivileged on purpose: only needs an HTTP GET and a write into the matteo-owned
+# forensics dir. Running as root would leave root-owned rows in /mnt/data/matteo.
+User=matteo
+Group=matteo
+ExecStart=/usr/bin/python3 /home/matteo/slzb-temp-logger.py
