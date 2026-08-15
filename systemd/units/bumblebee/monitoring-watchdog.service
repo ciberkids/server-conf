@@ -1,0 +1,24 @@
+[Unit]
+Description=Cross-host watchdog for Optimus Prime's monitoring stack
+# Source: scripts/bumblebee/monitoring-watchdog.py in the repo below.
+# Documentation= must be ONE valid URL - systemd parses it as a URL list and logs
+# "Invalid URL, ignoring" for a bare path on every daemon-reload.
+Documentation=https://github.com/ciberkids/server-conf
+After=network-online.target
+Wants=network-online.target
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+# Unprivileged: only needs outbound HTTP to OP plus telegram-send as a fallback.
+User=matteo
+Group=matteo
+# Creates/owns /var/lib/monitoring-watchdog for the counter baseline between runs.
+StateDirectory=monitoring-watchdog
+# HA_WEBHOOK_ID - the HA webhook shared secret. Read by systemd as root before it
+# drops privileges, so the file stays 0600 root. NOT in git.
+EnvironmentFile=/etc/monitoring-watchdog.env
+# ⚠️ MUST live under /usr/local/bin - that path gets SELinux `bin_t`, which systemd can
+# execute. Files under /home/matteo get `container_file_t` on this host; that exec denial
+# is why notify-failure had never once delivered an alert. Bumblebee is SELinux enforcing.
+ExecStart=/usr/bin/python3 /usr/local/bin/monitoring-watchdog.py

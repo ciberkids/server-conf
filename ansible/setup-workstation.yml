@@ -369,6 +369,48 @@
         enabled: yes
         state: started
 
+    # Cross-host dead-man's-switch for Optimus Prime's monitoring stack. Lives on
+    # bumblebee on purpose: a monitor must not share a fate with what it watches, and
+    # Prometheus/Alertmanager/HA all run on OP. Added 2026-08-15 after four services
+    # were found unreachable for ~4 months — the probes and alert rule worked the whole
+    # time, but Alertmanager's Telegram token was revoked (401) so nothing was delivered,
+    # a failure visible only in Alertmanager's own logs.
+    # Same /usr/local/bin + bin_t requirement as notify-failure.sh above.
+    - name: Deploy monitoring watchdog script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/bumblebee/monitoring-watchdog.py"
+        dest: /usr/local/bin/monitoring-watchdog.py
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Deploy monitoring watchdog service
+      copy:
+        src: "{{ playbook_dir }}/../systemd/units/bumblebee/monitoring-watchdog.service"
+        dest: /etc/systemd/system/monitoring-watchdog.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy monitoring watchdog timer
+      copy:
+        src: "{{ playbook_dir }}/../systemd/units/bumblebee/monitoring-watchdog.timer"
+        dest: /etc/systemd/system/monitoring-watchdog.timer
+        mode: "0644"
+      notify: reload systemd
+
+    # NOTE: /etc/monitoring-watchdog.env (HA_WEBHOOK_ID) is deliberately NOT managed here —
+    # it holds the HA webhook shared secret and must stay out of git. Create it manually:
+    #   printf 'HA_WEBHOOK_ID=<id>\n' | sudo tee /etc/monitoring-watchdog.env
+    #   sudo chown root:root /etc/monitoring-watchdog.env && sudo chmod 600 /etc/monitoring-watchdog.env
+    # The id must match the webhook trigger in HA's
+    # "Monitoring watchdog alert (from Bumblebee)" automation.
+    - name: Enable monitoring watchdog timer
+      systemd:
+        name: monitoring-watchdog.timer
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
     # Quiet the podman REST API access log. Traefik's container-discovery provider
     # polls this API ~9.5 req/s and the packaged unit ships --log-level=info, which
     # logs every request to syslog (~180 MB/day, 92% of a 17 G /var/log/messages in
