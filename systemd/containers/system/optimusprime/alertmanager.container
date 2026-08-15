@@ -9,6 +9,11 @@ Image=quay.io/prometheus/alertmanager:latest
 PublishPort=9093:9093
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+# Telegram bot token, kept OUT of alertmanager.yml (which is world-readable and now
+# git-tracked). The config references it via `bot_token_file:`.
+# ⚠️ The host file must be owned by 65534:65534 — alertmanager runs as `nobody` inside
+# the container and there is no UserNS, so a root-owned 0600 file is unreadable to it.
+Volume=/etc/containers/secrets/alertmanager-telegram.token:/etc/alertmanager/telegram.token:ro
 
 AutoUpdate=registry
 
