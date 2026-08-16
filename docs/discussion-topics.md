@@ -190,6 +190,37 @@ MQTT pushes state, but because HA never needs to know the state at press time at
 
 Related: `[[reference-ha-light-entity-map]]` (group 2 = `light.living_room`).
 
+## Health findings surfaced while building the Home Health dashboard
+
+**Added:** 2026-08-16
+
+None of these were the task; they fell out of inventorying entities for the new `home-health`
+dashboard. The "Problems" view that would have displayed them was deliberately not built, so they
+are parked here instead of being lost.
+
+1. **Two automations are in state `unavailable`** — `automation.garage_door_has_changed_status` and
+   `automation.telegram_bot_to_notify_nobody_home_and_electronics_on`. An `unavailable` automation is
+   **not** a disabled one: it usually means the config failed schema validation (classically an
+   `enabled: false` top-level key, which is not valid). Both are almost certainly broken and silently
+   not running.
+2. **`sensor.matteo_office_lamp_remote_battery` is at 2.5%.** Also low: `stairs_down_motion_sensor`
+   26%, `outdoor_garden_hose` 30%, `guest_room_remote_right_side` 43%.
+   `sensor.postbox_pack_door_battery` reads `unknown`.
+3. **129 entities are `unavailable`** (plus ~125 `unknown`, mostly never-pressed buttons — benign).
+   Large clusters: UniFi per-port `power_cycle` buttons, and several `device_tracker` entities.
+   Worth a triage pass; many are probably stale registry entries for devices long gone.
+4. **`update.energy_tariff_energytarif` is permanently `unavailable`** — omitted from the Updates
+   view for that reason. Probably a dead integration entity.
+5. **`zigbee2mqtt-networkmap` card is installed but has no backing sensor**, so it cannot render.
+   Needs an MQTT sensor fed from z2m's networkmap topic if you want the map.
+6. **Server metrics are not in HA at all** (no CPU/RAM/disk for either host). The dashboard links to
+   Grafana instead, which was the chosen option. The alternative — REST sensors querying Prometheus
+   at `192.168.1.10:9092/api/v1/query` to make server health alertable inside HA — remains available.
+
+**What to look at when we pick this up:** start with item 1 (`ha_config_get_automation` on both ids,
+expect a schema error), then item 2 (physical battery swap). For item 3, `ha_search` with
+`state_filter="unavailable"` paginated, grouped by domain.
+
 ---
 
 *(previously cleared 2026-07-27, after Frigate, Immich, the pool pump and the coordinator
