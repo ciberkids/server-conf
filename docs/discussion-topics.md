@@ -221,6 +221,127 @@ are parked here instead of being lost.
 expect a schema error), then item 2 (physical battery swap). For item 3, `ha_search` with
 `state_filter="unavailable"` paginated, grouped by domain.
 
+## Service sanity-check findings 2026-08-19
+
+**Added:** 2026-08-19
+
+Fell out of a requested health sweep (container health + Traefik reachability + log errors) across
+both hosts. **Nothing is down** — 75 containers all healthy, all 39 blackbox probes green, 0 alerts,
+0 silences, and all 53 Traefik-routed hostnames answer externally. These are the things that are
+quietly wrong underneath that.
+
+1. **`notify-recovery-check.service` on bumblebee has NEVER run — 6,706 failures.**
+   `203/EXEC — Failed to locate executable /home/matteo/notify-recovery-check.sh: Permission denied`.
+   Verified cause: the script is labelled `container_file_t` (as is `/home/matteo`), which systemd's
+   `init_t` cannot exec. **This is the exact bug fixed on 2026-08-05 for `notify-failure.sh` — its
+   sibling script was missed.** `notify-failure@.service` correctly points at `/usr/local/bin`
+   (`bin_t`); this unit still points at `/home/matteo`. It retries every 5 min and has failed every
+   time for at least the whole retained journal (since 2026-07-26). **So "service X has recovered"
+   notifications have never been delivered on bumblebee.**
+   Fix is the documented one: `rsync` the script to `/usr/local/bin/`, update `ExecStart`, add it to
+   ansible (which has no task for it), then test with a real trigger — not by assuming.
+
+2. **15 Traefik-routed hostnames have no external probe — including every public service.**
+   53 routed vs 39 probed. Unmonitored: `cockpit.{bumblebee,optimusprime}`, `firefox`, `frigate`,
+   `immich.optimusprime`, `nextcloud.optimusprime`, `opensign-api`, `paperless`, `prowlarr`, and
+   **all six internet-facing** `immich.public`, `jellyfin.public`, `n8n.public`, `nextcloud.public`,
+   `pingvin.public`, `plex.public`. The `*.public` gap is the important half: those are the only
+   services an outsider can reach, and nothing watches them. Note Immich *is* probed, but as
+   `http://192.168.1.10:2283` — a direct host:port probe cannot detect a Traefik routing failure,
+   which is precisely the fault class that hid for 4 months until 2026-08-14.
+
+3. **`nextcloud.public.favarohome.com` → 400 "Access through untrusted domain."**
+   Routed, internet-exposed, TLS valid, and Nextcloud itself answers (`server: nginx`, NC CSP
+   header) — but the hostname is not in Nextcloud's `trusted_domains`, so it is unusable. The LAN
+   name `nextcloud.optimusprime` works (302). Either add the domain or retire the route; right now
+   it is an open door to an error page. Unnoticed because of finding 2.
+
+4. **Boot-time Telegram notifications race the network.** `telegram-boot-notify.service` (OP) has
+   been in `failed` state since the Aug 13 05:01 boot: `telegram.error.NetworkError:
+   httpx.ConnectError: All connection attempts failed`. It **already has**
+   `After=network-online.target` + `Wants=` — so that target is satisfied before DNS/egress actually
+   works. The same boot took down `notify-failure@zigbee2mqtt-mcp.service.service` for the same
+   reason, meaning **a service that fails at boot also loses its alert**. Needs a retry/backoff in
+   the script, or a real reachability gate, not more ordering.
+
+5. **`sdj-reminder.timer` on OP can never fire again.** `OnCalendar=2026-03-31 21:00:00` with
+   `Persistent=false` — a one-shot reminder whose date passed 4.5 months ago, still `enabled` and
+   `active` with `NEXT="-"`. Harmless cruft, but it is the only `NEXT="-"` timer on either host, so
+   it dilutes that check. (Both timers that matter — `zigbee-watchdog` and `slzb-temp-logger` — are
+   correctly scheduled and firing.) Nothing deleted; say the word.
+
+6. **`paperless` on bumblebee uses the routing pattern that is broken on OP, and gets away with it.**
+   Traefik's backend for it is `http://10.89.0.6:8000` while bumblebee's Traefik is on `10.88.0.14`
+   only. On OP that combination hangs for 20 s (`http=000`) — the documented
+   `reference_traefik_routing_optimusprime` fault. On bumblebee it **works**: verified reachable from
+   inside the Traefik container, and paperless answers in 63 ms. So the "10.89.x is unreachable" rule
+   is **host-specific, not universal** — worth correcting in memory. It is still a fragility: the
+   container is dual-homed (`paperless=10.89.0.6`, `podman=10.88.0.15`) and Traefik picked the
+   10.89 address, so a firewall or podman change could silently break it. And per finding 2, nothing
+   probes it.
+
+**What to look at when we pick this up:** finding 1 first — it is a two-command fix with a written
+precedent in `project_notify_failure_never_worked`. Then 3 (one `occ config:system:set
+trusted_domains`), then 2 (extend the blackbox target list in Prometheus config on OP). The log-noise
+findings from the same sweep are written up separately in
+`docs/centralized-logging-proposal.md` §2, because they gate the Loki question.
+
+## Document ingestion project — pick this back up
+
+**Added:** 2026-08-19
+
+> "after you have finish remember me to discus about the document ingestion project"
+
+Parked here deliberately so it survives context compaction. **The design already exists and should
+not be re-derived** — the surviving spec is the "n8n Document Classification Pipeline" entry in
+`project_pending_tasks`: a single Gemini 2.5 Flash call doing OCR + classification, dynamic folder-tree
+discovery, confidence ≥ 0.8 → filed into the matched folder, < 0.8 → `_Unclassified/` plus a Telegram
+alert, every document logged to a Google Sheet.
+
+⚠️ The original plan file `/home/matteo/.claude/plans/bubbly-dancing-ullman.md` is **gone** (the whole
+`plans/` directory is missing) — do not send anyone to read it.
+
+**Three user prerequisites, none confirmed done:**
+1. Add a PersonalDocs GDrive sync pair in cloud-drive-sync → `/data/gdrive-sync/PersonalDocs`
+2. Create a "Document Classification Log" Google Sheet and note its spreadsheet ID
+3. Set up a Google Sheets OAuth2 credential in n8n
+
+**What to look at when we pick this up — and one thing that changes the design:**
+
+- **🔑 A full `paperless-ngx` stack is already deployed on bumblebee — and it is completely EMPTY.**
+  Verified 2026-08-19: all five containers up and healthy (`paperless`, `paperless-db`,
+  `paperless-broker`, `paperless-gotenberg`, `paperless-tika`), reachable at
+  `paperless.bumblebee.favarohome.com` — but the database holds **0 documents, 0 tags,
+  0 correspondents**, and the consume directory is empty. It has been deployed and never used.
+
+  This is the single most important input to the design discussion, because paperless-ngx *is* a
+  document ingestion and classification system: OCR (via tika/gotenberg, both already running),
+  tags, correspondents, document types, full-text search, and a watched **consume folder**. The
+  original n8n design was written as if none of that existed.
+
+  So the real question is **not** "how do we build the Gemini pipeline" but **"which half of this
+  job is paperless's?"** Three shapes worth weighing:
+  - (a) **n8n only delivers.** Drop files into paperless's consume dir; paperless does OCR,
+    classification and storage. Least new code; gives up Gemini's semantic classification and the
+    Google-Drive folder-tree filing that was the original goal.
+  - (b) **Gemini classifies, paperless stores.** n8n calls Gemini for the classification decision,
+    then posts to paperless's API with tags/correspondent pre-set. Keeps the smart classification,
+    gains a real document store and search UI instead of a Google Sheet log.
+  - (c) **Two corpora.** Paperless for archival documents, the GDrive tree for things that must stay
+    as files in Drive. Legitimate, but doubles the surface.
+  Recommendation to discuss: **(b)** — it reuses a stack that is already running and idle, and
+  replaces the "log every document to a Google Sheet" step (prerequisites 2 and 3, both unstarted)
+  with something queryable. That would also drop the Google Sheets OAuth2 dependency entirely.
+- The sibling **receipt** pipeline (Warracker / Grocy / Firefly III, watch folder
+  `/home/matteo/gdrive-sync/AI Bills/ToAnalize`) is also DESIGNED-NOT-BUILT and shares the same
+  OCR-then-route shape — see `reference_n8n_api_endpoints`. Decide whether they are one pipeline or two.
+- ⚠️ **Firefly III's API token was never retrieved** (`reference_n8n_api_endpoints` says so, and the
+  2026-08-19 sweep found nothing authenticating against it — 5,671 `Unauthenticated` log lines/day
+  are all our own uptime probe and healthcheck). If receipts are in scope, that token is a blocker.
+- ⚠️ n8n on bumblebee runs `:latest` + `AutoUpdate=registry`, so it restarts near-nightly, and
+  `staticData` writes are lost when a trigger fires within seconds of a restart — see
+  `reference_n8n_api`. A new pipeline should **not** keep state in `staticData`.
+
 ---
 
 *(previously cleared 2026-07-27, after Frigate, Immich, the pool pump and the coordinator
