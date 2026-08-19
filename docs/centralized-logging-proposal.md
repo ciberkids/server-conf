@@ -67,7 +67,25 @@ queryable, and (c) cross-host correlation in one place.
 
 ## 2. Prerequisite: kill the noise first
 
-### 2a. `podman.service` access log on Optimus Prime — 5.7 M lines/day
+### 2a. ✅ FIXED 2026-08-19 — `podman.service` access log on Optimus Prime (was 5.7 M lines/day)
+
+> **Applied and verified.** Drop-in deployed to `/etc/systemd/system/podman.service.d/log-level.conf`
+> (git: `systemd/system/optimusprime/podman-log-level.conf`), `podman.service` cycled,
+> **Traefik restarted**, and all 53 routed hostnames re-swept: **0 failures, 0 backends on 10.89.x**.
+> Result over a clean 5-minute window afterwards:
+>
+> | | before | after |
+> |---|---|---|
+> | `podman.service` lines / 5 min | ~19,930 | **1** |
+> | API access lines / 5 min | ~19,930 | **0** |
+> | whole-journal lines / day | 6.1 M | **~400 k** |
+>
+> Running process confirmed as `podman --log-level=warn system service` (the configured
+> `Environment=` updates immediately while the old process keeps running — check the cmdline, not
+> the property). Written up in `docs/optimus-prime.md#logging`.
+> **§4's sizing is now the live baseline rather than a projection.**
+
+The original finding follows.
 
 **This is the single biggest finding of the whole exercise.** Measured on OP:
 
@@ -260,16 +278,17 @@ watch-the-watcher case. Loki-side alerting rules can come later, if ever.
 Independent of Loki, but they came out of the same sweep and are logged in
 `docs/discussion-topics.md`:
 
-1. **`notify-recovery-check.service` on bumblebee has never once run** — `203/EXEC`,
+1. ✅ **FIXED 2026-08-19.** **`notify-recovery-check.service` on bumblebee had never once run** — `203/EXEC`,
    `container_file_t` on `/home/matteo/notify-recovery-check.sh`. **6,706 failure events** in the
    journal. Identical to the bug fixed on 2026-08-05 for `notify-failure.sh`; this sibling script was
    missed, so recovery notifications have never been delivered on that host. This is a **correctness**
    bug, not a log-volume one — 6,706 events over 24 days is only ~280/day, negligible against the
    68 k measured above.
-2. **15 Traefik-routed hostnames have no blackbox probe**, including **every** internet-facing
-   `*.public.favarohome.com` service.
-3. **`nextcloud.public.favarohome.com` returns 400 "Access through untrusted domain"** — routed and
-   internet-exposed, but not in Nextcloud's `trusted_domains`.
+2. ✅ **FIXED 2026-08-19.** **15 Traefik-routed hostnames had no blackbox probe**, including
+   **every** internet-facing `*.public.favarohome.com` service. All 15 added; `count(probe_success)`
+   is now **54**, all succeeding.
+3. ✅ **FIXED 2026-08-19.** **`nextcloud.public.favarohome.com` returned 400 "Access through
+   untrusted domain"** — added to Nextcloud's `trusted_domains` at index 1; now 200.
 4. **Boot-time Telegram notifications race the network.** `telegram-boot-notify.service` failed at
    the Aug 13 boot with `httpx.ConnectError` *despite* having `After=network-online.target` —
    that target does not imply working DNS.
