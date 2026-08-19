@@ -1,7 +1,8 @@
 # Centralized logging — Grafana + Loki proposal
 
 **Written:** 2026-08-19, in answer to "maybe in grafana and loki?" raised during a service sanity check.
-**Status:** proposal. Nothing deployed. Numbers below are measured on this infrastructure, not estimates.
+**Status:** proposal. Nothing deployed. Entry counts, log lines and config states below are **measured**
+on this infrastructure; byte/storage figures are flagged as estimates where they are estimates.
 
 ---
 
@@ -43,6 +44,12 @@ oldest journal entry on bumblebee:  2026-07-26T18:42  (24 days)
 
 The 43 h figure was almost certainly derived from `zigbee-watchdog`'s *own* journal start (Aug 12,
 when the unit was created), not from the journal's start. **journald is not the weak link.**
+
+⚠️ **But "23 days" is a consequence of volume, not a retention setting.** `journald.conf` is all
+defaults on OP, so `SystemMaxUse` resolves to ~4 GB — and measured usage is **3.9 GB, i.e. the
+journal is sitting at its cap and rotating.** So the window is `4 GB ÷ daily volume`. Kill the 94%
+noise in §2a and *the same 4 GB buys roughly a year*; conversely, any new chatty service silently
+shortens it. **Never quote the day count as if it were configured.**
 
 **The weak link is z2m's own file logger**, which is capped at 10 rotated directories:
 
@@ -118,22 +125,31 @@ emergency):
 | `firefly-iii` | 5,672 | **1** (accounts for 5,671) |
 
 **Home Assistant — 4 pool-sensor setpoints outside their declared range.** Four MQTT `number`
-entities are rejected on **every single publish**, 3,858 times each per day (~every 22 s):
+entities are rejected on **every single publish**. Verbatim, from a 30-minute unsanitized sample
+(**73 of each** — one every ~24 s, so ~3,500/day each):
 
 ```
-Invalid value for number.pool_sensor_orp_min:            -1.0  (range 0.0 - N)
-Invalid value for number.pool_sensor_orp_max:            -1.0  (range 0.0 - N)
-Invalid value for number.pool_sensor_free_chlorine_max:  -1.0  (range 0.0 - N)
-Invalid value for number.pool_sensor_ph_max:             1400  (range 0.0 - 14.0)
+73  Invalid value for number.pool_sensor_orp_min:           -1.0  (range 0.0 - 1200.0)
+73  Invalid value for number.pool_sensor_orp_max:           -1.0  (range 0.0 - 1200.0)
+73  Invalid value for number.pool_sensor_free_chlorine_max: -1.0  (range 0.0 - 40.0)
+73  Invalid value for number.pool_sensor_ph_max:            1400  (range 0.0 - 140.0)
 ```
 
-Confirmed against z2m's own state for `0x70d07efffe432949`:
+Matches z2m's own state for `0x70d07efffe432949`:
 `orp_min=-1  orp_max=-1  free_chlorine_max=-1  ph_max=1400`
 
-These are the device's **alarm setpoints, not its measurements** — `-1` is the sensor's
-"threshold disabled" sentinel, and `ph_max=1400` is a ×100 scaling mismatch (14.00 unscaled).
-The actual pool readings are all fine (`orp=1, salinity=6290, tds=5876, free_chlorine=0`).
-**Zero functional impact — pure noise, and it would bury a real HA error.**
+Two distinct problems, both in the **setpoints** (the device's alarm thresholds) and neither in its
+measurements:
+
+- **The three `-1.0` values** are the sensor's "threshold disabled" sentinel, which is below the
+  declared `min: 0.0`. A sentinel outside the declared range is arguably z2m's converter bug.
+- **`ph_max=1400` against a declared max of `140.0`** — exactly 10× over. Note the declared range is
+  itself already pH×10 (0–14.0 would be the real pH scale), so the device is reporting pH×100 into a
+  ×10 field. **That is the observation; the precise units bug is not confirmed** — it needs a look at
+  the z2m converter for this device, not a guess here.
+
+The actual readings are fine (`orp=1, salinity=6290, tds=5876, free_chlorine=0`).
+**Zero functional impact — pure noise that would bury a real HA error.**
 
 **Firefly III — entirely self-inflicted by our own monitoring.** All 5,671 lines are Firefly
 logging an unauthenticated page view at `ERROR` level, from exactly two healthy sources:
@@ -143,8 +159,12 @@ logging an unauthenticated page view at `ERROR` level, from exactly two healthy 
 ::1       "GET / HTTP/1.1" 302  "curl/8.14.1"                <- its own HealthCmd, every 30s
 ```
 
-Nothing is wrong. Firefly's log level for anonymous requests is simply miscategorised. Best fix is
-to point the blackbox probe at `/login` (already returns 200) so it stops generating ERRORs.
+Nothing is wrong — Firefly simply logs anonymous page views at `ERROR` level.
+
+**Both callers must be retargeted, not just one.** Confirmed healthcheck:
+`CMD-SHELL curl -sf -o /dev/null http://localhost:8080/` — it hits `/` too. So changing only the
+blackbox probe removes ~2,840 lines/day and leaves the other ~2,840. Point **both** at `/login`,
+which already returns 200.
 
 > This is the mirror image of the lesson in `feedback_error_log_is_not_a_success_log`: there, a
 > quiet error log was wrongly read as success. Here, **21,000 loud error lines/day represent zero
@@ -190,12 +210,23 @@ covers "is OP's monitoring alive?", and it must **stay** on bumblebee for exactl
 
 ### Sizing (from measured volume, post-§2)
 
-| | entries/day | ~bytes/day | 90 d retained (compressed ~10×) |
+Entry counts are **measured** (identical 1-hour `journalctl -o json` sample on each host).
+Byte figures are **estimated** at ~200 B/line raw, and the compression ratio is Loki's typical ~10×
+— treat the right-hand column as an order of magnitude, not a measurement.
+
+| | entries/day (measured) | ~raw/day (est.) | 90 d in Loki (est.) |
 |---|---|---|---|
-| OP, after noise fix | ~350 k | ~40 MB | ~1.1 GB |
-| bumblebee, after §5 fix | ~250 k | ~30 MB | ~0.8 GB |
-| z2m file logs | — | ~9 MB | ~0.3 GB |
-| **Total** | | **~80 MB/day** | **~2–3 GB** |
+| OP, **after** the §2a noise fix | ~350 k | ~70 MB | ~0.6 GB |
+| OP, today (for contrast) | **6.1 M** | ~1.2 GB | ~11 GB |
+| bumblebee | **68 k** | ~14 MB | ~0.1 GB |
+| z2m file logs | — | ~9 MB | ~0.1 GB |
+| **Total, after the fix** | **~420 k** | **~93 MB/day** | **~0.8 GB** |
+
+bumblebee is genuinely quiet — 68 k entries/day, ~2,860 per hour. Its journal occupies 1.6 GB over
+24 days (~67 MB/day on disk, i.e. journald's per-entry overhead dominates, not the messages).
+
+**The contrast row is the whole argument:** deploying Loki *before* §2a would cost ~14× the storage
+and index 5.7 M junk streams/day forever.
 
 **90 days is the recommended retention** — it comfortably spans the observed 4–18 day gap between
 coordinator wedges, so a recurrence can always be compared against its predecessors. Even a year
@@ -231,8 +262,10 @@ Independent of Loki, but they came out of the same sweep and are logged in
 
 1. **`notify-recovery-check.service` on bumblebee has never once run** — `203/EXEC`,
    `container_file_t` on `/home/matteo/notify-recovery-check.sh`. **6,706 failure events** in the
-   journal. Identical to the bug fixed on 2026-08-05 for `notify-failure.sh`; this sibling script
-   was missed. Recovery notifications have never been delivered on that host.
+   journal. Identical to the bug fixed on 2026-08-05 for `notify-failure.sh`; this sibling script was
+   missed, so recovery notifications have never been delivered on that host. This is a **correctness**
+   bug, not a log-volume one — 6,706 events over 24 days is only ~280/day, negligible against the
+   68 k measured above.
 2. **15 Traefik-routed hostnames have no blackbox probe**, including **every** internet-facing
    `*.public.favarohome.com` service.
 3. **`nextcloud.public.favarohome.com` returns 400 "Access through untrusted domain"** — routed and
