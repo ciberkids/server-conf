@@ -225,12 +225,22 @@ expect a schema error), then item 2 (physical battery swap). For item 3, `ha_sea
 
 **Added:** 2026-08-19
 
+> ✅ **Items 1, 2 and 3 were FIXED on 2026-08-19**, together with the separate podman-access-log
+> finding written up in `docs/centralized-logging-proposal.md` §2a. Commits `9523de7` (recovery
+> notifications), `ea50b5e` (podman log level), `4447bcd` (15 blackbox probes), plus a volume-only
+> Nextcloud `trusted_domains` change that has no file in git.
+>
+> ⏳ **Items 4, 5 and 6 remain OPEN** — all three were assessed as Low/informational and were
+> deliberately not touched. They are the only reason this entry is still here.
+> Durable write-ups: `docs/centralized-logging-proposal.md`, `docs/optimus-prime.md#logging`, and
+> `[[project_notify_failure_never_worked]]` / `[[project-centralized-logging]]` in memory.
+
 Fell out of a requested health sweep (container health + Traefik reachability + log errors) across
 both hosts. **Nothing is down** — 75 containers all healthy, all 39 blackbox probes green, 0 alerts,
 0 silences, and all 53 Traefik-routed hostnames answer externally. These are the things that are
 quietly wrong underneath that.
 
-1. **`notify-recovery-check.service` on bumblebee has NEVER run — 6,706 failures.**
+1. ✅ **FIXED.** **`notify-recovery-check.service` on bumblebee had NEVER run — 6,706 failures.**
    `203/EXEC — Failed to locate executable /home/matteo/notify-recovery-check.sh: Permission denied`.
    Verified cause: the script is labelled `container_file_t` (as is `/home/matteo`), which systemd's
    `init_t` cannot exec. **This is the exact bug fixed on 2026-08-05 for `notify-failure.sh` — its
@@ -250,7 +260,7 @@ quietly wrong underneath that.
    🔑 The generalisable check, which would have caught this in August:
    `grep -H ExecStart /etc/systemd/system/*.service | grep /home/`
 
-2. **15 Traefik-routed hostnames have no external probe — including every public service.**
+2. ✅ **FIXED.** **15 Traefik-routed hostnames had no external probe — including every public service.**
    53 routed vs 39 probed. Unmonitored: `cockpit.{bumblebee,optimusprime}`, `firefox`, `frigate`,
    `immich.optimusprime`, `nextcloud.optimusprime`, `opensign-api`, `paperless`, `prowlarr`, and
    **all six internet-facing** `immich.public`, `jellyfin.public`, `n8n.public`, `nextcloud.public`,
@@ -259,13 +269,13 @@ quietly wrong underneath that.
    `http://192.168.1.10:2283` — a direct host:port probe cannot detect a Traefik routing failure,
    which is precisely the fault class that hid for 4 months until 2026-08-14.
 
-3. **`nextcloud.public.favarohome.com` → 400 "Access through untrusted domain."**
+3. ✅ **FIXED.** **`nextcloud.public.favarohome.com` → 400 "Access through untrusted domain."**
    Routed, internet-exposed, TLS valid, and Nextcloud itself answers (`server: nginx`, NC CSP
    header) — but the hostname is not in Nextcloud's `trusted_domains`, so it is unusable. The LAN
    name `nextcloud.optimusprime` works (302). Either add the domain or retire the route; right now
    it is an open door to an error page. Unnoticed because of finding 2.
 
-4. **Boot-time Telegram notifications race the network.** `telegram-boot-notify.service` (OP) has
+4. ⏳ **STILL OPEN (Low).** **Boot-time Telegram notifications race the network.** `telegram-boot-notify.service` (OP) has
    been in `failed` state since the Aug 13 05:01 boot: `telegram.error.NetworkError:
    httpx.ConnectError: All connection attempts failed`. It **already has**
    `After=network-online.target` + `Wants=` — so that target is satisfied before DNS/egress actually
@@ -273,13 +283,13 @@ quietly wrong underneath that.
    reason, meaning **a service that fails at boot also loses its alert**. Needs a retry/backoff in
    the script, or a real reachability gate, not more ordering.
 
-5. **`sdj-reminder.timer` on OP can never fire again.** `OnCalendar=2026-03-31 21:00:00` with
+5. ⏳ **STILL OPEN.** **`sdj-reminder.timer` on OP can never fire again.** `OnCalendar=2026-03-31 21:00:00` with
    `Persistent=false` — a one-shot reminder whose date passed 4.5 months ago, still `enabled` and
    `active` with `NEXT="-"`. Harmless cruft, but it is the only `NEXT="-"` timer on either host, so
    it dilutes that check. (Both timers that matter — `zigbee-watchdog` and `slzb-temp-logger` — are
    correctly scheduled and firing.) Nothing deleted; say the word.
 
-6. **`paperless` on bumblebee uses the routing pattern that is broken on OP, and gets away with it.**
+6. ⏳ **STILL OPEN (note, not a fault).** **`paperless` on bumblebee uses the routing pattern that is broken on OP, and gets away with it.**
    Traefik's backend for it is `http://10.89.0.6:8000` while bumblebee's Traefik is on `10.88.0.14`
    only. On OP that combination hangs for 20 s (`http=000`) — the documented
    `reference_traefik_routing_optimusprime` fault. On bumblebee it **works**: verified reachable from
