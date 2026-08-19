@@ -3,4 +3,9 @@ Description=Check for recovered services and notify via Telegram
 
 [Service]
 Type=oneshot
-ExecStart=/home/matteo/notify-recovery-check.sh
+# Must live in /usr/local/bin, not /home/matteo: SELinux is enforcing and /home/matteo
+# is labelled container_file_t, which systemd's init_t cannot execute. This unit failed
+# 203/EXEC on EVERY run from its creation (2026-06-19) until 2026-08-19 -- 6,706 recorded
+# failures -- so no recovery notification had ever been delivered. Same defect fixed for
+# notify-failure.sh on 2026-08-05; this sibling was missed then. /usr/local/bin gets bin_t.
+ExecStart=/usr/local/bin/notify-recovery-check.sh

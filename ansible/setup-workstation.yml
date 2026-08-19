@@ -321,6 +321,42 @@
         owner: root
         group: root
 
+    # notify-recovery-check sends the "service X is back" half of the alert pair. It had
+    # NO ansible task at all until 2026-08-19, and its unit still pointed at
+    # /home/matteo/notify-recovery-check.sh -- container_file_t, unexecutable by init_t --
+    # so it failed 203/EXEC on every 5-minute run since 2026-06-19 (6,706 recorded failures)
+    # and no recovery notification was ever delivered. The 2026-08-05 fix for notify-failure.sh
+    # missed this sibling because it searched for "notify-failure" specifically.
+    # Audit for recurrences with:  grep -H ExecStart /etc/systemd/system/*.service | grep /home/
+    - name: Deploy notify-recovery-check script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/bumblebee/notify-recovery-check.sh"
+        dest: /usr/local/bin/notify-recovery-check.sh
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Deploy notify-recovery-check service
+      copy:
+        src: "{{ quadlets_src }}/notify-recovery-check.service"
+        dest: /etc/systemd/system/notify-recovery-check.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy notify-recovery-check timer
+      copy:
+        src: "{{ quadlets_src }}/notify-recovery-check.timer"
+        dest: /etc/systemd/system/notify-recovery-check.timer
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable notify-recovery-check timer
+      systemd:
+        name: notify-recovery-check.timer
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
     - name: Deploy notify-failure@ template service
       copy:
         src: "{{ quadlets_src }}/notify-failure@.service"
