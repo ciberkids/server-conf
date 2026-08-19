@@ -156,6 +156,54 @@ Org: `favarohome`, admin token in quadlet env vars.
 | Disk Health & RAID Status | Prometheus | SMART temps, RAID arrays, disk space, I/O |
 | Home Assistant Sensors | InfluxDB | Temperature, humidity, power/energy from HA |
 
+## Logging
+
+### podman API access log silenced 2026-08-19
+
+`podman.service` was logging **every** REST API request at the packaged `--log-level=info`, and
+Traefik's container-discovery provider polls that API continuously. Measured before the fix:
+
+```
+journal entries, 1 h sample:   253,734   =>  6.1 M/day
+   of which podman.service:    239,158   =>  5.7 M/day  =  94% of the entire journal
+```
+
+Fixed with `/etc/systemd/system/podman.service.d/log-level.conf`
+(git: `systemd/system/optimusprime/podman-log-level.conf`) setting
+`Environment=LOGGING="--log-level=warn"`. Verified: last access line 11:44:30, podman restarted
+11:44:37, **0 access lines afterwards**.
+
+This is the same fault that produced bumblebee's 17 G `/var/log/messages` in July 2026 — see
+[bumblebee.md](bumblebee.md#logging-read-this-before-debugging-a-full-root-filesystem). It was fixed
+there on 2026-07-27 and **not** on OP until now.
+
+**It was never a disk risk here.** Arch runs no rsyslog, so everything went to journald, which
+self-caps at the default `SystemMaxUse` of ~4 G. The actual costs were:
+
+- **Journal retention squeezed to ~23 days.** Retention here is `4 G ÷ daily volume`, *not* a
+  configured time window — `journald.conf` is all defaults. With the noise gone the same 4 G should
+  hold roughly a year. That window is what nearly lost the Aug 13 coordinator-wedge evidence.
+- `journalctl --since "24 hours ago"` **timed out after 2 minutes** at ~70 entries/second, which made
+  log analysis on this host effectively impractical.
+
+⚠️ **Applying or reverting this requires restarting Traefik afterwards.** Cycling `podman.service`
+kills Traefik's event stream: it keeps serving its existing routing table so everything *looks* fine,
+but it stops learning about container changes and a later container restart 502s. **Router count is
+not a valid check** — verify by probing the routed hostnames end-to-end. (After this change all 53
+were swept: 0 failures, 0 backends left on `10.89.x`.)
+
+`podman.service` on OP is **socket-activated** (`podman.socket` enabled+active, `podman.service`
+disabled), so `systemctl stop podman.service` is safe — the next API request restarts it with the new
+environment. Confirm the running process actually picked it up, since the configured `Environment=`
+property updates immediately while the old process keeps running:
+
+```bash
+ps -eo pid,cmd | grep "podman system service"   # want: podman --log-level=warn system service
+```
+
+⚠️ There is **no ansible coverage for Optimus Prime** — `ansible/setup-workstation.yml` targets
+bumblebee only. This drop-in must be re-deployed by hand from git if the host is rebuilt.
+
 ## Quadlet Files
 
 All container definitions: `/etc/containers/systemd/*.container`
