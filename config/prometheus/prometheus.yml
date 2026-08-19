@@ -70,6 +70,13 @@ scrape_configs:
           - https://shutter-encoder.optimusprime.favarohome.com
           - https://cloud-drive-sync.optimusprime.favarohome.com
           - http://192.168.1.10:2283
+          # added 2026-08-19: routed by Traefik but previously unprobed
+          - https://cockpit.optimusprime.favarohome.com
+          - https://firefox.optimusprime.favarohome.com
+          - https://immich.optimusprime.favarohome.com
+          - https://nextcloud.optimusprime.favarohome.com
+          - https://opensign-api.optimusprime.favarohome.com
+          - https://prowlarr.optimusprime.favarohome.com
           # Bumblebee
           - https://heimdall.bumblebee.favarohome.com
           - https://n8n.bumblebee.favarohome.com
@@ -82,6 +89,21 @@ scrape_configs:
           - https://comfyui-launcher.bumblebee.favarohome.com
           - https://opencode.bumblebee.favarohome.com
           - https://cloud-drive-sync.bumblebee.favarohome.com
+          # added 2026-08-19: routed by Traefik but previously unprobed
+          - https://cockpit.bumblebee.favarohome.com
+          - https://frigate.bumblebee.favarohome.com
+          - https://paperless.bumblebee.favarohome.com
+          # Internet-facing (*.public). Added 2026-08-19 -- until then NONE of the
+          # publicly reachable services had any external probe at all, which is the
+          # opposite of the right priority: these are the only ones an outsider can
+          # reach. Probed via NAT hairpin from the blackbox container; verified
+          # working before being added here.
+          - https://immich.public.favarohome.com
+          - https://jellyfin.public.favarohome.com
+          - https://n8n.public.favarohome.com
+          - https://nextcloud.public.favarohome.com
+          - https://pingvin.public.favarohome.com
+          - https://plex.public.favarohome.com
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
