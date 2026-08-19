@@ -238,8 +238,17 @@ quietly wrong underneath that.
    (`bin_t`); this unit still points at `/home/matteo`. It retries every 5 min and has failed every
    time for at least the whole retained journal (since 2026-07-26). **So "service X has recovered"
    notifications have never been delivered on bumblebee.**
-   Fix is the documented one: `rsync` the script to `/usr/local/bin/`, update `ExecStart`, add it to
-   ansible (which has no task for it), then test with a real trigger — not by assuming.
+   **Verified to be a ONE-change fix** (checked the script before recommending): it already calls
+   `telegram-send --config /etc/telegram-send.conf`, which is the correct form for bumblebee, and its
+   companion `notify-failure.sh` does `mkdir -p /run/notify-failure` as root — so the state dir the
+   recovery script reads will exist. Nothing else is wrong with it. So: `rsync --inplace` the script
+   to `/usr/local/bin/`, update `ExecStart`, add it to ansible (which has no task for it), then test
+   with a real trigger — not by assuming.
+   (`/run/notify-failure` is absent right now simply because **no service has failed on bumblebee
+   since the 03:49 boot today** — that is a good sign, not a second bug.)
+
+   🔑 The generalisable check, which would have caught this in August:
+   `grep -H ExecStart /etc/systemd/system/*.service | grep /home/`
 
 2. **15 Traefik-routed hostnames have no external probe — including every public service.**
    53 routed vs 39 probed. Unmonitored: `cockpit.{bumblebee,optimusprime}`, `firefox`, `frigate`,
