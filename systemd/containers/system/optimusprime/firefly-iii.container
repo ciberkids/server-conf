@@ -29,7 +29,12 @@ EnvironmentFile=/etc/containers/secrets/firefly-iii.env
 
 AutoUpdate=registry
 
-HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/ || exit 1
+# Probe /login, not /. Firefly logs every ANONYMOUS page view at ERROR level
+# ("production.ERROR: Unauthenticated."), so a healthcheck hitting / every 30s generated
+# ~2,840 bogus ERROR lines/day -- and the blackbox probe hitting / added the same again,
+# together 5,671/day representing ZERO faults. /login returns 200 and logs at INFO only
+# (verified 2026-08-20). Fixing only one of the two callers would have halved it, not fixed it.
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/login || exit 1
 HealthInterval=30s
 HealthRetries=3
 HealthStartPeriod=120s

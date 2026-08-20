@@ -48,7 +48,9 @@ scrape_configs:
           - https://jellyfin.optimusprime.favarohome.com
           - https://influxdb.optimusprime.favarohome.com
           - https://filebrowser.optimusprime.favarohome.com
-          - https://firefly.optimusprime.favarohome.com
+          # /login, not /: Firefly logs anonymous page views at ERROR level, so probing /
+          # every 30s manufactured ~2,840 fake ERROR lines/day. /login returns 200.
+          - https://firefly.optimusprime.favarohome.com/login
           - https://grocy.optimusprime.favarohome.com
           - https://warracker.optimusprime.favarohome.com
           - https://sonarr.optimusprime.favarohome.com

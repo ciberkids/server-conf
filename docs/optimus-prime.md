@@ -158,6 +158,65 @@ Org: `favarohome`, admin token in quadlet env vars.
 
 ## Logging
 
+### Container error-log noise removed 2026-08-20
+
+Two containers accounted for **~21,000 ERROR lines/day between them, representing ZERO faults**.
+Both are fixed at source. (The inverse of the usual trap: here a very loud error log meant nothing.
+Always dedupe by message signature before believing a count.)
+
+**Home Assistant — ~15,400/day, all four signatures from one device.** The Tuya pool sensor
+(`0x70d07efffe432949`, TS0601) reports four **alarm setpoints** outside the ranges z2m declares to
+HA, so `homeassistant.components.mqtt.number` rejected and logged *every* publish, ~every 24 s each:
+
+| entity | reported | declared range |
+|---|---|---|
+| `number.pool_sensor_orp_min` | `-1.0` | 0.0 – 1200.0 |
+| `number.pool_sensor_orp_max` | `-1.0` | 0.0 – 1200.0 |
+| `number.pool_sensor_free_chlorine_max` | `-1.0` | 0.0 – 40.0 |
+| `number.pool_sensor_ph_max` | `1400` | 0.0 – **140.0** |
+
+`-1` is the vendor's "threshold disabled" sentinel; `ph_max` is 10× over a range that is itself
+already pH×10. Fixed with z2m per-device **`filtered_attributes`** (confirmed present in z2m 2.13's
+`settings.schema.json`; applied in `controller.js` via `utils.filterProperties` at publish time, so
+the keys never reach HA at all):
+
+```yaml
+devices:
+  '0x70d07efffe432949':
+    friendly_name: Pool sensor
+    filtered_attributes:
+      - ^orp_min$
+      - ^orp_max$
+      - ^free_chlorine_max$
+      - ^ph_max$
+```
+
+- **Regexes must be anchored.** Unanchored `orp_max` is harmless but `ph`/`orp`/`free_chlorine`
+  substrings are not — anchoring is what keeps the real *measurements* and the in-range setpoints
+  (`ph_min`, `free_chlorine_min`, `ec_min`, `ec_max`) publishing normally.
+- **No functional loss:** HA discarded every one of these values already, so the entities had no
+  usable state before or after.
+- Requires a `zigbee2mqtt.service` restart (~5 s, rejoins all 60 devices).
+- ⚠️ **`configuration.yaml` is NOT in git** — it holds the MQTT broker password in plaintext, so
+  committing it would repeat the April 2026 key leak. Back up on the host instead; a timestamped
+  `configuration.yaml.bak-filterattrs-*` was left beside it.
+- Verified: last pool error 06:19:28, z2m restarted 06:23, **0 pool errors and 0 total HA ERROR
+  lines afterwards**, while `ph=7.6 orp=-49 salinity=4130 tds=4068` kept arriving.
+
+**Firefly III — ~5,671/day, entirely self-inflicted by our own monitoring.** Firefly logs every
+*anonymous* page view as `production.ERROR: Unauthenticated.`, and two callers hit `/` every 30 s:
+the blackbox uptime probe and the container's own healthcheck. `/login` returns 200 and logs at
+INFO only (verified). **Both** were retargeted — fixing one would only have halved it:
+
+- `firefly-iii.container`: `HealthCmd=... curl -sf -o /dev/null http://localhost:8080/login`
+- `config/prometheus/prometheus.yml`: target is now `https://firefly.optimusprime.favarohome.com/login`
+
+⚠️ Changing a blackbox target changes its `instance` label, so the old series lingers for
+Prometheus' ~5-minute staleness window and `count(probe_success)` reads one high. Check
+`/api/v1/targets?state=active` — that is authoritative — rather than trusting the series count.
+The `ServiceDown` rule is generic (`probe_success == 0`) so it is unaffected.
+
+
 ### podman API access log silenced 2026-08-19
 
 `podman.service` was logging **every** REST API request at the packaged `--log-level=info`, and
