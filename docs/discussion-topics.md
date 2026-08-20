@@ -269,7 +269,7 @@ quietly wrong underneath that.
    `http://192.168.1.10:2283` — a direct host:port probe cannot detect a Traefik routing failure,
    which is precisely the fault class that hid for 4 months until 2026-08-14.
 
-3. ✅ **FIXED.** **`nextcloud.public.favarohome.com` → 400 "Access through untrusted domain."**
+3. ✅ **FIXED + exposure CONFIRMED INTENDED by the user 2026-08-19** ("yes I need to be able to reach nextcloud from the internet") — **do not close it.** **`nextcloud.public.favarohome.com` → 400 "Access through untrusted domain."**
    Routed, internet-exposed, TLS valid, and Nextcloud itself answers (`server: nginx`, NC CSP
    header) — but the hostname is not in Nextcloud's `trusted_domains`, so it is unusable. The LAN
    name `nextcloud.optimusprime` works (302). Either add the domain or retire the route; right now
@@ -360,6 +360,48 @@ alert, every document logged to a Google Sheet.
 - ⚠️ n8n on bumblebee runs `:latest` + `AutoUpdate=registry`, so it restarts near-nightly, and
   `staticData` writes are lost when a trigger fires within seconds of a restart — see
   `reference_n8n_api`. A new pipeline should **not** keep state in `staticData`.
+
+## Enable 2FA on the Nextcloud admin account (now that the login page is public)
+
+**Added:** 2026-08-20
+
+Follow-on from the user confirming (2026-08-19) that internet access to Nextcloud is a requirement:
+*"yes I need to be able to reach nextcloud from the internet."* That is settled and not in question —
+this entry is only about the one gap it opens.
+
+**Checked 2026-08-20, so this is not a generic hardening lecture — it is the single actual finding:**
+
+| | state |
+|---|---|
+| Nextcloud version | **34.0.3** (memory had said 33.0.3 — corrected) |
+| `auth.bruteforce.protection.enabled` | unset ⇒ **core default ON** ✅ |
+| `bruteforcesettings` app | **enabled** ✅ |
+| nginx PROPFIND ≥100 KB guard | still in place ✅ |
+| `twofactor_totp`, `twofactor_backupcodes` | apps **installed and enabled** ✅ |
+| **2FA on `matteofavaro@gmail.com`** | ❌ **NOT enabled** — both providers disabled *for the user* |
+| `suspicious_login` | disabled |
+
+So the admin account is **password-only and now reachable from the internet**, while the TOTP
+provider is already installed and waiting. Brute-force throttling limits guessing but does nothing
+against a credential that leaks elsewhere.
+
+**Why this wasn't just done:** enrolling TOTP requires scanning a QR into an authenticator app, and
+doing it without the user present risks locking them out of their own admin account. It is
+inherently a user action, not an agent one.
+
+**What to look at when we pick this up:**
+- Enrol via the web UI: Settings → Security → Two-Factor Authentication (TOTP), **and save the
+  backup codes** — `twofactor_backupcodes` is already enabled for exactly this.
+- Verify afterwards with
+  `occ twofactorauth:state matteofavaro@gmail.com` (wants totp under *Enabled* providers).
+- Decide whether to enforce it for the other 4 users (`occ twofactorauth:enforce --on`) — note that
+  enforcing it estate-wide affects family accounts and any WebDAV/desktop clients using passwords,
+  which need app passwords instead. Probably admin-only first.
+- Optional: enable `suspicious_login` (ML-based login-anomaly detection) — cheap now the service is
+  public.
+- Unrelated but adjacent: the NC33 `PresetManager` performance regression recorded in
+  `[[project_nextcloud_app_cleanup]]` was measured on 33.0.3; this host is now on 34.0.3, so
+  **re-measure before treating the 22 disabled apps as permanently necessary.**
 
 ---
 
