@@ -288,7 +288,9 @@ Independent of Loki, but they came out of the same sweep and are logged in
    **every** internet-facing `*.public.favarohome.com` service. All 15 added; `count(probe_success)`
    is now **54**, all succeeding.
 3. ✅ **FIXED 2026-08-19.** **`nextcloud.public.favarohome.com` returned 400 "Access through
-   untrusted domain"** — added to Nextcloud's `trusted_domains` at index 1; now 200.
+   untrusted domain"** — added to Nextcloud's `trusted_domains` at index 1; now 200. The user has
+   since confirmed public access is a **requirement**, so this stays open deliberately; the follow-on
+   (2FA on the admin account) is queued in `discussion-topics.md`.
 4. **Boot-time Telegram notifications race the network.** `telegram-boot-notify.service` failed at
    the Aug 13 boot with `httpx.ConnectError` *despite* having `After=network-online.target` —
    that target does not imply working DNS.
