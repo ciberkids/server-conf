@@ -248,3 +248,63 @@ Its **price was never the unclear part** and is confirmed exactly: $1.25/$2.50, 
 | `x-ai/grok-build-0.1` | 40.7 | 51.5 | 28.9 |
 
 The claimed "AA Intelligence Index 53" for 4.3 is off by 15 points; the real figure is **37.9**. Its Design Arena ranks are 44th–58th in the model arenas and 21st–36th in the agent arenas. So the trade the user actually faces is: **+82% AA coding, +143% AA agentic** for **1.6x input, 2.4x output, and half the context (1M → 500K)** — plus 4.6's cache read is 2.5x dearer ($0.50 vs $0.20). The "defensible incumbent for long-context work" framing rests only on price and window; on every comparable capability measure that exists, 4.3 is two generations and a very large margin behind, and `grok-build-0.1` — which is *newer* than 4.3 (20260520 vs 20260430, so the research's "older"/"variant" labels are chronologically inverted) and cheaper at $1.00/$2.00 — already beats it on all three AA indices. `x-ai/grok-4.20` is the one current Grok with **no** `artificial_analysis` block at all.
+---
+
+# Addenda 2026-08-20 (after user review)
+
+## Scope narrowed by the user
+
+> "I am ok to run the model online via open router I want only to be sure that I am using a good
+> model with the right price … for the local model we will run only coder model."
+
+**Hermes stays on OpenRouter.** Open-weight status is therefore context only, not a tiebreaker —
+capability and price decide. The local GPU is for a coder model.
+
+## Verified in use
+
+`model.default: x-ai/grok-4.3`, `provider: auto`, `base_url: https://openrouter.ai/api/v1`,
+`reasoning_effort: medium`. Confirmed three ways: the config file, the container reading the same line
+through its `/opt/data` mount, and **no `HERMES_MODEL`-style env override**.
+
+## Qwen open-weight status — user challenged this, and it holds
+
+The user's expectation that Qwen is open-weight is half right. Alibaba runs **two lines**:
+
+| naming | weights |
+|---|---|
+| `Qwen3.x-<size>B` | ✅ genuinely open, Apache-2.0 (`Qwen3.8-27B`, `Qwen3.6-27B`, `Qwen3.6-35B-A3B`) |
+| `-max` / `-plus` / `-flash` / `-turbo` | ❌ commercial API tiers, never published |
+
+`huggingface.co/api/models?author=Qwen&limit=1000` → **462 public repos, ZERO named Max, Plus, Flash
+or Turbo.** Qwen3.7 has **0** public repos.
+
+🔑 **Method trap:** the per-repo HF endpoint returns **401 for non-existent repos**, so it cannot
+answer this question — a 401 is not evidence of absence. Only the **listing** endpoint can.
+
+## Local coder model — 1080 Ti, shared with Frigate
+
+11,264 MiB total, **10,199 MiB free**. Frigate is live on the same GPU (~960 MiB, varies with camera
+activity: ONNX detector 274, embeddings 208, 2× ffmpeg decode 320+159). Both `ollama` and `frigate`
+claim the device.
+
+🔴 **If Ollama starves it, Frigate's watchdog treats stalled detection as fatal and exits the whole
+process** → systemd restart loop. A model that merely fits is not safe.
+
+Sizes are real `registry.ollama.ai` manifest totals, status-checked (a 404 cannot masquerade as 0 GB):
+
+| model | size | headroom for KV + Frigate |
+|---|---|---|
+| **`qwen2.5-coder:7b`** | **4.7 GB** | **~5.5 GB — recommended** |
+| `opencoder:8b` | 4.7 GB | ~5.5 GB |
+| `codegemma:7b` | 5.0 GB | ~5.2 GB |
+| `deepseek-coder-v2:16b` | 8.9 GB | ~1.3 GB — tight |
+| `qwen2.5-coder:14b` | 9.0 GB | ~1.2 GB — tight |
+| `starcoder2:15b` | 9.1 GB | ~1.1 GB — tight |
+| `codestral:22b` | 12.6 GB | ❌ does not fit |
+| `devstral:24b` | 14.3 GB | ❌ |
+| `qwen3-coder:30b` | 18.6 GB | ❌ (only size published — no 7B/14B variant, probed 404) |
+| `qwen2.5-coder:32b` | 19.9 GB | ❌ |
+
+⚠️ The already-pulled `qwen3:14b` (9.3 GB) is **already in the risky class**. Mitigation for any
+14B-class choice: a short `OLLAMA_KEEP_ALIVE` so it unloads between requests. Real fix: a 24 GB card,
+which would also put `qwen3-coder:30b` in reach.
