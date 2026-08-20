@@ -1,6 +1,7 @@
 # Document filing pipeline — design & action plan
 
-**Status:** design agreed, nothing built. **Written:** 2026-08-20.
+**Status:** design agreed and **all open decisions settled** (§7). Nothing built yet.
+**Written:** 2026-08-20.
 **Goal:** when a scan lands in Google Drive, propose where it belongs, ask a human in Telegram, then
 file and rename it on approval — and in parallel hand a copy to paperless-ngx for independent
 categorisation, with paperless' work backed up to Nextcloud.
@@ -198,6 +199,10 @@ callback feature. That work belongs to that repo's own agent.
 
 ### ⚠️ R4 — GPU contention if any local model is involved
 
+> ✅ **Does NOT apply to paperless** — verified 2026-08-20: no GPU access (`devices: []`, no CUDA env),
+> OCR is **ocrmypdf/tesseract, CPU-only**. A full backfill is safe. The risk below stands only for a
+> *deliberately added* local LLM.
+
 The 1080 Ti is shared with Frigate. If Ollama starves it, Frigate's watchdog treats stalled detection
 as fatal and **exits the whole process**. This pipeline needs no local model (Hermes uses OpenRouter),
 so the mitigation is simply: **do not add one here.** If a local OCR/coder model is ever wanted, cap at
@@ -286,8 +291,8 @@ Each phase is independently testable and ordered so nothing waits on something u
 
 ### Phase 3 — sync pairs (resolves Constraint 1)
 1. Check cloud-drive-sync **#47** status first.
-2. Add gdrive pairs for `Manu & I` and `Scanned` → bumblebee. Skip `.gdlink`/`.gdsheet`/`.gddoc`
-   stubs (Google-native docs have no real local content).
+2. Add a gdrive pair for the **whole Drive root** (§7.1 — 5.1 GB, not just `Manu & I`) → bumblebee.
+   Skip `.gdlink`/`.gdsheet`/`.gddoc` stubs (Google-native docs have no real local content).
 3. Decide snapshot location outside the synced tree.
 - **Verify:** file counts and a sha256 sample match the workstation; Nextcloud login stays responsive
   (`probe_success` for `nextcloud.optimusprime` stays 1) throughout the first full sync.
@@ -303,19 +308,25 @@ Each phase is independently testable and ordered so nothing waits on something u
   is uid 1000.
 
 ### Phase 5 — the ask, in Telegram
-1. `TELEGRAM_ALLOWED_USERS` += Manu's numeric ID (from `@userinfobot`); **she must message the bot
-   once** — bots cannot open a conversation.
-2. Create the group, add both + the bot, capture the negative chat id.
-3. 🔴 **Set `group_sessions_per_user: false`** — currently `true`, which gives each participant their
+1. `TELEGRAM_ALLOWED_USERS` += Manu's numeric ID (§7.6 — from `@userinfobot`, or read from the log of
+   one rejected group message). She gets **the group AND her own DM** (§7.5), so **she must message the
+   bot once** to open the DM — a bot cannot initiate a private conversation.
+2. Rewrite `USER.md` to describe the **household** (both people), not just Matteo — with two users it is
+   currently factually wrong (§7.5).
+3. Create the group, add both + the bot, capture the negative chat id.
+4. 🔴 **Set `group_sessions_per_user: false`** — currently `true`, which gives each participant their
    own session and would send her answer to a different session from the one that asked. Affects
    groups only; the two DMs are unchanged.
-4. Keep privacy mode **on** (`can_read_all_group_messages: False`) and answer by **replying** to the
+5. Keep privacy mode **on** (`can_read_all_group_messages: False`) and answer by **replying** to the
    bot — that is precisely the "Hermes asks, either answers" flow, without ingesting other chatter.
-5. Render the page (`pdftoppm`) and send it as a photo with the proposal; inline keyboard for
+6. Render the page (`pdftoppm`) and send it as a photo with the proposal; inline keyboard for
    approve / correct.
-6. Route by detected addressee: Manu's documents → shared chat, yours → your DM, via
+7. Route by detected addressee: Manu's documents → shared chat, yours → your DM, via
    `deliver: telegram:<chat_id>[:<thread_id>]`.
+8. Exercise **both DMs and the group once**, so `channel_directory.json` populates — `send_message`
+   resolves targets by name from it, which is what makes "Manu asks → Hermes messages Matteo" work.
 - **Verify:** a real proposal reaches the group; **she** answers; the answer reaches the same session.
+  Then confirm `send_message(action='list')` shows all three chats.
 
 ### Phase 6 — callback
 1. Enable the api_server platform with `API_SERVER_KEY`; keep it on loopback.
@@ -324,31 +335,91 @@ Each phase is independently testable and ordered so nothing waits on something u
 - **Verify:** a `curl` to `:8642` with the key starts a filing conversation; then break the callback
   deliberately and confirm the poll still picks the job up.
 
-### Phase 7 — paperless copy + backup
-1. On approval, copy (not move) the filed file into `consume/`.
-2. Schedule `document_exporter` per §5, before the sync window; add a retention rule for the zips.
-3. gsync `export/` → Nextcloud.
-- **Verify:** a document appears in paperless with the Drive original untouched; a
-  `document_importer` dry-run against a scratch instance restores from the zip.
+### Phase 7 — paperless: config, backfill, copy, backup
+🔴 **Order matters here — steps 1 and 2 must precede step 3.**
+1. Fix OCR languages: **`PAPERLESS_OCR_LANGUAGE=deu+eng+ita`** (§7.4). German is currently absent yet
+   187 of 227 routing rules key on German terms. The `deu` pack is already in the container.
+2. Set **`PAPERLESS_FILENAME_FORMAT`** (§7.2) **while paperless is still empty** — doing it later
+   bulk-renames every file already on disk.
+3. **Backfill all 3,159 documents** (§7.4). CPU-only, so no Frigate contention; expect a long
+   unattended run. Watch `/home`, not `/`.
+4. On approval of each new filing, copy (**not** move) the filed file into `consume/` — paperless
+   consumes and removes its copy, leaving the Drive original authoritative.
+5. Schedule `document_exporter` per §5 **before** the sync window; add a retention rule for the zips.
+6. gsync `export/` → Nextcloud (the PROPFIND guard is in place, §2).
+- **Verify:** OCR of a German document contains correct umlauts and the routing map's German terms;
+  a new document appears in paperless with the Drive original untouched; a `document_importer` dry-run
+  against a scratch instance restores from the zip.
 
 ---
 
-## 7. Open decisions
+## 7. Settled decisions (2026-08-20)
 
-1. **Whole archive or just `Manu & I`?** 3.9 of 5.1 GB gets most of it, and `routing_map.json` covers
-   *destination* choice — but "already filed?" dedup and convention-derivation want the full tree.
-   Syncing everything costs ~1.2 GB more on a volume with 347 GB free.
-2. **`PAPERLESS_FILENAME_FORMAT` as well as the export?** Cheap belt-and-braces; makes `media/`
-   legible without the DB.
-3. **Zipped or incremental export?** Zip is simpler and safer; incremental transfers less but needs
-   `--delete` against a synced folder.
-4. **Should paperless see everything, or only newly-filed documents?** Backfilling 3,159 documents
-   would give full-text search over the whole archive — a much bigger ingest, and its OCR would run
-   on the GPU box.
-5. **Second Hermes instance for Manu?** Memory and toolset are global today: her chat shares
-   `MEMORY.md`/`USER.md` and gets the HA admin token. Isolation needs a separate instance.
+All five are closed. Execution needs no further input except the one item in §7.6.
 
----
+### 7.1 Sync the **whole** Drive, not just `Manu & I`
+5.1 GB vs 3.9 GB — 1.2 GB more against 347 GB free. Buys working "already filed?" dedup and
+convention-derivation across the full tree, which are core steps of the skill. No real trade-off.
+
+### 7.2 Set `PAPERLESS_FILENAME_FORMAT` **and** export
+Belt-and-braces: makes `media/` legible without the database, while the export remains the
+authoritative restore path.
+🔴 **Hard ordering constraint: set the format BEFORE the backfill.** Changing it makes paperless
+**rename and move files already on disk**. At 0 documents that is free; after ingesting 3,159 it is a
+bulk operation across the whole archive. Same trap as Immich's storage template.
+
+### 7.3 Zipped export, dated names, with a retention rule
+`--delete` does not combine with `--zip`, and aiming a deleting operation at a synced folder is a
+hazard already met here. Revisit only if transfer volume actually hurts.
+
+### 7.4 Backfill **all 3,159 documents** into paperless
+✅ **Risk R4 is void for paperless — it does not touch the GPU.** Verified: `devices: []`, zero
+CUDA/NVIDIA env vars, and it OCRs with **ocrmypdf 17.4.2 / tesseract, which is CPU-only**. bumblebee
+has 12 cores at load ~0.3, so a full ingest cannot starve Frigate. One long unattended run, then only
+new documents trickle in. Costs ~5 GB of paperless media on `/home`.
+
+🔴 **OCR language bug, fix before backfilling.** Paperless is configured
+`PAPERLESS_OCR_LANGUAGE=eng+ita` — **German is missing**, yet the archive is Swiss paperwork and
+`routing_map.json` carries German terms in **187 of 227 rules** against 52 Italian. Without `deu`,
+OCR mangles exactly the terms the map keys on. The `deu` pack **is already installed** in the
+container (`deu eng fra ita osd spa`), so this is a one-line change to
+**`PAPERLESS_OCR_LANGUAGE=deu+eng+ita`** (German first — it is the dominant language).
+
+### 7.5 Manu gets the shared group **and** her own DM
+🔑 **Reframing from the owner, which corrects an assumption in §1 and §4 of the first draft:**
+
+> *"hermes is like the house assistant so he should know and keep track of things, for instance if manu
+> ask him remind matteo to do something he should message me and or put things in grocy or things like
+> that…"*
+
+So **shared memory is a deliberate feature, not a privacy problem.** Hermes is a *household* agent.
+Do **not** build a second instance for isolation, and do not restrict the toolset for that reason.
+
+✅ **The cross-user action this implies works natively.** `tools/send_message_tool.py` is
+*"cross-channel messaging via platform APIs"* — it sends to a user or channel on any connected
+platform and supports `action='list'` to resolve human-friendly names to IDs. That is exactly
+"Manu asks → Hermes messages Matteo". It resolves targets from `channel_directory.json`, which
+auto-populates as each chat is used — so both DMs and the group must be exercised once before
+name-resolution works.
+
+⚠️ **`USER.md` becomes a correctness problem, not a privacy one.** There is exactly **one** user
+profile and it describes Matteo (`system_prompt.py`: *"USER.md is always included when enabled"*). For a
+two-person household assistant that is simply wrong. Cheapest fix: **rewrite `USER.md` to describe the
+household**, both people named. Only if per-person context proves insufficient, consider the ClawHub
+`multi-user-long-term-memory` skill — but note it is **community**-trust, ships an executable
+`references/user-memory.js`, uses `~/.openclaw/` paths, and depends on `sender_id` containing a `|`
+(**UNVERIFIED** for Hermes' Telegram adapter).
+
+📌 **Out of scope here, recorded so it is not lost:** "put things in Grocy" needs a Grocy tool — via an
+MCP, a skill, or Home Assistant's Grocy integration. Grocy API details are in
+`reference_n8n_api_endpoints`. Separate piece of work; not part of this pipeline.
+
+### 7.6 The one thing that cannot be automated
+**Manu must send one message** — either to `@userinfobot` to obtain her numeric Telegram user ID, or one
+message in the group whose ID is then read from the logs. `TELEGRAM_ALLOWED_USERS` takes **numeric IDs,
+not @usernames**, and the gate is fail-closed. She must also message the bot once to open her DM, since
+a bot cannot initiate a private conversation. Ten seconds of her time; everything else is executable
+without owner action.
 
 ## 8. Related records
 
