@@ -4,7 +4,8 @@
 **Written:** 2026-08-20.
 **Goal:** when a scan lands in Google Drive, propose where it belongs, ask a human in Telegram, then
 file and rename it on approval — and in parallel hand a copy to paperless-ngx for independent
-categorisation, with paperless' work backed up to Nextcloud.
+categorisation, with paperless' work backed up to Nextcloud. When the document is a durable-goods
+purchase receipt, also offer to create a Warracker warranty record (§6b).
 
 Every fact in *Verified current state* was checked on the hosts on 2026-08-20. Anything not verified
 is marked ⚠️ **UNVERIFIED**. Do not re-derive what is already recorded here.
@@ -335,6 +336,18 @@ Each phase is independently testable and ordered so nothing waits on something u
 - **Verify:** a `curl` to `:8642` with the key starts a filing conversation; then break the callback
   deliberately and confirm the poll still picks the job up.
 
+### Phase 6b — the Warracker branch (after Phase 5, independent of Phase 7)
+1. Mint the Warracker API token in its UI (**owner action**); store under
+   `/etc/containers/secrets/warracker.env`.
+2. Add an OliveTin action `warranty_add` taking the **job id** plus the confirmed
+   `product_name` / `purchase_date` / `expiration_date` — same job-id discipline as everything else.
+3. Extend the proposal message to four items with a *File only* / *File + Warracker* / *Correct*
+   keyboard, gated on `doc_type == purchase receipt` **and** a durable-goods judgement.
+4. Default `expiration_date` to purchase + 2 years, always shown for correction.
+- **Verify:** a real durable-goods receipt creates a Warracker entry with the file attached and the
+  dates correct; a `Regeneriersalz`-style consumable receipt is filed **without** offering Warracker;
+  an SBB `ticket receipt` and a life-insurance `Garantie` policy neither trigger the branch.
+
 ### Phase 7 — paperless: config, backfill, copy, backup
 🔴 **Order matters here — steps 1 and 2 must precede step 3.**
 1. Fix OCR languages: **`PAPERLESS_OCR_LANGUAGE=deu+eng+ita`** (§7.4). German is currently absent yet
@@ -352,6 +365,94 @@ Each phase is independently testable and ordered so nothing waits on something u
   against a scratch instance restores from the zip.
 
 ---
+
+## 6b. Receipt branch — Warracker (added 2026-08-20)
+
+When a document is a **purchase receipt for a durable good**, also offer to create a Warracker
+warranty record with the receipt attached. This folds in the previously separate
+"n8n Receipt Processing Pipeline" (`project_pending_tasks`) rather than building it twice.
+
+### 🔴 "Is it a receipt?" is the WRONG test
+
+The word `receipt` spans **five distinct doc_types** in `routing_map.json`, only one warranty-relevant:
+
+| doc_type | rule | warranty-relevant? |
+|---|---|---|
+| `premium receipt` (insurance) | INS-24 | ❌ |
+| `storage receipt` (tyre storage) | VEH-15 | ❌ |
+| `submission receipt` (tax e-filing) | TAX-10 | ❌ |
+| `ticket receipt` (SBB / ZVV / Ostwind) | TAX-25 | ❌ |
+| **`purchase receipt`** | **HOU-24** (live) / HOU-08 (archive-only) | ✅ |
+
+⚠️ **False friend:** "Garantie"/"garantito" appears 22× in the map but usually means *guaranteed
+capital in a life insurance policy* (PEN-14, PEN-23), not a product warranty. A keyword detector on
+`receipt` / `Garantie` would fire on train tickets and pension policies — the map's own
+*"matching on boilerplate"* pitfall.
+
+**The gate is two-part:**
+1. the routing map classifies it as **`purchase receipt`** (HOU-24), **and**
+2. the item is a **durable good**, not a consumable.
+
+HOU-24's own trigger terms mix both: `Regeneriersalz` (softener salt — no warranty) alongside
+`Hochdruckreiniger` (pressure washer — warranty). Part 2 is a judgement call, so it belongs in the
+owner question, not in a rule.
+
+### 🔑 The filing decision already yields the Warracker fields
+
+HOU-24 filename pattern:
+`'<YYYY-MM-DD purchase date> <Vendor or brand> <Item in English> Receipt.pdf'`
+example: `2024-07-17 Kärcher K 7 Premium Pressure Washer Receipt.pdf`
+
+| Warracker field | Source | Required |
+|---|---|---|
+| `purchase_date` | the `YYYY-MM-DD` prefix already derived for the filename | ✅ |
+| `product_name` | `<Vendor or brand> <Item in English>` — the same string | ✅ |
+| receipt attachment | the file itself (multipart) | optional |
+| `expiration_date` | ⚠️ **almost never printed on the receipt** — see below | optional |
+| `notes`, `product_url` | free text / left empty | optional |
+
+**So no second extraction pass is needed.** If the filing proposal is correct, the warranty record is
+already written. That is the whole reason to attach this to the filing step rather than run a separate
+receipt pipeline.
+
+⚠️ **`expiration_date` must be proposed, not extracted.** Warranty duration is rarely on a receipt.
+Swiss statutory *Gewährleistung* is 2 years; manufacturer warranties vary. Propose
+`purchase_date + 2 years` as a **default the owner can correct in the same reply** — never write an
+invented expiry silently.
+
+### One interaction, not two
+
+Do **not** send a second Telegram message for the warranty question. When the document is a candidate
+purchase receipt, the single proposal carries **four** things instead of three (extending the skill's
+step 8): what it is · whether it is already filed · where it would go and why · **and** "this looks
+like a durable-goods receipt — also add to Warracker as `<product_name>`, purchased `<date>`, warranty
+to `<date+2y>`?" Inline keyboard: *File only* · *File + Warracker* · *Correct*.
+
+Rationale: two questions per document doubles the decision load on a flow whose entire cost is owner
+attention. Grouping them keeps one document = one decision.
+
+### Verified API surface (2026-08-20)
+
+- `https://warracker.optimusprime.favarohome.com` → **200**, and it is already covered by the blackbox
+  uptime probes (`probe_success = 1`).
+- `POST /api/warranties` → **401** `{"message": "Authentication token is missing!"}` — route exists,
+  needs auth. `GET /api/auth/status` → 200. (`/api/settings` → 404, so do not assume that path.)
+- Create call: `multipart/form-data`, `Authorization: Bearer <token>`, required `product_name` +
+  `purchase_date` (`YYYY-MM-DD`). Details in `reference_n8n_api_endpoints`.
+- 📌 **Owner action required (second item after §7.6):** the API token is **user-scoped and must be
+  minted in the Warracker UI** → Settings → API Tokens. It cannot be generated from outside.
+  Store it in `/etc/containers/secrets/` — never in a quadlet or in git.
+
+### Deferred siblings — recorded so they are not lost
+
+The original receipt design had **three** destinations. Only Warracker is in scope now:
+- **Firefly III** (all transactions) — ⛔ blocked anyway: its API token was never retrieved, and the
+  2026-08-20 sweep found nothing authenticating against it (all 5,671 daily `Unauthenticated` log lines
+  were our own uptime probe and healthcheck).
+- **Grocy** (food items) — same shape as the Warracker branch; also wanted for the household-assistant
+  reminders (§7.5). Needs a Grocy tool for Hermes first.
+
+Both would attach as additional options on the same single proposal message when built.
 
 ## 7. Settled decisions (2026-08-20)
 
