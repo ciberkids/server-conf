@@ -308,3 +308,24 @@ Sizes are real `registry.ollama.ai` manifest totals, status-checked (a 404 canno
 ⚠️ The already-pulled `qwen3:14b` (9.3 GB) is **already in the risky class**. Mitigation for any
 14B-class choice: a short `OLLAMA_KEEP_ALIVE` so it unloads between requests. Real fix: a 24 GB card,
 which would also put `qwen3-coder:30b` in reach.
+
+## ✅ APPLIED 2026-08-20 — Hermes switched to `deepseek/deepseek-v4-flash-0731`
+
+`/opt/data/config.yaml` line 2 changed from `x-ai/grok-4.3`; backup
+`config.yaml.bak-model-20260820-081431`. Local Qwen coder model deliberately **deferred**; Ollama
+untouched.
+
+Verified: pre-flight that the id exists on OpenRouter with full tool support → container reads the new
+line → two ESTABLISHED TLS sockets to Telegram → a live completion returning exactly `HERMES OK`
+(`finish_reason: stop`).
+
+**Two things learned from the live test:**
+
+1. **71% of output tokens were reasoning** (15 of 21) on a trivial prompt. Output is the expensive
+   side and `agent.reasoning_effort: medium` is still set — dropping it to `low` is the largest
+   remaining cost lever. A first test with `max_tokens: 12` returned `content: None` /
+   `finish_reason: length` because thinking consumed the whole budget: **never smoke-test a reasoning
+   model with a tiny max_tokens.**
+2. **`provider: auto` load-balances across a 2× price spread.** Consecutive calls were served by
+   Together ($0.14/$0.28) then OpenInference ($0.065/$0.14); 28 endpoints span $0.065→$0.44 input.
+   Budget **~$1.6–3.5/month**, not the best case. Cheapest endpoints are **fp4** quantised.
