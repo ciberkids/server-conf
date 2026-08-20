@@ -305,7 +305,14 @@ trusted_domains`), then 2 (extend the blackbox target list in Prometheus config 
 findings from the same sweep are written up separately in
 `docs/centralized-logging-proposal.md` §2, because they gate the Loki question.
 
-## Document ingestion project — pick this back up
+## Document ingestion project — ✅ DESIGNED 2026-08-20, see docs/document-filing-pipeline.md
+
+**The design and phased action plan now live in `docs/document-filing-pipeline.md`.** Read that, not
+this entry. Kept here only for the open decisions listed in its §7 (whole archive vs `Manu & I`;
+`PAPERLESS_FILENAME_FORMAT`; zipped vs incremental export; backfill paperless with all 3,159 docs;
+second Hermes instance for Manu). Delete this entry once those five are settled.
+
+### Original entry
 
 **Added:** 2026-08-19
 
