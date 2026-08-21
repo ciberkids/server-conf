@@ -2,6 +2,13 @@
 OnFailure=notify-failure@%n.service
 Description=Zigbee2MQTT broker container
 Requires=network-online.target
+# Quadlet already injects Wants=/After=network-online.target, so start ORDERING was
+# never the problem here. mqtt5 ordering is NOT injected, so declare it explicitly.
+After=mqtt5.service
+# StartLimitIntervalSec belongs in [Unit]. It sat in [Service] until 2026-08-21, where
+# systemd logged "Unknown key ... ignoring" and silently applied the DEFAULT
+# 5-starts-per-10s limiter instead of the intended never-give-up.
+StartLimitIntervalSec=0
 
 [Container]
 ContainerName=zigbee2mqtt
@@ -23,7 +30,11 @@ Label=traefik.http.routers.zigbee2mqtt.tls.certresolver=cloudflare
 Label=traefik.http.services.zigbee2mqtt.loadbalancer.server.port=8282
 [Service]
 Restart=always
-StartLimitIntervalSec=0
+# 2026-08-21: enp7s0 (10G SFP+) re-gains carrier ~16s AFTER network-online.target is
+# reached, so anything needing the LAN fails inside that window. The default RestartSec
+# of 100ms turned it into 17 restarts in ~90s, which burned all 10 of z2m's rotated log
+# dirs in 46s and destroyed its history. 15s bridges the window in a single retry.
+RestartSec=15
 
 [Install]
 WantedBy=default.target
