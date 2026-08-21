@@ -1,0 +1,12 @@
+[Unit]
+Description=Check at 05:00 whether a kernel update needs a reboot
+
+[Timer]
+OnCalendar=*-*-* 05:00:00
+# Deliberately NOT Persistent: a missed 05:00 must not fire a surprise reboot at an
+# arbitrary later time (e.g. right after a boot). Skipping a day is the safe failure.
+Persistent=false
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
