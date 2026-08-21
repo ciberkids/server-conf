@@ -33,6 +33,37 @@ Main home server running all containerized services.
 | `/mnt/data` | md124 (RAID5) | — | 11 TB | Persistent container data, photos, misc |
 | `/mnt/MovieAndTvShows` | md125 (RAID5) | — | 33 TB | Plex media library |
 
+### Adaptec HBA 1100-8i — physical drive map
+
+`0c:00.0 Serial Attached SCSI controller: Adaptec Smart Storage PQI SAS` — subsystem
+**Adaptec HBA 1100-8i**, driver `smartpqi`, Slot 8, mode **HBA** (all drives
+`Raw (Pass Through)`, so the RAID is entirely md software RAID).
+
+⚠️ **`arcconf` needs the `sg` kernel module and fails SILENTLY without it.** With `sg`
+unloaded, `arcconf LIST` prints `Controllers found: 0` **and exits "Command completed
+successfully"** — it locates `/sys/bus/pci/drivers/smartpqi` fine, then dies opening
+`/sys/class/scsi_generic/`. This made the controller look unsupported for months. Fixed
+2026-08-21 via `/etc/modules-load.d/sg.conf` (`config/modules-load/optimusprime/sg.conf`).
+Diagnose with `strace -e trace=openat arcconf LIST | grep scsi_generic`.
+
+| Slot | Connector | Model | Serial | Dev | Array |
+|---|---|---|---|---|---|
+| 0 | CN0 | WDC WD40EFZX-68AWUN0 | WD-WXA2D911SD7Z | sdf | md124 |
+| 1 | CN0 | WDC WD40EFRX-68WT0N0 | WD-WCC4E1605633 | sdg | md124 |
+| 2 | CN0 | ST12000VN0007-2GS116 | ZJV224X2 | sdh | md125 |
+| 3 | CN0 | ST12000VN0007-2GS116 | ZJV224YN | sdi | md125 |
+| 4 | CN1 | WDC WD40EFRX-68WT0N0 | WD-WCC4E1943240 | sdj | md124 |
+| 5 | CN1 | WDC WD40EFZX-68AWUN0 | WD-WX32DB00A4Z2 | sdk | md124 |
+| 6 | CN1 | ST12000VN0008-3MH101 | WZ003K9F | sdl | md125 |
+| 7 | CN1 | ST12000VN0007-2GS116 | ZJV212XF | sdm | md125 |
+
+**Both md arrays are split 2+2 across CN0 and CN1**, so losing one SAS cable degrades
+but cannot kill either array. Verified 2026-08-21.
+
+⚠️ **`sdc` (ST3750640NS, 698 GB, serial 5QD12FW2 — the failing disk) is NOT on the HBA.**
+Slots 0–7 are all 4 TB/12 TB. sdc, sdd/sde (md126) and sda/sdb (md127) hang off the
+motherboard AHCI controllers, so replacing sdc never touches the Adaptec.
+
 ## Services
 
 All services run as Podman containers managed by **systemd quadlets** in `/etc/containers/systemd/`.
@@ -155,6 +186,47 @@ Org: `favarohome`, admin token in quadlet env vars.
 | Node Exporter Full | Prometheus | Full system metrics for both servers |
 | Disk Health & RAID Status | Prometheus | SMART temps, RAID arrays, disk space, I/O |
 | Home Assistant Sensors | InfluxDB | Temperature, humidity, power/energy from HA |
+
+## Automatic Updates and Reboots
+
+| Unit | When | Does |
+|---|---|---|
+| `auto-update.timer` | 04:08 daily | `paru -Syu` as `matteo`, `paccache` prune, Telegram digest |
+| `kernel-reboot.timer` | **05:00 daily** | reboots **only** if the running kernel ≠ newest installed `-lts` **and** every md array is clean |
+| `podman-auto-update-notify.timer` | 04:01 daily | container image digest |
+
+🔑 **The 05:00 reboot is a real scheduled reboot and it is visible in
+`systemctl list-timers`.** Until 2026-08-21 it was not: `auto-update.sh` decided at 04:08
+and called `shutdown -r 05:00`, so nothing in `list-timers`, cron, or any unit file
+mentioned a reboot — the only record was one line inside a shell script. Do not go
+looking for a reboot in the wrong places again.
+
+Why the split matters: deciding at 04:08 and acting at 05:00 left a 51-minute window in
+which an array could start rebuilding, which is the *only* reason
+`mdraid-reboot-guard.timer` existed (it re-checked `/proc/mdstat` every 30 min and ran
+`shutdown -c`). `kernel-reboot.service` evaluates both conditions **at** 05:00, so the
+window and the guard are both gone — the guard was retired 2026-08-21.
+
+- The check is **stateless** — `uname -r` vs `/usr/lib/modules/*-lts` plus `/proc/mdstat`,
+  re-derived at 05:00. Nothing is handed over from the 04:08 run, so there is no flag
+  file to go stale.
+- ⚠️ It uses **`ExecCondition=`, not `ExecStartPre=`**. Exit 1 marks the unit *skipped*,
+  so `OnFailure=notify-failure@` stays quiet on the ~364 days a year with no kernel
+  update. With `ExecStartPre` the unit would be marked *failed* and alert every night.
+- **Cancelling**: during the 60 s `wall` window, `systemctl stop kernel-reboot.service`
+  kills the `sleep` and the remaining `ExecStart=` lines never run. Longer term:
+  `systemctl disable --now kernel-reboot.timer`.
+- ⚠️ `Persistent=false` is deliberate — a missed 05:00 must never fire a surprise reboot
+  at an arbitrary later time.
+- 🐛 Fixed at the same time: the kernel-updated branch of `auto-update.sh` built its
+  Telegram message and then called `shutdown` **without ever calling `telegram-send`**,
+  so "your server is about to reboot" was the one outcome never announced.
+
+⚠️ **`auto-update.service` exits 1 every night** and has done for some time: the AUR
+`arcconf` package cannot build because Microchip now returns **403** on the source zip
+(EULA gate). The system upgrade itself succeeds — only the AUR build fails. Installed
+`arcconf 5.05.00.28200-2` works fine, so the fix is to stop trying to update it
+(`IgnorePkg = arcconf`), not to remove it. **Not yet applied.**
 
 ## Logging
 
