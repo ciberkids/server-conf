@@ -1,0 +1,17 @@
+[Unit]
+Description=Reboot after a kernel update, if the MD arrays are healthy
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+# Exit 1 from the check marks this unit "skipped", not "failed", so OnFailure= does not
+# fire on days with no pending kernel. See kernel-reboot-check.sh.
+ExecCondition=/usr/local/bin/kernel-reboot-check.sh
+# Type=oneshot runs multiple ExecStart= lines in order, so the announcement, the read
+# window and the reboot are one unit with no wrapper script. During the sleep,
+# `systemctl stop kernel-reboot.service` is a real cancel -- it kills the sleep and the
+# remaining ExecStart= lines never run. That replaces `shutdown -c`.
+ExecStart=/usr/bin/telegram-send "[optimus-prime] Kernel updated and arrays healthy — rebooting in 60s. Cancel with: systemctl stop kernel-reboot.service"
+ExecStart=/usr/bin/wall "Kernel updated - Optimus Prime reboots in 60 seconds. Cancel with: systemctl stop kernel-reboot.service"
+ExecStart=/usr/bin/sleep 60
+ExecStart=/usr/bin/systemctl reboot

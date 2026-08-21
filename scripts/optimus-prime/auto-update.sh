@@ -39,16 +39,14 @@ paccache -ruk0 -q 2>/dev/null
 # Send Telegram notification
 MSG="[optimus-prime] Auto-update complete: $UPGRADED upgraded, $INSTALLED installed."
 if [ "$KERNEL_UPDATED" = true ]; then
-    # Block reboot if any MD RAID array is rebuilding OR degraded (missing member)
-    if grep -qE 'resync|recovery|reshape|check|\[.*_' /proc/mdstat; then
-        MSG="$MSG Kernel updated ($RUNNING_KERNEL -> $INSTALLED_MODULES) but RAID array degraded/rebuilding — reboot DEFERRED."
-        telegram-send "$MSG"
-        echo "[$(date)] Reboot deferred: RAID array degraded or rebuild active" >> $LOG_FILE
-    else
-        MSG="$MSG Kernel updated ($RUNNING_KERNEL -> $INSTALLED_MODULES). Reboot scheduled for 05:00."
-        sudo shutdown -r 05:00 "Scheduled reboot after kernel update"
-    fi
-else
-    telegram-send "$MSG"
+    # The reboot decision -- including the MD RAID safety check -- is made AT 05:00 by
+    # kernel-reboot.service (see kernel-reboot-check.sh), not here. Deciding at 04:08 and
+    # acting 51 minutes later is precisely what made mdraid-reboot-guard.timer necessary;
+    # that unit was retired 2026-08-21 because the gap it policed no longer exists.
+    MSG="$MSG Kernel updated ($RUNNING_KERNEL -> $INSTALLED_MODULES); kernel-reboot.timer reboots at 05:00 if the arrays are healthy."
 fi
+# Until 2026-08-21 the kernel-updated branch built MSG and then called shutdown WITHOUT
+# ever calling telegram-send, so the one outcome that mattered most -- "your server is
+# about to reboot" -- was the only one never announced.
+telegram-send "$MSG"
 echo "[$(date)] Auto-update finished (rc=$UPDATE_RC)" >> $LOG_FILE
