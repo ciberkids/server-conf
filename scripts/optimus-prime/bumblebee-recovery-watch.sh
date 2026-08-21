@@ -31,7 +31,11 @@ notify(){ /usr/bin/telegram-send "$1" >/dev/null 2>&1 || log "telegram-send FAIL
 # --- Deadline: give up after DEADLINE_HOURS and SAY SO -------------------------------
 # A watcher that runs forever in silence is worse than one that reports giving up: the
 # absence of messages would read as "still trying" when it might have died months ago.
-DEADLINE_HOURS=4
+# 2026-08-21 18:05: extended 4h -> 52h. The box cannot be physically reached until
+# Sunday, so the watch should cover that whole span: over ~2 days a self-recovery window
+# is far likelier than over 4 hours, and catching one would restore the host days early.
+# 52h from Fri 18:02 lands Sun ~22:00, just before the power cycle becomes possible.
+DEADLINE_HOURS=52
 START_FLAG="$STATE_DIR/started-at"
 [ -e "$START_FLAG" ] || date +%s > "$START_FLAG"
 ELAPSED=$(( $(date +%s) - $(cat "$START_FLAG") ))
