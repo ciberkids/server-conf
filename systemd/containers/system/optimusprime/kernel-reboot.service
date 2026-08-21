@@ -11,7 +11,10 @@ ExecCondition=/usr/local/bin/kernel-reboot-check.sh
 # window and the reboot are one unit with no wrapper script. During the sleep,
 # `systemctl stop kernel-reboot.service` is a real cancel -- it kills the sleep and the
 # remaining ExecStart= lines never run. That replaces `shutdown -c`.
-ExecStart=/usr/bin/telegram-send "[optimus-prime] Kernel updated and arrays healthy — rebooting in 60s. Cancel with: systemctl stop kernel-reboot.service"
-ExecStart=/usr/bin/wall "Kernel updated - Optimus Prime reboots in 60 seconds. Cancel with: systemctl stop kernel-reboot.service"
+# The `-` prefix on the two notification lines is load-bearing: Type=oneshot ABORTS the
+# remaining ExecStart= lines when one fails, so without it a failed telegram-send or
+# wall would silently cancel the reboot and let kernel updates accumulate.
+ExecStart=-/usr/bin/telegram-send "[optimus-prime] Kernel updated and arrays healthy — rebooting in 60s. Cancel with: systemctl stop kernel-reboot.service"
+ExecStart=-/usr/bin/wall "Kernel updated - Optimus Prime reboots in 60 seconds. Cancel with: systemctl stop kernel-reboot.service"
 ExecStart=/usr/bin/sleep 60
 ExecStart=/usr/bin/systemctl reboot

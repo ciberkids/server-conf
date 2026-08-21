@@ -28,6 +28,13 @@ fi
 
 # Never reboot into a rebuild. '[.*_' catches a degraded array (a missing member shows
 # as _ in the [UUUU] map), the words catch an active resync/recovery/reshape/check.
+# auto-update.timer fires at 04:08 and paru builds AUR packages; if a build runs long we
+# must not reboot mid-transaction. (The old `shutdown -r 05:00` had the same exposure.)
+if [ -e /var/lib/pacman/db.lck ]; then
+    echo "pacman transaction still in progress; deferring reboot."
+    exit 1
+fi
+
 if grep -qE 'resync|recovery|reshape|check|\[.*_' /proc/mdstat; then
     echo "MD array degraded or rebuilding; deferring reboot."
     telegram-send "[optimus-prime] Kernel $RUNNING_KERNEL -> $INSTALLED_MODULES is pending, but an MD array is degraded/rebuilding — reboot DEFERRED. Will retry at 05:00 tomorrow."
