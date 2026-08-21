@@ -1,0 +1,9 @@
+[Unit]
+Description=Poll a wedged bumblebee for an SSH window, capture evidence, then reset it
+# Deliberately no OnFailure=notify-failure@: this unit is EXPECTED to find nothing on
+# almost every tick, and the script exits 0 in that case. Real outcomes are reported by
+# the script itself via telegram-send, on state change only.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bumblebee-recovery-watch.sh

@@ -1,0 +1,13 @@
+[Unit]
+Description=Every 5 min, try to reach the wedged bumblebee (self-disables after 4h)
+
+[Timer]
+OnActiveSec=30s
+OnUnitActiveSec=5min
+AccuracySec=10s
+# Not Persistent: this is a temporary recovery watch tied to the 2026-08-21 wedge, not a
+# standing job. The script enforces its own 4-hour deadline and disables this timer when
+# it succeeds, when bumblebee recovers on its own, or when it gives up.
+
+[Install]
+WantedBy=timers.target
