@@ -222,11 +222,25 @@ window and the guard are both gone — the guard was retired 2026-08-21.
   Telegram message and then called `shutdown` **without ever calling `telegram-send`**,
   so "your server is about to reboot" was the one outcome never announced.
 
-⚠️ **`auto-update.service` exits 1 every night** and has done for some time: the AUR
-`arcconf` package cannot build because Microchip now returns **403** on the source zip
-(EULA gate). The system upgrade itself succeeds — only the AUR build fails. Installed
-`arcconf 5.05.00.28200-2` works fine, so the fix is to stop trying to update it
-(`IgnorePkg = arcconf`), not to remove it. **Not yet applied.**
+### `auto-update.service` exited 1 every night — arcconf pinned 2026-08-21
+
+The AUR `arcconf` package cannot build: its PKGBUILD sources the zip from
+`microchip.com/bin/mchp/downloadeuladocument.json`, which now sits behind **Akamai bot
+protection** — `server: AkamaiGHost`, `errors.edgesuite.net`, 403 on any non-browser
+client. ⚠️ **This is not an EULA gate and not a missing header** — a browser User-Agent
+and a Referer both still 403, because blocking scripted clients is the entire purpose.
+The package is unbuildable from any automated context; that is upstream's problem.
+
+The system upgrade itself always succeeded — only the AUR build failed, and it took the
+whole service's exit code with it. A service that fails every night is an alert you learn
+to ignore, which is how a real failure gets missed.
+
+✅ **Fixed by pinning, not removing** — `IgnorePkg = arcconf` in `/etc/pacman.conf`
+(tracked at `config/pacman/optimusprime/pacman.conf`, backup at
+`/etc/pacman.conf.bak-20260821`). Installed `arcconf 5.05.00.28200-2` works; 5.09 is
+simply unobtainable. `paru -Qu` now shows `arcconf ... [ignored]`.
+⚠️ **Verification is incomplete**: `[ignored]` is pacman confirming the exclusion, not
+proof the service exits 0. The definitive check is the **04:08 run on 2026-08-22**.
 
 ## Logging
 
