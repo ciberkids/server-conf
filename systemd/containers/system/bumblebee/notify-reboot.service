@@ -2,10 +2,24 @@
 Description=Send Telegram notification on system reboot
 After=network-online.target
 Wants=network-online.target
+# enp7s0 (10G SFP+) re-gains carrier ~16s AFTER network-online.target is reached, so
+# After=network-online.target is necessary but NOT sufficient on this host -- telegram-send
+# loses the race and dies with `httpx.ConnectError: All connection attempts failed`.
+# The answer is to RETRY, not to depend harder. 2026-08-21.
+# NB StartLimit* belong in [Unit]; in [Service] systemd logs "Unknown key ... ignoring"
+# and silently applies the defaults instead.
+StartLimitIntervalSec=300
+StartLimitBurst=6
+# Applied here by structural analogy with optimusprime's telegram-boot-notify, which was
+# OBSERVED to fail this way. NOT yet verified on bumblebee -- the host was wedged when
+# this was written, so it has never been tested against a real bumblebee boot.
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/telegram-send --config /etc/telegram-send.conf "[bumblebee] System has rebooted and is starting services"
+# 6 attempts, 20s apart (~100s), then give up rather than retry forever.
+Restart=on-failure
+RestartSec=20
 
 [Install]
 WantedBy=multi-user.target
