@@ -410,6 +410,29 @@ inherently a user action, not an agent one.
   `[[project_nextcloud_app_cleanup]]` was measured on 33.0.3; this host is now on 34.0.3, so
   **re-measure before treating the 22 disabled apps as permanently necessary.**
 
+## ⏸️ Garage contact-input fault — resume Sunday eve / Monday (owner away 21-24 Aug)
+
+**Added:** 2026-08-21
+
+Owner narrowed it well: the PJ-ZGD01 module **works and actuates** (door motor triggered from z2m
+successfully), radio is healthy (LQI 122-203), but the **contact input is dead** - a magnet held
+against the reed sensor produces no change in z2m. Plan was: (1) disconnect the magnetic sensor,
+(2) short the two input pins and watch z2m.
+
+🔴 **Read `[[project_ha_garage_lametric_bug]]` before doing that - there is a confound that would
+frame an innocent sensor.** `status` is still **"Run Time Alarm"** (latched since 20 Aug 13:54), and
+the contact does not update while it is latched. So the magnet test *and* the short test both return
+"no change" whether or not the wiring is faulty. Clear the alarm first (power cycle), then
+**immediately restore `run_time: 120`** - a power cycle resets it to 10 s, which re-arms the fault
+within one door cycle.
+
+Then retest the magnet: if it responds, the latch was the whole problem and no wiring work is needed.
+Only if it is still dead does the 3-way multimeter bisect (reed switch -> cable -> module terminals)
+apply - that separates sensor from cable, which shorting alone cannot.
+
+⚠️ **While stuck it reads CLOSED, so both garage-open alert automations cannot fire** - no
+open-garage alerting during the absence.
+
 ---
 
 *(previously cleared 2026-07-27, after Frigate, Immich, the pool pump and the coordinator
