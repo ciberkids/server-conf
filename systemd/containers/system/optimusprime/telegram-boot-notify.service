@@ -2,11 +2,22 @@
 Description=Send Telegram notification on boot
 After=network-online.target
 Wants=network-online.target
+# enp7s0 (10G SFP+) re-gains carrier ~16s AFTER network-online.target is reached, so
+# After=network-online.target is necessary but NOT sufficient on this host -- telegram-send
+# loses the race and dies with `httpx.ConnectError: All connection attempts failed`.
+# The answer is to RETRY, not to depend harder. 2026-08-21.
+# NB StartLimit* belong in [Unit]; in [Service] systemd logs "Unknown key ... ignoring"
+# and silently applies the defaults instead.
+StartLimitIntervalSec=300
+StartLimitBurst=6
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/telegram-send "[optimus-prime] System has rebooted and is starting services."
 RemainAfterExit=no
+# 6 attempts, 20s apart (~100s), then give up rather than retry forever.
+Restart=on-failure
+RestartSec=20
 
 [Install]
 WantedBy=multi-user.target
