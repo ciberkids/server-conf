@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly podman housekeeping (stopped containers + dangling images)
+OnFailure=notify-failure@%n.service
+# The script exits non-zero ONLY if a locally-built localhost/ image disappeared, which
+# would be unrecoverable (nothing to re-pull from) -- so a failure here is worth alerting.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/podman-prune.sh

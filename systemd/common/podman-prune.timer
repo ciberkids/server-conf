@@ -1,0 +1,14 @@
+[Unit]
+Description=Run podman housekeeping weekly
+
+[Timer]
+# Sunday 06:00: clear of auto-update (04:08) and of the 05:00 kernel-reboot window on
+# optimusprime, so a prune can never race a pacman transaction or a reboot.
+OnCalendar=Sun 06:00:00
+# Persistent is safe here (unlike a reboot timer) -- catching up a missed housekeeping
+# run is harmless and desirable.
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target
