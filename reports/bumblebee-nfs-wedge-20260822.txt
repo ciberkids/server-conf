@@ -1,0 +1,276 @@
+===== captured 2026-08-22 11:55:56 — bumblebee post-wedge, NO REBOOT (up since 2026-08-19 03:49) =====
+
+########## $ uptime -s
+2026-08-19 03:49:10
+
+########## $ uptime -p
+up 3 days, 8 hours, 6 minutes
+
+########## $ systemctl is-system-running
+degraded
+(FAILED/TIMEOUT)
+
+########## $ sudo -n dmesg -T | grep -icE 'error|fail|timeout|reset|hung|nvme'
+9
+
+########## $ sudo -n dmesg -T | grep -iE 'nvme|i/o error|hung task|timeout|reset|EXT4-fs|XFS|oom|killed process' | tail -60
+[Wed Aug 19 03:49:13 2026] nvme nvme0: pci function 0000:08:00.0
+[Wed Aug 19 03:49:13 2026] nvme nvme0: 7/0/0 default/read/poll queues
+[Wed Aug 19 03:49:13 2026]  nvme0n1: p1 p2 p3
+[Wed Aug 19 03:49:14 2026] SGI XFS with ACLs, security attributes, scrub, quota, no debug enabled
+[Wed Aug 19 03:49:14 2026] XFS (dm-0): Mounting V5 Filesystem bb78d06d-559d-4bfc-b38b-733937947ea0
+[Wed Aug 19 03:49:14 2026] XFS (dm-0): Ending clean mount
+[Wed Aug 19 03:49:15 2026] XFS (nvme0n1p2): Mounting V5 Filesystem bca731fa-330b-4f0d-a170-5926c1966103
+[Wed Aug 19 03:49:15 2026] XFS (nvme0n1p2): Ending clean mount
+[Wed Aug 19 03:49:16 2026] XFS (dm-2): Mounting V5 Filesystem 5753e582-4055-4e6e-a8f4-d148db5be793
+[Wed Aug 19 03:49:16 2026] XFS (dm-2): Ending clean mount
+[Fri Aug 21 05:02:25 2026] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[Fri Aug 21 05:02:25 2026] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+
+########## $ sudo -n journalctl -k --since '2026-08-21 09:00' --until '2026-08-21 10:00' --no-pager | tail -40
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:20 bumblebee kernel: veth20 (unregistering): left allmulticast mode
+Aug 21 09:12:20 bumblebee kernel: veth20 (unregistering): left promiscuous mode
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:20 bumblebee kernel: veth20: entered allmulticast mode
+Aug 21 09:12:20 bumblebee kernel: veth20: entered promiscuous mode
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered forwarding state
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:20 bumblebee kernel: veth20 (unregistering): left allmulticast mode
+Aug 21 09:12:20 bumblebee kernel: veth20 (unregistering): left promiscuous mode
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:20 bumblebee kernel: veth20: entered allmulticast mode
+Aug 21 09:12:20 bumblebee kernel: veth20: entered promiscuous mode
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:20 bumblebee kernel: podman0: port 16(veth20) entered forwarding state
+Aug 21 09:12:22 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:22 bumblebee kernel: veth20 (unregistering): left allmulticast mode
+Aug 21 09:12:22 bumblebee kernel: veth20 (unregistering): left promiscuous mode
+Aug 21 09:12:22 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:22 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:22 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:22 bumblebee kernel: veth20: entered allmulticast mode
+Aug 21 09:12:22 bumblebee kernel: veth20: entered promiscuous mode
+Aug 21 09:12:22 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:22 bumblebee kernel: podman0: port 16(veth20) entered forwarding state
+Aug 21 09:12:25 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:25 bumblebee kernel: veth20 (unregistering): left allmulticast mode
+Aug 21 09:12:25 bumblebee kernel: veth20 (unregistering): left promiscuous mode
+Aug 21 09:12:25 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:26 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:26 bumblebee kernel: podman0: port 16(veth20) entered disabled state
+Aug 21 09:12:26 bumblebee kernel: veth20: entered allmulticast mode
+Aug 21 09:12:26 bumblebee kernel: veth20: entered promiscuous mode
+Aug 21 09:12:26 bumblebee kernel: podman0: port 16(veth20) entered blocking state
+Aug 21 09:12:26 bumblebee kernel: podman0: port 16(veth20) entered forwarding state
+
+########## $ sudo -n journalctl -k --since '2026-08-22 00:40' --until '2026-08-22 01:10' --no-pager | tail -40
+-- No entries --
+
+########## $ sudo -n journalctl --since '2026-08-21 09:00' --until '2026-08-21 09:40' --no-pager -p warning | tail -50
+Aug 21 09:32:07 bumblebee paperless[5345]:     return query.get_compiler(using=using).execute_sql(returning_fields)
+Aug 21 09:32:07 bumblebee paperless[5345]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1880, in execute_sql
+Aug 21 09:32:07 bumblebee paperless[5345]:     with self.connection.cursor() as cursor:
+Aug 21 09:32:07 bumblebee paperless[5345]:          ^^^^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+Aug 21 09:32:07 bumblebee paperless[5345]:     return func(*args, **kwargs)
+Aug 21 09:32:07 bumblebee paperless[5345]:            ^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/backends/base/base.py", line 320, in cursor
+Aug 21 09:32:07 bumblebee paperless[5345]:     return self._cursor()
+Aug 21 09:32:07 bumblebee paperless[5345]:            ^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/backends/base/base.py", line 296, in _cursor
+Aug 21 09:32:07 bumblebee paperless[5345]:     self.ensure_connection()
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+Aug 21 09:32:07 bumblebee paperless[5345]:     return func(*args, **kwargs)
+Aug 21 09:32:07 bumblebee paperless[5345]:            ^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/backends/base/base.py", line 278, in ensure_connection
+Aug 21 09:32:07 bumblebee paperless[5345]:     with self.wrap_database_errors:
+Aug 21 09:32:07 bumblebee paperless[5345]:          ^^^^^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/utils.py", line 91, in __exit__
+Aug 21 09:32:07 bumblebee paperless[5345]:     raise dj_exc_value.with_traceback(traceback) from exc_value
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/backends/base/base.py", line 279, in ensure_connection
+Aug 21 09:32:07 bumblebee paperless[5345]:     self.connect()
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+Aug 21 09:32:07 bumblebee paperless[5345]:     return func(*args, **kwargs)
+Aug 21 09:32:07 bumblebee paperless[5345]:            ^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/backends/base/base.py", line 256, in connect
+Aug 21 09:32:07 bumblebee paperless[5345]:     self.connection = self.get_new_connection(conn_params)
+Aug 21 09:32:07 bumblebee paperless[5345]:                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+Aug 21 09:32:07 bumblebee paperless[5345]:     return func(*args, **kwargs)
+Aug 21 09:32:07 bumblebee paperless[5345]:            ^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/django/db/backends/postgresql/base.py", line 332, in get_new_connection
+Aug 21 09:32:07 bumblebee paperless[5345]:     connection = self.Database.connect(**conn_params)
+Aug 21 09:32:07 bumblebee paperless[5345]:                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/psycopg/connection.py", line 100, in connect
+Aug 21 09:32:07 bumblebee paperless[5345]:     attempts = conninfo_attempts(params)
+Aug 21 09:32:07 bumblebee paperless[5345]:                ^^^^^^^^^^^^^^^^^^^^^^^^^
+Aug 21 09:32:07 bumblebee paperless[5345]:   File "/usr/local/lib/python3.12/site-packages/psycopg/_conninfo_attempts.py", line 55, in conninfo_attempts
+Aug 21 09:32:07 bumblebee paperless[5345]:     raise last_exc
+Aug 21 09:32:07 bumblebee paperless[5345]: django.db.utils.OperationalError: failed to resolve host 'paperless-db': [Errno -3] Temporary failure in name resolution
+Aug 21 09:32:23 bumblebee paperless[5345]: [2026-08-21 09:32:23,462] [INFO] [celery.worker.strategy] Task paperless_mail.tasks.process_mail_accounts[55ace971-9b46-4066-85fa-8f3cb3592c2e] received
+Aug 21 09:32:23 bumblebee paperless[5345]: [2026-08-21 09:32:23,662] [INFO] [celery.worker.request] Discarding revoked task: paperless_mail.tasks.process_mail_accounts[55ace971-9b46-4066-85fa-8f3cb3592c2e]
+Aug 21 09:32:37 bumblebee node-exporter[1805]: time=2026-08-21T09:32:26.640+02:00 level=ERROR source=http.go:231 msg="error encoding and sending metric family: write tcp 192.168.1.14:9100->192.168.1.10:56016: write: broken pipe"
+Aug 21 09:32:37 bumblebee node-exporter[1805]: time=2026-08-21T09:32:33.254+02:00 level=ERROR source=http.go:231 msg="error encoding and sending metric family: write tcp 192.168.1.14:9100->192.168.1.10:56016: write: broken pipe"
+Aug 21 09:32:37 bumblebee node-exporter[1805]: time=2026-08-21T09:32:33.254+02:00 level=ERROR source=http.go:231 msg="error encoding and sending metric family: write tcp 192.168.1.14:9100->192.168.1.10:56016: write: broken pipe"
+Aug 21 09:32:37 bumblebee node-exporter[1805]: time=2026-08-21T09:32:33.254+02:00 level=ERROR source=http.go:231 msg="error encoding and sending metric family: write tcp 192.168.1.14:9100->192.168.1.10:56016: write: broken pipe"
+Aug 21 09:32:37 bumblebee node-exporter[1805]: time=2026-08-21T09:32:33.254+02:00 level=ERROR source=http.go:231 msg="error encoding and sending metric family: write tcp 192.168.1.14:9100->192.168.1.10:56016: write: broken pipe"
+Aug 21 09:32:37 bumblebee node-exporter[1805]: time=2026-08-21T09:32:33.254+02:00 level=ERROR source=http.go:231 msg="error encoding and sending metric family: write tcp 192.168.1.14:9100->192.168.1.10:56016: write: broken pipe"
+Aug 21 09:32:37 bumblebee node-exporter[1805]: time=2026-08-21T09:32:33.254+02:00 level=ERROR source=http.go:231 msg="error encoding and sending metric family: write tcp 192.168.1.14:9100->192.168.1.10:56016: write: broken pipe"
+
+########## $ sudo -n smartctl -a /dev/nvme0
+smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.14.0-687.39.1.el9_8.x86_64] (local build)
+Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Number:                       Samsung SSD 960 EVO 500GB
+Serial Number:                      S3X4NB0K227020L
+Firmware Version:                   3B7QCXE7
+PCI Vendor/Subsystem ID:            0x144d
+IEEE OUI Identifier:                0x002538
+Total NVM Capacity:                 500,107,862,016 [500 GB]
+Unallocated NVM Capacity:           0
+Controller ID:                      2
+NVMe Version:                       1.2
+Number of Namespaces:               1
+Namespace 1 Size/Capacity:          500,107,862,016 [500 GB]
+Namespace 1 Utilization:            194,200,911,872 [194 GB]
+Namespace 1 Formatted LBA Size:     512
+Namespace 1 IEEE EUI-64:            002538 5281b1bcd5
+Local Time is:                      Sat Aug 22 11:55:59 2026 CEST
+Firmware Updates (0x16):            3 Slots, no Reset required
+Optional Admin Commands (0x0007):   Security Format Frmw_DL
+Optional NVM Commands (0x001f):     Comp Wr_Unc DS_Mngmt Wr_Zero Sav/Sel_Feat
+Log Page Attributes (0x03):         S/H_per_NS Cmd_Eff_Lg
+Maximum Data Transfer Size:         512 Pages
+Warning  Comp. Temp. Threshold:     83 Celsius
+Critical Comp. Temp. Threshold:     85 Celsius
+
+Supported Power States
+St Op     Max   Active     Idle   RL RT WL WT  Ent_Lat  Ex_Lat
+ 0 +     6.04W       -        -    0  0  0  0        0       0
+ 1 +     5.09W       -        -    1  1  1  1        0       0
+ 2 +     4.08W       -        -    2  2  2  2        0       0
+ 3 -   0.0400W       -        -    3  3  3  3      210    1500
+ 4 -   0.0050W       -        -    4  4  4  4     2200    6000
+
+Supported LBA Sizes (NSID 0x1)
+Id Fmt  Data  Metadt  Rel_Perf
+ 0 +     512       0         0
+
+=== START OF SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+SMART/Health Information (NVMe Log 0x02)
+Critical Warning:                   0x00
+Temperature:                        64 Celsius
+Available Spare:                    100%
+Available Spare Threshold:          10%
+Percentage Used:                    4%
+Data Units Read:                    246,621,747 [126 TB]
+Data Units Written:                 49,187,046 [25.1 TB]
+Host Read Commands:                 1,251,662,152
+Host Write Commands:                741,689,709
+Controller Busy Time:               5,415
+Power Cycles:                       727
+Power On Hours:                     4,684
+Unsafe Shutdowns:                   29
+Media and Data Integrity Errors:    0
+Error Information Log Entries:      1,748
+Warning  Comp. Temperature Time:    0
+Critical Comp. Temperature Time:    0
+Temperature Sensor 1:               64 Celsius
+Temperature Sensor 2:               84 Celsius
+
+Error Information (NVMe Log 0x01, 16 of 64 entries)
+Num   ErrCount  SQId   CmdId  Status  PELoc          LBA  NSID    VS
+  0       1748     0  0x0015  0x4004      -            0     0     -
+  1       1747     0  0x0013  0x421a  0x028            0     0     -
+  2       1746     0  0x400b  0x4004      -            0     0     -
+  3       1745     0  0x0013  0x421a  0x028            0     0     -
+  4       1744     0  0x0014  0x4004      -            0     0     -
+  5       1743     0  0x0013  0x421a  0x028            0     0     -
+  6       1742     0  0x0000  0x4004      -            0     0     -
+  7       1741     0  0x0013  0x421a  0x028            0     0     -
+  8       1740     0  0x0018  0x4004      -            0     0     -
+  9       1739     0  0x0013  0x421a  0x028            0     0     -
+ 10       1738     0  0x000c  0x4004      -            0     0     -
+ 11       1737     0  0x0013  0x421a  0x028            0     0     -
+ 12       1736     0  0x0014  0x4004      -            0     0     -
+ 13       1735     0  0x0013  0x421a  0x028            0     0     -
+ 14       1734     0  0x0000  0x4004      -            0     0     -
+ 15       1733     0  0x0013  0x421a  0x028            0     0     -
+... (48 entries not read)
+
+
+########## $ systemctl --failed --no-legend --plain
+dnf-makecache.service loaded failed failed dnf makecache
+
+########## $ sudo -n podman ps -a --format '{{.Names}} | {{.Status}}'
+node-exporter | Up 3 days
+comfyui-launcher | Up 3 days
+cloud-drive-sync | Up 3 days
+podman-exporter | Up 3 days
+stirling-pdf | Up 3 days
+paperless-db | Up 3 days (healthy)
+paperless-gotenberg | Up 3 days
+filebrowser | Up 3 days (healthy)
+frigate | Up 3 days
+open-webui | Up 3 days
+paperless | Up 3 days (healthy)
+opencode | Up 3 days
+gitlab-runner | Up 2 days
+traefik | Up 2 days
+hermes | Up 2 days
+ollama | Up 36 hours
+paperless-broker | Up 36 hours (healthy)
+runner-rvyixwjor-project-81326288-concurrent-0-7b040982ce3c3c3e-predefined | Exited (0) 27 hours ago
+runner-rvyixwjor-project-81326288-concurrent-0-7b040982ce3c3c3e-build | Exited (137) About a minute ago
+searxng | Up About a minute
+n8n | Up 59 seconds
+paperless-tika | Up 46 seconds
+heimdall | Up 33 seconds
+
+########## $ free -m
+               total        used        free      shared  buff/cache   available
+Mem:           15667       10468         171         212        5569        5198
+Swap:              0           0           0
+
+########## $ df -h -x tmpfs -x devtmpfs
+Filesystem                                           Size  Used Avail Use% Mounted on
+efivarfs                                             256K   59K  193K  24% /sys/firmware/efi/efivars
+/dev/mapper/almalinux_bumblebee-root                  70G   70G  548M 100% /
+/dev/nvme0n1p2                                       960M  429M  532M  45% /boot
+/dev/mapper/almalinux_bumblebee-home                 387G   41G  347G  11% /home
+/dev/nvme0n1p1                                       599M  7.7M  592M   2% /boot/efi
+192.168.1.10:/mnt/MovieAndTvShows                     33T   23T   11T  68% /mnt/MovieAndTvShows
+192.168.1.10:/mnt/downloads                          1.9T 1015G  848G  55% /mnt/downloads
+192.168.1.10:/mnt/data                                11T  7.4T  3.5T  69% /mnt/data
+192.168.1.10:/mnt/MovieAndTvShows/Movies              33T   23T   11T  68% /mnt/MovieAndTvShows/Movies
+192.168.1.10:/mnt/MovieAndTvShows/TvShows             33T   23T   11T  68% /mnt/MovieAndTvShows/TvShows
+192.168.1.10:/mnt/data/Matteo_And_Manu/Pictures       11T  7.4T  3.5T  69% /mnt/data/Matteo_And_Manu/Pictures
+192.168.1.10:/mnt/data/docker_persistent/immich       11T  7.4T  3.5T  69% /mnt/data/docker_persistent/immich
+192.168.1.10:/mnt/data/docker_persistent/nextcloud    11T  7.4T  3.5T  69% /mnt/data/docker_persistent/nextcloud
+192.168.1.10:/mnt/data/docker_persistent/volumetest   11T  7.4T  3.5T  69% /mnt/data/docker_persistent/volumetest
+
+########## $ cat /proc/mdstat
+Personalities : 
+unused devices: <none>
+
+########## $ sudo -n journalctl --list-boots
+IDX BOOT ID                          FIRST ENTRY                  LAST ENTRY
+ -8 8f4e30786a084dd5aef1f59807bb6847 Mon 2026-07-27 00:59:10 CEST Sat 2026-08-01 04:04:24 CEST
+ -7 50abb1c286064710835c2367357ff08c Sat 2026-08-01 04:05:06 CEST Sun 2026-08-02 03:19:59 CEST
+ -6 0ae9d9b6827247bc9cfb52502573c354 Sun 2026-08-02 03:20:22 CEST Wed 2026-08-05 03:48:21 CEST
+ -5 c0815f5b7cee4e5f9c0dcf51d3c5ee85 Wed 2026-08-05 03:48:44 CEST Fri 2026-08-07 03:25:48 CEST
+ -4 94cf5d456d344ffc8036dd1d0a8b8bad Fri 2026-08-07 03:26:11 CEST Sat 2026-08-08 03:56:35 CEST
+ -3 b49d9c077aaa458981bad8311f632a4e Sat 2026-08-08 03:56:58 CEST Thu 2026-08-13 03:07:08 CEST
+ -2 b22e14e1dc104bfcae5b91453f62f2ce Thu 2026-08-13 03:07:32 CEST Fri 2026-08-14 03:41:01 CEST
+ -1 ff38a09ee68144b8b63257649a750d75 Fri 2026-08-14 03:41:24 CEST Wed 2026-08-19 03:48:28 CEST
+  0 b4809a71898c4e18847face28914e4d7 Wed 2026-08-19 03:49:13 CEST Sat 2026-08-22 11:56:00 CEST
