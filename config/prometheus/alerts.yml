@@ -29,3 +29,49 @@ groups:
         annotations:
           summary: "SSL cert expiring SOON: {{ $labels.instance }}"
           description: "Certificate for {{ $labels.instance }} expires in {{ printf \"%.0f\" $value }} days — renew immediately"
+
+  # Added 2026-08-21 after the bumblebee outage: its 70 GB root filesystem went from
+  # 16 GB free to 0 in ~19 minutes (a GitLab CI Flutter image pull) and NOTHING alerted.
+  # At 100% full sshd cannot write session state, so it dies "during banner exchange"
+  # while the kernel still answers ping — it looks exactly like dead hardware.
+  # See reports/incident-20260821-bumblebee-disk-full.md
+  - name: disk_space
+    rules:
+      # mountpoint!~ excludes podman's overlay mount, which is the same filesystem as /
+      # and would otherwise double every alert.
+      - alert: DiskSpaceLow
+        expr: |
+          node_filesystem_avail_bytes{fstype=~"ext4|xfs",mountpoint!~".*/containers/storage.*"}
+            / node_filesystem_size_bytes{fstype=~"ext4|xfs",mountpoint!~".*/containers/storage.*"}
+            * 100 < 15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk: {{ $labels.instance }} {{ $labels.mountpoint }}"
+          description: "{{ $labels.mountpoint }} on {{ $labels.instance }} has only {{ printf \"%.1f\" $value }}% free"
+
+      - alert: DiskSpaceCritical
+        expr: |
+          node_filesystem_avail_bytes{fstype=~"ext4|xfs",mountpoint!~".*/containers/storage.*"}
+            / node_filesystem_size_bytes{fstype=~"ext4|xfs",mountpoint!~".*/containers/storage.*"}
+            * 100 < 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CRITICAL disk: {{ $labels.instance }} {{ $labels.mountpoint }}"
+          description: "{{ $labels.mountpoint }} on {{ $labels.instance }} has only {{ printf \"%.1f\" $value }}% free — services will start failing to write"
+
+      # The rule that would actually have caught the 2026-08-21 incident in time.
+      # A percentage threshold is useless when 16 GB vanishes in 19 minutes: it was
+      # comfortably above 15% at 09:00 and at zero by 09:19. This fires on the RATE.
+      - alert: DiskFillingFast
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype=~"ext4|xfs",mountpoint!~".*/containers/storage.*"}[30m], 2*3600) < 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk filling fast: {{ $labels.instance }} {{ $labels.mountpoint }}"
+          description: "At the current rate, {{ $labels.mountpoint }} on {{ $labels.instance }} will be FULL within 2 hours"
