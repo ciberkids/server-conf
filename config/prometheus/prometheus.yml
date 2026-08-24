@@ -76,7 +76,6 @@ scrape_configs:
           - https://cockpit.optimusprime.favarohome.com
           - https://firefox.optimusprime.favarohome.com
           - https://immich.optimusprime.favarohome.com
-          - https://nextcloud.optimusprime.favarohome.com
           - https://opensign-api.optimusprime.favarohome.com
           - https://prowlarr.optimusprime.favarohome.com
           # Bumblebee
@@ -103,9 +102,30 @@ scrape_configs:
           - https://immich.public.favarohome.com
           - https://jellyfin.public.favarohome.com
           - https://n8n.public.favarohome.com
-          - https://nextcloud.public.favarohome.com
           - https://pingvin.public.favarohome.com
           - https://plex.public.favarohome.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 192.168.1.10:9115
+
+  # 2026-08-24: Nextcloud probed WITHOUT following redirects, via its own job so the
+  # other 52 targets keep the normal http_2xx module. The redirect-follow to /login was
+  # DoSing Nextcloud -- see config/blackbox-exporter/optimusprime/config.yml for the full
+  # mechanism, and reports/incident-20260821-bumblebee-disk-full.md for the house style on
+  # writing these up. The instance label is unchanged (still the URL), so the existing
+  # ServiceDown alert continues to cover both hostnames.
+  - job_name: blackbox_noredirect
+    metrics_path: /probe
+    params:
+      module: [http_2xx_noredirect]
+    static_configs:
+      - targets:
+          - https://nextcloud.optimusprime.favarohome.com
+          - https://nextcloud.public.favarohome.com
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
