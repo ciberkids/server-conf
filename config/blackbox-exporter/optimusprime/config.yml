@@ -1,0 +1,55 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions:
+        - "HTTP/1.1"
+        - "HTTP/2.0"
+      valid_status_codes:
+        - 200
+        - 201
+        - 301
+        - 302
+        - 303
+        - 307
+        - 308
+        - 401
+        - 403
+      method: GET
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+
+  # Added 2026-08-24 for Nextcloud only. Identical to http_2xx except it does NOT follow
+  # redirects.
+  #
+  # WHY: http_2xx followed the 302 from / to /login. /login enters an infinite PHP loop,
+  # blackbox times out at 10s and disconnects (nginx logs 499) -- but php-fpm does NOT
+  # stop executing an abandoned request, so every probe permanently consumed a php-fpm
+  # worker. Two Nextcloud targets x 30s scrape exhausted the 6-worker pool in ~3 minutes
+  # and kept Nextcloud down for 3.5 h on 2026-08-24.
+  #
+  # 302 is already in valid_status_codes, so probing / and stopping there is a perfectly
+  # good liveness check -- it proves nginx + php-fpm answered.
+  # NOTE: this is the OPPOSITE of the Firefly fix, where pointing the probe AT /login was
+  # correct. Per-service decision, not a general rule.
+  http_2xx_noredirect:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions:
+        - "HTTP/1.1"
+        - "HTTP/2.0"
+      valid_status_codes:
+        - 200
+        - 201
+        - 301
+        - 302
+        - 303
+        - 307
+        - 308
+        - 401
+        - 403
+      method: GET
+      follow_redirects: false
+      preferred_ip_protocol: ip4
