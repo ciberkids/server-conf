@@ -373,3 +373,33 @@ ansible-playbook -i ansible/inventory.ini ansible/setup-workstation.yml --ask-be
 ```
 
 See `ansible/setup-workstation.yml` for the full automation.
+
+## GitLab CI storage (2026-08-26)
+
+CI runs via the **Docker executor pointed at the host's podman socket**
+(`/run/podman/podman.sock` → `/var/run/docker.sock` in the runner quadlet). That matters: job
+images and volumes are created by the **host** podman, so they land in
+`/var/lib/containers/storage` on the **70 GiB root LV** alongside every production container.
+A single job image pull is therefore an outage risk — this is what took the host down on
+2026-08-21 (`ghcr.io/cirruslabs/flutter:3.41.0`, 4.5 GB).
+
+**Done:**
+- **Job cache moved to `/home`** — `volumes = ["/home/matteo/gitlab-runner-cache:/cache:z"]`
+  in `config.toml` (was the anonymous `/cache`). `:z` because every job container mounts it and
+  SELinux is enforcing; the directory carries `container_file_t`.
+  ⚠️ **`config.toml` is NOT in git — it contains the runner token.** Backups are kept in place
+  as `config.toml.bak-<timestamp>`.
+- **Daily prune** (`podman-prune.timer`, `OnCalendar=*-*-* 06:00:00`) plus **name-matched
+  removal of `runner-*-cache-*` volumes**. Deliberately not a blanket `podman volume prune`.
+
+**Still open — the actual fix:** podman's `graphroot` is still `/var/lib/containers/storage`
+on `/`. Moving it to `/home` (346 GiB free) is the only change that stops a job image pull from
+being able to fill the root. ⚠️ Requires stopping every container on the host, relocating ~50 GB,
+and an SELinux relabel — a real maintenance window. ⛔ `lvextend` is NOT an alternative: the VG
+has **0 free extents** and XFS cannot shrink, so /home's space cannot be given to root.
+
+⚠️ **Latent:** the runner's configured default job image `localhost/android-sdk:latest` **does
+not exist on the host**, and with `pull_policy = ["if-not-present"]` a `localhost/` ref cannot be
+pulled. Jobs that set their own `image:` are unaffected (recent ones use
+`ghcr.io/cirruslabs/flutter`). Most likely collateral from the 2026-08-01 `podman image prune -a`
+that also destroyed `hermes-agent` — that one was rebuilt, this one never was.
