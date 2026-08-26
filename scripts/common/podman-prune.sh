@@ -43,6 +43,18 @@ log "start: / at ${PCT_BEFORE}% used, $((BEFORE/1024/1024/1024))GB free, ${#LOCA
 podman container prune -f >>"$LOG" 2>&1
 podman image prune -f     >>"$LOG" 2>&1   # <-- NO -a. See the warning above.
 
+# --- GitLab-runner cache volumes only -------------------------------------------------
+# Deliberately NOT `podman volume prune`: a blanket volume prune can delete real data.
+# These are regenerable CI caches, matched by GitLab's own naming (runner-<id>-cache-<hash>),
+# and `podman volume rm` refuses a volume still attached to a container, which is the guard.
+# Needed because the runner's cache moved to a /home bind mount on 2026-08-26, orphaning the
+# anonymous volumes it used to create on / .
+for v in $(podman volume ls --format '{{.Name}}' 2>/dev/null | grep -E '^runner-.*-cache-' || true); do
+    if podman volume rm "$v" >/dev/null 2>&1; then
+        log "removed orphaned CI cache volume $v"
+    fi
+done
+
 AFTER=$(avail); PCT_AFTER=$(pct)
 FREED=$(( (AFTER - BEFORE) / 1024 / 1024 ))
 
