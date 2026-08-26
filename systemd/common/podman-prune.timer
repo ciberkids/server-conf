@@ -2,9 +2,14 @@
 Description=Run podman housekeeping weekly
 
 [Timer]
-# Sunday 06:00: clear of auto-update (04:08) and of the 05:00 kernel-reboot window on
-# optimusprime, so a prune can never race a pacman transaction or a reboot.
-OnCalendar=Sun 06:00:00
+# DAILY 06:00 (was Sun 06:00, changed 2026-08-26). Weekly was wrong: image churn is
+# DAILY. podman-auto-update-notify.timer is OnCalendar=daily + RandomizedDelaySec=900, so
+# bumblebee pulls new images ~00:00-00:16 every night (observed 00:01:33-00:01:52) and
+# optimusprime's auto-update runs 04:08. A weekly prune therefore let up to 7 days of
+# dangling layers pile up on bumblebee's 70G root: it shed 7.2 GiB in 18 h on 2026-08-26
+# (open-webui 5.16 GB + n8n 1.66 GB pulled, old layers left behind) and reached 82% used.
+# 06:00 stays clear of both update windows and of the 05:00 kernel-reboot window on OP.
+OnCalendar=*-*-* 06:00:00
 # Persistent is safe here (unlike a reboot timer) -- catching up a missed housekeeping
 # run is harmless and desirable.
 Persistent=true
