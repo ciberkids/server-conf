@@ -1,0 +1,51 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Firefly III Data Importer (CAMT.053 / CSV bank statement ingestion)
+Requires=network-online.target
+After=firefly-iii.service
+
+[Container]
+ContainerName=firefly-importer
+# Same dedicated network as firefly-iii so the importer can reach it by container DNS
+# (http://firefly-iii:8080) without going out to the host.
+Network=firefly-iii.network
+Image=docker.io/fireflyiii/data-importer:latest
+PublishPort=8007:8080
+Volume=/etc/localtime:/etc/localtime:ro
+# Saved import configurations: map a bank's CSV columns / CAMT fields to Firefly accounts
+# ONCE, then reuse for every later statement. This is what makes monthly imports one click.
+Volume=/mnt/data/docker_persistent/firefly-importer/configs:/var/www/html/storage/configurations:rw
+# Autoimport drop directory. Placed on /mnt/data (the big array) so the document pipeline
+# can later drop UBS statements here for unattended ingestion.
+Volume=/mnt/data/docker_persistent/firefly-importer/autoimport:/import:rw
+# Internal URL for API calls; VANITY_URL is what it puts in user-facing links.
+Environment=FIREFLY_III_URL=http://firefly-iii:8080
+Environment=VANITY_URL=https://firefly.optimusprime.favarohome.com
+Environment=TZ=Europe/Zurich
+Environment=TRUSTED_PROXIES=**
+Environment=IMPORT_DIR_ALLOWLIST=/import
+# Laravel defaults to DEBUG here: ~9 log lines per HTTP request, all of them internal
+# bookkeeping ("Access token is null, use config instead"). Left alone this is the same
+# journal-noise problem fixed for firefly-iii and HA. notice keeps real events only.
+Environment=LOG_LEVEL=notice
+# Holds FIREFLY_III_ACCESS_TOKEN. Never inline a token in a quadlet.
+EnvironmentFile=/etc/containers/secrets/firefly-importer.env
+AutoUpdate=registry
+# Deliberately NOT curl -f: the importer redirects / when unconfigured, and -f would treat
+# that as a failure. This only asserts the web server answers at all.
+HealthCmd=CMD-SHELL curl -s -o /dev/null http://localhost:8080/ || exit 1
+HealthInterval=60s
+HealthRetries=3
+HealthStartPeriod=60s
+HealthTimeout=10s
+# Routing is via the FILE provider, exactly as for firefly-iii: this container sits on the
+# firefly-iii network (10.89.2.x) and Traefik is on podman (10.88.0.x) with no route there,
+# so label routing would hand Traefik an unreachable backend -- 20s hangs, nothing logged.
+# See config/traefik/optimusprime/dynamic.yml -> 192.168.1.10:8007
+Label=traefik.enable=false
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

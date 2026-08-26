@@ -51,6 +51,8 @@ scrape_configs:
           # /login, not /: Firefly logs anonymous page views at ERROR level, so probing /
           # every 30s manufactured ~2,840 fake ERROR lines/day. /login returns 200.
           - https://firefly.optimusprime.favarohome.com/login
+          # added 2026-08-26 with the Data Importer deployment
+          - https://importer.optimusprime.favarohome.com
           - https://grocy.optimusprime.favarohome.com
           - https://warracker.optimusprime.favarohome.com
           - https://sonarr.optimusprime.favarohome.com

@@ -81,6 +81,14 @@ http:
       tls:
         certResolver: cloudflare
 
+    firefly-importer:
+      rule: "Host(`importer.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: firefly-importer
+      tls:
+        certResolver: cloudflare
+
     affine:
       rule: "Host(`affine.optimusprime.favarohome.com`)"
       entryPoints:
@@ -142,6 +150,11 @@ http:
       loadBalancer:
         servers:
           - url: "http://192.168.1.10:8006"
+
+    firefly-importer:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:8007"
 
     affine:
       loadBalancer:
