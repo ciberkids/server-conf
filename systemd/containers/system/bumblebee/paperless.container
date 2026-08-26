@@ -43,6 +43,14 @@ HealthOnFailure=restart
 AutoUpdate=registry
 
 Label=traefik.enable=true
+# 2026-08-26: paperless is on TWO networks (paperless.network 10.89.x and podman 10.88.x)
+# but traefik is only on podman. Without this label traefik picks whichever address the
+# podman API reports first -- a NON-DETERMINISTIC choice that survives until a container
+# is recreated. When paperless-db/broker restarted it flipped to 10.89.0.6, which traefik
+# cannot route to ("Host is unreachable" from inside its container), and every request
+# became a 502 while paperless itself stayed healthy.
+# Verified from INSIDE traefik: 10.88.0.15:8000 -> 302, 10.89.0.6:8000 -> unreachable.
+Label=traefik.docker.network=podman
 Label=traefik.http.routers.paperless.rule=Host(`paperless.bumblebee.favarohome.com`)
 Label=traefik.http.routers.paperless.entrypoints=websecure
 Label=traefik.http.routers.paperless.tls.certresolver=cloudflare
