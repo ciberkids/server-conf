@@ -437,3 +437,39 @@ open-garage alerting during the absence.
 
 *(previously cleared 2026-07-27, after Frigate, Immich, the pool pump and the coordinator
 migration were all worked through)*
+
+---
+
+## Devin's under-bed light: HA nulls brightness in RGB mode (found 2026-08-27)
+
+Discovered while building the bedtime fade. **Pre-existing bug, unrelated to the fade.**
+
+`light.devin_room_under_bed_lights` is a Gledopto **GL-C-008P** RGB+CCT controller. Zigbee2MQTT
+advertises it to HA with `supported_color_modes: [color_temp, xy]` — **no `hs`**. But as soon as an
+RGB colour is set, z2m publishes `color_mode: "hs"`, and HA's MQTT JSON light schema rejects the
+**entire** state payload:
+
+```
+homeassistant.components.mqtt.light.schema_json  WARNING   (count: 11)
+  Invalid color mode 'hs' received for entity light.devin_room_under_bed_lights
+```
+
+Effect: `brightness`, `color_temp_kelvin`, `rgb_color` etc. all read `null` in HA while the device
+itself is perfectly healthy (`linkquality: 127`) and still reports the true `brightness: 203` to z2m.
+Confirmed both ways: in `color_temp` mode HA reads `brightness: 204`; in `hs` mode it reads `null`.
+
+Consequences worth deciding on:
+- Anything that reads this light's brightness silently sees nothing. The fade now **guards** on it
+  and raises a persistent notification rather than mis-anchoring, but the underlying gap remains.
+- The dashboard tile exposes `light-color-favorites`, so picking a colour is the *easy* path into the
+  broken mode.
+
+Possible fixes, none applied yet:
+1. Check whether a newer z2m exposes `color_hs` for GL-C-008P (would make HA accept `hs`).
+2. Remove the `light-color-favorites` feature from the tile so the light stays in white/CCT mode.
+3. Leave as-is and rely on the guard.
+
+**Also noted:** `light.devin_room_under_bed_lights` has **no area assigned**, which is why the
+existing "Turn on/off night lamp" automation (which targets `area_id: devin_s_bedroom` at sunrise)
+never turned it off. Handled with a dedicated entity-targeted automation rather than assigning the
+area, since assigning it would enrol the light in every other area-targeted automation and script.
