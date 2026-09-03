@@ -450,17 +450,32 @@ reports `Encode=0`).
    written, reviewed and dry-run but **not deployed**. It replaces the broken `card0` script on
    the existing timer: **0 new services**. This is the only fix that actually measures the
    encoder.
-2. **§1d — which dashboard were you watching?** If it was
+   ⛔ **Do this check FIRST, it gates the whole recommendation.** Every `drm-engine-enc` number
+   in this document — mine and the research's — came from an `ffmpeg` *we* started. **Plex
+   Transcoder's fdinfo has never been observed once.** Plex's VAAPI path is ffmpeg-derived so it
+   is very likely identical, but if Plex does not expose `drm-engine-enc` the same way, §1c needs
+   rework. Next time something transcodes:
+   ```bash
+   sudo grep -l 'Plex Transcoder' /proc/*/comm      # find the pid
+   sudo grep -H drm-engine /proc/<pid>/fdinfo/*     # must show a rising enc counter
+   ```
+2. **§1d — the panel I committed is NOT verified.** The four raw queries were checked against
+   Prometheus; the `$__rate_interval` window is a **Grafana macro** and cannot be tested through
+   the API. It resolves to `max(step+scrape, 4*scrape)` — ~120 s at short ranges, which is
+   *narrower* than the fixed `[5m]` it replaced, and ~635 s at 7 d. Overrides are now bound by
+   regexp so a legend-name drift degrades only cosmetics, never an axis. Fallback if it
+   misbehaves: a fixed `[10m]`.
+3. **§1d — which dashboard were you watching?** If it was
    `AMD GPU - Optimus Prime (RX 6600)`, the byte-axis fix was already done there and only the
    counter from 1c helps. Either way I need a **Grafana service-account token** (or you paste
    the JSON) to apply anything.
-3. **§1b — also fix the git copy** of `amdgpu-metrics.sh`, add the missing `OnFailure=` to
+4. **§1b — also fix the git copy** of `amdgpu-metrics.sh`, add the missing `OnFailure=` to
    `amdgpu-metrics.service`, and add the `node_textfile_mtime_seconds` staleness alert? None of
    these exist today, and their absence is why 4 months of zeros went unnoticed.
-4. **§1e — raise Prometheus retention** from 15 d to 90 d (~836 MB -> ~5 GB)? Needed for any
+5. **§1e — raise Prometheus retention** from 15 d to 90 d (~836 MB -> ~5 GB)? Needed for any
    "this quarter" question.
-5. **§2 — rotate the Tautulli API key**, or keep the existing one?
-6. **§3 — fix `web.cors.origin` and/or authenticate Alertmanager?** And can you run the
+6. **§2 — rotate the Tautulli API key**, or keep the existing one?
+7. **§3 — fix `web.cors.origin` and/or authenticate Alertmanager?** And can you run the
    mobile-data test?
-7. **§3d — is the public "Grid Import / Export" Grafana dashboard intentional?** It is
+8. **§3d — is the public "Grid Import / Export" Grafana dashboard intentional?** It is
    anonymously readable *and queryable* right now.

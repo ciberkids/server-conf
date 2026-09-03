@@ -2,7 +2,7 @@
   "id": 7,
   "type": "timeseries",
   "title": "AMD GPU",
-  "description": "WARNING: gpu_busy_percent does NOT measure the VCN video encoder. Verified 2026-09-03: a saturated hevc_vaapi encode ran at 96.5% encoder duty (DRM fdinfo drm-engine-enc) while this gauge read a mean of 18% and drm-engine-gfx read 0.0% - a 5.36x under-report. It is also quantised to integer 0-100 and point-sampled every 30s, so a real-time 1080p30 transcode (~15% encoder duty) reads ~1. Three compounding faults: wrong engine, quantisation, aliasing. The envelope series below mitigates only the third. The real fix is a monotonic amdgpu_engine_busy_seconds_total{engine=\"enc\"} counter from DRM fdinfo, where rate() is exact at any scrape interval. VRAM/GTT are in BYTES on the right axis - as a percentage of the 8.5 GB pool they peak at 2.8% and look flat. See docs/homelab-fix-list.md section 1.",
+  "description": "WARNING: gpu_busy_percent does NOT measure the VCN video encoder. Verified 2026-09-03: a saturated hevc_vaapi encode ran at 96.5% encoder duty (DRM fdinfo drm-engine-enc) while this gauge read a mean of 18% and drm-engine-gfx read 0.0% - a 5.36x under-report. It is also quantised to integer 0-100 and point-sampled every 30s, so a real-time 1080p30 transcode (~15% encoder duty) reads ~1. Three compounding faults: wrong engine, quantisation, aliasing. The envelope series below mitigates only the third. The real fix is a monotonic amdgpu_engine_busy_seconds_total{engine=\"enc\"} counter from DRM fdinfo, where rate() is exact at any scrape interval. VRAM/GTT are in BYTES on the right axis - as a percentage of the 8.5 GB pool they peak at 2.8% and look flat. See docs/homelab-fix-list.md section 1. NOTE: the $__rate_interval window is a Grafana macro and is NOT verifiable through the Prometheus API - unlike the four raw queries, it has not been confirmed against a live render. It resolves to max(step+scrape, 4*scrape), so ~120s at short ranges (narrower than a fixed 5m) and ~635s at 7d (wider). If it misbehaves, a fixed [10m] is the safe fallback.",
   "gridPos": {
     "h": 8,
     "w": 24,
@@ -22,8 +22,8 @@
     "overrides": [
       {
         "matcher": {
-          "id": "byName",
-          "options": "GPU Busy % (rate-interval max)"
+          "id": "byRegexp",
+          "options": "/GPU Busy/"
         },
         "properties": [
           {
@@ -41,31 +41,15 @@
           {
             "id": "custom.axisLabel",
             "value": "GPU busy %"
-          },
-          {
-            "id": "custom.fillOpacity",
-            "value": 18
           }
         ]
       },
       {
         "matcher": {
-          "id": "byName",
-          "options": "GPU Busy % (raw 30s sample)"
+          "id": "byRegexp",
+          "options": "/raw 30s sample/"
         },
         "properties": [
-          {
-            "id": "max",
-            "value": 100
-          },
-          {
-            "id": "unit",
-            "value": "percent"
-          },
-          {
-            "id": "custom.axisPlacement",
-            "value": "left"
-          },
           {
             "id": "custom.fillOpacity",
             "value": 0
