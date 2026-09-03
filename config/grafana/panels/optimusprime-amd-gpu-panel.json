@@ -1,0 +1,168 @@
+{
+  "id": 7,
+  "type": "timeseries",
+  "title": "AMD GPU",
+  "description": "GPU busy % is an INSTANTANEOUS gauge and Prometheus point-samples it every 30s. Plex hardware-transcodes at 6-7x realtime and throttles once the client buffers, so the video engine works in 1-4s bursts at a very low duty cycle: over 30 days the raw gauge read non-zero only 0.15% of the time (peak 29%). The dashed 'raw sample' series is what a single scrape sees; the solid '5m max' series is the burst envelope. Neither fully removes the aliasing - only faster sampling at the source does. VRAM/GTT are plotted in BYTES on the right axis: as a percentage of the 8.5 GB pool they peak at 2.8% and look flat. See docs/homelab-fix-list.md section 1.",
+  "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 30
+  },
+  "fieldConfig": {
+    "defaults": {
+      "min": 0,
+      "unit": "percent",
+      "custom": {
+        "fillOpacity": 10,
+        "lineWidth": 2,
+        "axisPlacement": "left"
+      }
+    },
+    "overrides": [
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "GPU Busy % (5m max)"
+        },
+        "properties": [
+          {
+            "id": "max",
+            "value": 100
+          },
+          {
+            "id": "unit",
+            "value": "percent"
+          },
+          {
+            "id": "custom.axisPlacement",
+            "value": "left"
+          },
+          {
+            "id": "custom.axisLabel",
+            "value": "GPU busy %"
+          },
+          {
+            "id": "custom.fillOpacity",
+            "value": 18
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byName",
+          "options": "GPU Busy % (raw 30s sample)"
+        },
+        "properties": [
+          {
+            "id": "max",
+            "value": 100
+          },
+          {
+            "id": "unit",
+            "value": "percent"
+          },
+          {
+            "id": "custom.axisPlacement",
+            "value": "left"
+          },
+          {
+            "id": "custom.fillOpacity",
+            "value": 0
+          },
+          {
+            "id": "custom.lineWidth",
+            "value": 1
+          },
+          {
+            "id": "custom.lineStyle",
+            "value": {
+              "fill": "dash",
+              "dash": [
+                8,
+                4
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "id": "byRegexp",
+          "options": "/(VRAM|GTT) used/"
+        },
+        "properties": [
+          {
+            "id": "unit",
+            "value": "bytes"
+          },
+          {
+            "id": "custom.axisPlacement",
+            "value": "right"
+          },
+          {
+            "id": "custom.axisLabel",
+            "value": "VRAM / GTT"
+          },
+          {
+            "id": "custom.fillOpacity",
+            "value": 6
+          }
+        ]
+      }
+    ]
+  },
+  "options": {
+    "legend": {
+      "displayMode": "table",
+      "placement": "bottom",
+      "calcs": [
+        "max",
+        "mean",
+        "lastNotNull"
+      ]
+    },
+    "tooltip": {
+      "mode": "multi",
+      "sort": "desc"
+    }
+  },
+  "targets": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "refId": "A",
+      "expr": "max_over_time(node_drm_gpu_busy_percent{instance=\"optimusprime\",card=\"card1\"}[5m])",
+      "legendFormat": "GPU Busy % (5m max)"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "refId": "B",
+      "expr": "node_drm_gpu_busy_percent{instance=\"optimusprime\",card=\"card1\"}",
+      "legendFormat": "GPU Busy % (raw 30s sample)"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "refId": "C",
+      "expr": "node_drm_memory_vram_used_bytes{instance=\"optimusprime\",card=\"card1\"}",
+      "legendFormat": "VRAM used"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "refId": "D",
+      "expr": "node_drm_memory_gtt_used_bytes{instance=\"optimusprime\",card=\"card1\"}",
+      "legendFormat": "GTT used"
+    }
+  ]
+}
