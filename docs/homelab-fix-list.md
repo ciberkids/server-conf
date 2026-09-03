@@ -9,186 +9,182 @@ Status key: 🔴 open · 🟡 needs your decision · ✅ done
 
 ## 1. 🔴 Optimus Prime GPU usage "always 0"
 
-**Complaint:** the graphics-card usage sensor on Optimus Prime reads 0 permanently, including
-while a Plex hardware transcode was deliberately forced.
+**Complaint:** the graphics-card usage sensor reads 0 permanently, including while a Plex
+hardware transcode was deliberately forced.
 
-This turned out to be **two unrelated problems plus a latent one**. Only the second is what you
-were looking at.
+🔑 **CORRECTED 2026-09-03 (twice). The diagnosis is not aliasing alone — the metric is
+measuring the wrong engine.** Earlier in this same session I said "`gpu_busy_percent` is NOT
+blind to VAAPI, it read 18% during the encode, so the fault is purely duty-cycle vs sample
+rate." That was wrong, and the 18% was never the encoder.
 
-### 1a. 🔴 The custom `amdgpu` textfile exporter is broken — and has been since April
+### 1a. 🔴 `gpu_busy_percent` under-reports the video encoder ~5x — measured
 
-`scripts/optimus-prime/amdgpu-metrics.sh` (deployed identically at
-`/usr/local/bin/amdgpu-metrics.sh`, run every 15 s by `amdgpu-metrics.timer`) reads:
+A saturated `hevc_vaapi` encode, sampling DRM fdinfo `drm-engine-enc` against the gauge at the
+same instants (9 x 3 s windows):
+
+| | value |
+|---|---|
+| VCN encoder duty (`drm-engine-enc`) | **96.5 %** (min 85.4, max 100.0) |
+| `drm-engine-gfx` duty | **0.0 %** |
+| `gpu_busy_percent` | **18.0 %** mean |
+| **under-report factor** | **5.36x** |
+
+`drm-engine-gfx` at 0.0 % is the decisive part: the 18 % is not graphics work from the
+pipeline, it is the SMU's partial, indirect accounting of a VCN block it cannot properly see.
+An independent research pass reproduced this five times at 5–9x (42.4 % vs 8.9 %, 48.3 % vs
+7–14 %, 30–31 % vs 8–12 %, ~50 % vs 5–10 %).
+
+**Three compounding faults, not one:**
+1. **Wrong engine.** `gpu_busy_percent` is the SMU's `average_gfx_activity`; VAAPI runs on the
+   VCN block. `average_mm_activity`, the field that would cover VCN, reads `0x0000` on Navi 23.
+   There is no VCN block in GRBM/GRBM2 and no device-level VCN counter in sysfs.
+2. **Quantisation.** It is a firmware moving average on an integer 0–100 scale. At real-time
+   1080p30 — what a Plex client actually consumes — the encoder needs ~2.53 ms/frame, so the
+   gauge reads **~1**. Of the genuinely non-zero samples in the retained window, most are <= 3
+   and many are exactly 1. **No sampling rate fixes quantisation.**
+3. **Aliasing.** Prometheus point-samples every 30 s against 1–4 s bursts.
+
+⚠️ **The aliasing claim needs narrowing too.** Plex writes exact ground truth to
+`Plex Transcoder Statistics.log` (`<State startTime= endTime= slothMode=>`, ms resolution,
+`slothMode=0` = transcoding). Measured over 2 sessions / 19.1 min: duty **14.33 %** aggregate,
+ON bursts median 2.61 s and **80 % <= 4 s**, OFF gaps median 19.19 s, and
+**P(a burst is ever sampled) = 11.1 % at 30 s**, 46.9 % at 5 s, 80.7 % at 1 s.
+🔑 A throttled transcoder at 6.6x realtime *must* settle at duty ~ 1/6.6 = **15.2 %** to keep
+pace; measured 14.33 %. That single number confirms the model. It also means
+**point sampling is unbiased for total TIME and broken only for event RESOLUTION** — so
+"aliasing" is the right word for burst *count* and the wrong word for total *time*.
+⚠️ Those logs retain only ~4 h. Calibration instrument, not a monitoring source.
+
+### 1b. 🔴 The broken exporter — a birth defect, not drift
+
+`scripts/optimus-prime/amdgpu-metrics.sh` (deployed at `/usr/local/bin/amdgpu-metrics.sh`,
+every 15 s via `amdgpu-metrics.timer`) reads `/sys/class/drm/card0/...`. **There is no `card0`**
+— the RX 6600 is **card1**. `${VRAM_USED:-0}` turns the missing file into a literal,
+plausible-looking `0`.
+
+⚠️ **It has NEVER worked.** Commit `e9ced67` (2026-05-04) introduced it already reading
+`card0` — ~4 months of three fake zeros. Nothing consumes them, and it is redundant with
+node_exporter's `--collector.drm`.
+
+⛔ **My "1c: the hardcoded card index is latent fragility" claim is weakly supported.** Over
+15 d, the `card` label held **only `card1`** across **5 reboots and 4 kernel versions**. The
+index is empirically stable here. The real lesson is different and worse:
+- the script was **never verified once** after being written
+- `amdgpu-metrics.service` has **no `OnFailure=`** (only 4 of 28 OP services do)
+- there is **no textfile-staleness alert** — `alerts.yml` has 6 rules, none referencing
+  `textfile`, `mtime`, `drm`, `gpu` or `amdgpu`
+- **the git copy still says `card0`** — a host-only fix leaves the landmine
+
+### 1c. ✅ Recommended fix — a monotonic counter, not faster sampling
+
+🔑 **A monotonic nanosecond counter is immune to aliasing by construction:** `rate()` over any
+window recovers the exact time integral regardless of duty cycle. That removes the entire
+motivation for high-rate sampling — no 20 Hz sampler, no Telegraf (see §4).
+
+`scripts/optimus-prime/amdgpu-engine-metrics.py` is **written, reviewed and dry-run — NOT
+deployed.** It walks `/proc/*/fdinfo/*`, filters on `drm-driver: amdgpu` + the discovered PCI
+address, deduplicates by `drm-client-id` (12 fds -> 3 clients here; naive per-fd summation
+over-counts 3–6x), and accumulates per-engine ns into a host-level total that survives client
+exit. Dry-run output on OP:
 
 ```
-/sys/class/drm/card0/device/{gpu_busy_percent,mem_info_vram_used,mem_info_vram_total}
+amdgpu_engine_busy_seconds_total{card="card1",engine="enc"} 0.000000000
+amdgpu_engine_busy_seconds_total{card="card1",engine="gfx"} 0.001478106
+amdgpu_drm_clients{card="card1"} 3
 ```
 
-**There is no `card0` on this machine.** The RX 6600 (Navi 23, `0b:00.0`) is **`card1`** —
-`/sys/class/drm/` contains only `card1*` and `renderD128`.
+🔑 It **derives card and PCI address from the driver** rather than hardcoding either, and
+**exits non-zero rather than writing a zero** if no amdgpu card is found — because a fake zero
+is indistinguishable from an idle GPU, which is the entire bug it replaces.
 
-The script then does `${VRAM_USED:-0}`, so a missing file becomes a **literal, plausible-looking
-`0`** rather than a missing metric. It has been publishing three fake zeros every 15 s:
-
-```
-amdgpu_memory_used_bytes 0
-amdgpu_memory_total_bytes 0
-amdgpu_utilization_percent 0
-```
-
-Verified live: `amdgpu_utilization_percent` = `0` in Prometheus, while the same instant's
-`card1` sysfs read gives `gpu_busy_percent=0`, `mem_info_vram_used=78118912`,
-`mem_info_vram_total=8573157376`.
-
-**Nothing consumes these metrics.** No Grafana panel, no alert rule, no recording rule, no HA
-sensor references `amdgpu_*` (grepped `config/`, `alerts.yml`, and the Grafana DB). It is dead
-code that lies.
-
-It is also **fully redundant**: node_exporter on OP already runs with `--collector.drm` and
-exports the same facts correctly, with the right card label:
-
-```
-node_drm_gpu_busy_percent{card="card1"}          0
-node_drm_memory_vram_used_bytes{card="card1"}    7.8118912e+07
-node_drm_memory_vram_size_bytes{card="card1"}    8.573157376e+09
-node_drm_memory_gtt_used_bytes{card="card1"}     2.902016e+07
-```
-
-**Two ways forward — and 1b changes which one I recommend.**
-
-*Retire it:* stop and disable `amdgpu-metrics.timer`, remove
-`/usr/local/bin/amdgpu-metrics.sh` and `/tmp/node_exporter/amdgpu.prom`, delete the two unit
-files and `scripts/optimus-prime/amdgpu-metrics.sh`. `--collector.drm` already covers it.
-
-*⭐ Or repurpose it* — which is what I now recommend, because it is the only real fix for 1b.
-The 15 s timer and textfile plumbing already exist; point them at the right card and have it
-**sample fast** (see 1b fix 1) instead of reading once.
-
-⚠️ **Either way it's your call** — you asked me to check, not to remove. And if you keep it, do
-*not* just change `card0`→`card1`; that repeats the bug class. Resolve the card by driver:
-
-```bash
-for d in /sys/class/drm/card*/device; do
-  [ "$(basename "$(readlink -f "$d/driver")" 2>/dev/null)" = amdgpu ] && CARD=$d && break
-done
-```
-
-…and drop the `:-0` defaults so a missing file emits **no sample** instead of a fake zero.
-
-### 1b. 🔴 Why Grafana showed 0 during your transcode — sampling, not a broken sensor
-
-The panel you are looking at is **`AMD GPU`** on the **`optimusprime-server`** dashboard. It
-already queries the *correct* metrics:
-
+Panel query once deployed:
 ```promql
-node_drm_gpu_busy_percent{instance="optimusprime",card="card1"}
-node_drm_memory_vram_used_bytes{...} / node_drm_memory_vram_size_bytes{...} * 100
-node_drm_memory_gtt_used_bytes{...}  / node_drm_memory_gtt_size_bytes{...}  * 100
+rate(amdgpu_engine_busy_seconds_total{card="card1", engine="enc"}[$__rate_interval]) * 100
 ```
 
-So the panel is not wired to the broken exporter of 1a. The zero is real, and here is why.
+**Design constraints that shaped it (each one bites the obvious alternative):**
+- `outputs.file`-style **appending breaks the textfile collector.** Duplicate `# HELP`/`# TYPE`
+  families set `node_textfile_scrape_error=1` **and drop that file's metrics entirely**, silently
+  — tested live. Hence one HELP/TYPE per family and `os.replace` for atomicity.
+- node_exporter **rejects client-side timestamps for the whole file**
+  (`collector/textfile.go:303`). A windowed-max design can never carry its own window's
+  timestamp; counters are immune. Another reason to use a counter.
+- **`/tmp` is tmpfs.** State lives in `/var/lib/amdgpu-engine-metrics/`, not `/tmp`. Losing it
+  zeroes the counter, which Prometheus reads as a counter reset, so `rate()` stays correct —
+  do not "fix" that later.
 
-**Plex was genuinely transcoding on the GPU.** Tautulli during the test:
+**Known limits, honestly:**
+- **Tail loss on client exit:** work done between the last poll and a client's exit is lost.
+  Measured on a 2.3 s encode polled at 3 s: **~82 % lost**. Bounded by (poll interval x duty)
+  per client exit — negligible on a 45-min Plex session, severe for short jobs.
+- **Requires root.** fdinfo of a root-owned process is unreadable as a normal user and yields a
+  **silent zero** — the same failure class as the bug being fixed. `amdgpu-metrics.service`
+  already runs as root.
+- ⚠️ **Gating check, still open:** every `drm-engine-enc` measurement so far is our own
+  `ffmpeg`, never Plex Transcoder. Plex's VAAPI path is ffmpeg-derived so it is very likely
+  identical, but it has not been observed. Next time something transcodes:
+  `sudo grep -l "Plex Transcoder" /proc/*/comm`, then check that pid's fdinfo for
+  `drm-engine-enc`. (`Preferences.xml` does confirm the config:
+  `HardwareAcceleratedCodecs="1"`, `HardwareDevicePath="1002:73ff...@0000:0b:00.0"`.)
 
-| field | value |
-|---|---|
-| `transcode_decision` | `transcode` |
-| `transcode_hw_decode` / `transcode_hw_encode` | `vaapi` / `vaapi` |
-| `transcode_hw_full_pipeline` | `1` |
-| `transcode_speed` | `7.0` |
-| `transcode_throttled` | `1` |
+### 1d. 🔴 The dashboard fix — and I fixed the wrong dashboard first
 
-And `/sys/kernel/debug/dri/1/amdgpu_pm_info` said **`VCN: Powered up`** while reporting
-**`GPU Load: 0 %`** and `SCLK 0 MHz` — that is a *throttled* encoder caught mid-pause, not a
-counter blind to VAAPI. The controlled test below settles which. See 1d.
+⚠️ **There are TWO GPU dashboards.** I found one and missed the other:
 
-**The counter does work.** A controlled encode proved it — 1080p→HEVC via `hevc_vaapi`,
-1800 frames at **397 fps (6.6× realtime)**:
-
-```
-18:01:37 busy= 18%  gfx_activity= 21%  vram_MB= 276    <-- inside the encode
-18:01:39 busy=  0%  gfx_activity=  0%  vram_MB= 229    <-- encode finished (4.5 s total)
-```
-
-You confirmed this yourself: Grafana lit up during that run.
-
-**The mechanism is aliasing.** `gpu_busy_percent` is an *instantaneous* gauge. Hardware
-transcoding runs at 6–7× realtime and Plex throttles it (`transcode_throttled=1`) as soon as the
-player's buffer fills — so the video engine works in **short bursts with a very low duty cycle**.
-Prometheus takes **one point sample every 30 s**, which almost always lands in an idle gap.
-
-Measured over 30 days:
-
-| measurement | value |
-|---|---|
-| samples where `gpu_busy_percent` > 0 | **0.14 %** |
-| peak `gpu_busy_percent` | 29 % |
-| peak VRAM used | 240 MB = **2.8 %** of the 8.5 GB pool |
-
-At 1 s sampling I saw regular 3–9 % blips; at 30 s scraping, essentially nothing. Compounding it,
-all three series are plotted on one **0–100 % axis**, where VRAM at 2.8 % and GTT at 0.63 % are
-flat lines on the floor even when they are moving.
-
-**Fixes — and only one of them actually works:**
-
-1. **⭐ The real fix — repurpose the dead script from 1a into a sampling exporter.** It already
-   runs every 15 s with the textfile plumbing in place. Have it poll `gpu_busy_percent` ~20×/s
-   and publish `max` and `mean` for the interval. That is the only option that *creates* the
-   missing samples, so it is the only one that removes the aliasing.
-   **Pick this over retiring the script in 1a** — the cadence and plumbing already exist.
-2. **Plot VRAM in bytes on its own axis**, not as a percentage of 8.5 GB. A 47 MB transcode
-   allocation is invisible as a percentage and obvious in bytes.
-3. **For "is something transcoding" use Tautulli, not the GPU graph** — a semantic question no
-   utilisation counter can answer. Now available to Hermes, see §2.
-
-⛔ **`max_over_time(...[5m])` is NOT the fix, despite looking like it.** It widens the window over
-**stored** samples; it cannot recover load that was never sampled. Measured over 30 days:
-
-| panel query | reads non-zero |
-|---|---|
-| raw gauge | **0.15 %** of the time |
-| `max_over_time(...[5m])` | **0.92 %** — 6× better, still zero 99 % of the time |
-| `max_over_time(...[1h])` | 2.87 % |
-
-It only helps where a burst happened to coincide with a scrape. Worth applying as a one-line
-improvement alongside fix 1, but on its own the panel will still read 0 and you will think
-nothing changed.
-
-### 1c. 🔴 Latent: the card index is hardcoded in the dashboard too
-
-The `AMD GPU` panel pins `card="card1"` in all three queries. Same fragility class as 1a's
-`card0` — a kernel or hardware change renumbers it and the panel silently goes empty. Drop the
-label, or drive it from a Grafana variable.
-
-### 1d. ℹ️ `average_mm_activity` is dead on this silicon — but the graphics counters are not
-
-`gpu_metrics` (v1.3, 120 B binary at `/sys/class/drm/card1/device/gpu_metrics`) exposes
-`average_mm_activity`, the multimedia/VCN field. On Navi 23 the SMU **never populates it** — it
-read `0 %` throughout the controlled encode. Don't build a panel on it.
-
-**But that does not mean the GPU is unmeasurable during a transcode.** The same encode registered
-on the graphics counters at the same instant:
-
-| counter | during encode | source |
+| dashboard | GPU panels | state |
 |---|---|---|
-| `average_mm_activity` | **0 %** ⛔ never populated | `gpu_metrics` offset 20 |
-| `average_gfx_activity` | **21 %** ✅ works | `gpu_metrics` offset 16 |
-| `gpu_busy_percent` | **18 %** ✅ works | sysfs |
-| `average_umc_activity` | works | `gpu_metrics` offset 18 |
+| `Optimus Prime` | 1 (`AMD GPU`) | plotted VRAM as **% of the 8.5 GB pool** -> 2.8 % peak, flat |
+| **`AMD GPU - Optimus Prime (RX 6600)`** (uid `1951df70-…`) | **7** | already plots VRAM **in bytes**; its 3 utilisation panels use the raw gauge |
 
-🔑 **This refutes the intuition that `gpu_busy_percent` is blind to VAAPI.** It is not — a
-hardware transcode does load the graphics pipe measurably. The problem in 1b is purely
-**duty cycle vs sample rate**, not a blind counter. So the honest transcode signals are:
+The second is almost certainly the one being watched. Its `GPU Utilization`,
+`GPU Utilization Over Time` and `GPU & Memory Busy %` panels all read the 5.36x-under-reporting
+gauge — **re-windowing cannot fix them**, only the counter from 1c can.
 
-- `gpu_busy_percent` / `average_gfx_activity` — **if sampled fast enough** (see 1b fix 1)
-- the **VRAM delta** (+47 MB during the encode)
-- `VCN: Powered up` in `/sys/kernel/debug/dri/1/amdgpu_pm_info` (boolean, needs root) — note it
-  appears *alongside* `GPU Load: 0 %`, which is a throttled encoder, not a contradiction
-- Tautulli, for the semantic answer (§2)
+`config/grafana/panels/optimusprime-amd-gpu-panel.json` fixes the *first* dashboard: VRAM/GTT in
+**bytes on their own right-hand axis**, plus a burst-envelope series next to the raw sample so
+the aliasing is visible rather than mysterious.
 
-Struct header is `<HBB` = structure_size / format_revision / content_revision.
+⛔ **Bug in my own first version, now fixed:** it hardcoded `[5m]`. Grafana requests
+`step = range/maxDataPoints`, so at a 7 d view step = 605 s and a 300 s window covers half of
+each step — **understating the 7-day peak by 1.7x**. `[$__interval]` is also wrong (at 6 h,
+step = 22 s < the 30 s scrape, so windows come up empty). The correct form is
+**`$__rate_interval`** = `max(step + scrape, 4 x scrape)`. Measured: 6 h -> 129 non-zero
+(raw 42), 24 h -> 47 (raw 11), 7 d -> 30 / peak 15 (raw 2 / peak 2).
 
----
+⚠️ **Retention caps this regardless:** 15 d at 30 s step is a hard Prometheus error
+(`exceeded maximum resolution of 11,000 points per timeseries`), so even a perfect sampler is
+discarded past ~4 days at fine step.
+
+⚠️ **Blocked on credentials.** No Grafana API key, no service account, and `grafana.ini`
+is entirely defaults — the admin password exists only as a hash in the `user` table. I will not
+edit Grafana's live Unified Storage sqlite (`resource` / `resource_history` /
+`resource_version` move together, and Grafana caches). Either give me a service-account token,
+or paste the JSON via panel -> Edit -> JSON.
+
+### 1e. ⚠️ Correction to my own statistics
+
+**Prometheus retention is 15 d, not 30 d** (`storage.tsdb.retention.time=15d`, verified via
+`/api/v1/status/runtimeinfo`). My "30-day" figures actually covered 15.46 days. Recomputed:
+
+| | corrected |
+|---|---|
+| raw gauge > 0 | **0.161 %** of samples (72 of them) |
+| `max_over_time([5m])` > 0 | 0.970 % |
+| `max_over_time([1h])` > 0 | 3.189 % |
+
+⚠️ And the figure is **unstable**: 65 of those 72 samples fall in the last 2.9 days, so the
+clean 12.6-day baseline is 7 events = **0.019 %**. Honest reading: GPU transcoding is **rare and
+clustered, n ~ 4 real sessions**, and the statistic is noisy because n is tiny.
+
+🔑 **The strongest evidence is not statistical at all:** two encodes of known timing and known
+load (10 s each, `drm-engine-enc` 47.65 %, 176 fps) produced **zero non-zero Prometheus samples**
+— all four surrounding 30 s scrapes read 0.
+
+⚠️ **Retention is the binding constraint for any long-horizon question.** "How much has Plex
+used the GPU this quarter" is unanswerable in Prometheus at *any* sample rate. The cheap move
+nobody proposed: **raise retention** — 836 MB/15 d becomes ~5 GB/90 d, one flag, existing
+backend, no new agent. Cost: `prometheus.container` has no `Exec=` line, so it means a quadlet
+edit + `daemon-reload` + container recreate.
 
 ## 2. ✅ Hermes can now query Tautulli
 
@@ -248,7 +244,7 @@ design, but worth knowing rather than discovering.
 | podman-exporter `.10:9882` | ❌ none | Container inventory |
 | blackbox-exporter `.10:9115` | ❌ none | |
 | InfluxDB `.10:8086` | ✅ 401 | Token required |
-| Grafana `.10:3000` | ✅ 401 | No anonymous access |
+| Grafana `.10:3000` | ⚠️ **mixed** | main API 401, but a **public dashboard bypasses auth entirely** — see 3d |
 
 ### Prometheus itself is read-only — that part is fine
 
@@ -326,12 +322,145 @@ config change needs a **container restart**, verified with `podman exec` — see
 
 ---
 
+### 3d. 🔴 CORRECTION: Grafana is not fully authenticated — a public dashboard is wide open
+
+I reported "Grafana ✅ 401 — no anonymous access". That was **wrong**. The main API does return
+401, but Grafana's *public dashboards* feature bypasses authentication completely, and one is
+enabled:
+
+| | |
+|---|---|
+| Dashboard | **"Grid Import / Export & Energy Balance"** |
+| `dashboard_public` row | `is_enabled=1`, `share=public` |
+| `GET /api/public/dashboards/<token>` | **200** — full layout |
+| `GET /public-dashboards/<token>` | **200** — renders |
+| `POST /api/public/dashboards/<token>/panels/1/query` | **200** — **live data, queryable** |
+| control: `GET /api/dashboards/home` | 401 |
+
+So an anonymous caller with the token reads your grid import/export, solar production, import
+cost and export revenue in CHF, self-consumption and autarky rates — **and can run the panel
+queries**, not just view a snapshot.
+
+🔑 **This may well be deliberate** — that is exactly what the feature is for, and public
+Nextcloud is already a confirmed intentional exposure here. ⛔ **So I have not touched it.**
+Two things to decide:
+- Did you enable this to share your solar dashboard? If yes, nothing to do.
+- The token is a **bearer credential with no login**, so if the `.optimusprime.` hostname is
+  externally reachable (the still-unproven §3 question above), anyone holding the URL has it
+  from the internet. That makes the mobile-data test matter more than it did.
+
+To revoke, if unintended: Dashboard -> Share -> Public dashboard -> revoke.
+
+## 4. ✅ "Why don't we use Telegraf?" — answered
+
+**Short answer: you were right that hand-rolling a sampler was the wrong idea, and Telegraf beats
+a bash sampler outright. But neither should be built, because the problem was never sampling
+rate — it was the wrong metric (§1a).**
+
+### On a straight sampler-vs-sampler comparison, Telegraf wins
+
+Bench-tested on Optimus Prime (Telegraf 1.39.3):
+- `interval = "50ms"` is honoured — measured **20.09 Hz** (236 samples in 11.75 s, first two
+  timestamps exactly 50,000,000 ns apart, no "took longer to collect" warning)
+- `aggregators.basicstats` genuinely turns that stream into max+mean per window
+  (`count = 40` for a 2 s period at 50 ms)
+- **There is no minimum polling interval** — no floor in `agent/agent.go`, `config/config.go` or
+  `models/running_input.go`; the value goes straight to `clock.NewTicker`
+- It also fixes two defects I was charging *against* it: real timestamps, and no
+  stale-textfile failure class
+
+So "why hand-roll a sampler when Telegraf exists?" has **no good answer**. My plan was worse.
+
+⛔ Also worth retiring: the "adding Telegraf = backend sprawl like TimescaleDB" objection is a
+**category error**. Telegraf with `outputs.prometheus_client` is a *collection agent*, not a
+storage backend — it lands in the same TSDB as node_exporter. Not a valid reason to reject it.
+
+### But it is the wrong tool for *this* job
+
+- **Telegraf has no fdinfo input plugin** (checked against the full ~250-entry master listing).
+  On the correct path — a `drm-engine-enc` counter — it contributes nothing.
+- **`inputs.amd_rocm_smi` is dead on arrival, three ways.** `rocm-smi` is not installed;
+  **gfx1032 is absent from AMD's official ROCm support matrix** (gfx900/906/908/90a/942/950/
+  1030/1100/1101/1200/1201 — no RX 6000-series consumer card anywhere on it); and mechanically
+  it forks `exec.Command` **per collection** with 38 hardware-query flags and a 5 s timeout, so
+  it cannot run at 20 Hz. Its field list has **no encode/decode field at all** — a working
+  rocm-smi would still measure the wrong thing.
+- **"Telegraf slots in for free" is false.** `outputs.file` opens with
+  `O_RDWR|O_CREATE|O_APPEND` (`internal/rotate/file_writer.go:63`) — no `O_TRUNC`, no atomic
+  replace — and the `prometheus` serializer re-emits `# HELP`/`# TYPE` on **every flush**. Fed
+  that exact shape, node_exporter set `node_textfile_scrape_error` 0 -> 1 **and dropped that
+  file's metrics entirely** while other `.prom` files kept working. Silently. The real route is
+  `outputs.prometheus_client` (:9273, confirmed free), which needs a **new scrape target**.
+- **A new scrape target is not cheap here.** `POST /-/reload` is 403 and
+  `--config.auto-reload` was never set (tested live: the reload timestamp never moved over 48 s
+  after an inert edit — `config.auto-reload-interval=30s` is a **decoy**). `prometheus.yml` is a
+  **single-file bind mount**, so an edit must preserve the inode *and* be followed by a
+  container restart. No `file_sd_configs` escape hatch exists.
+- **The official image dies under rootful podman:**
+  `setpriv: failed to execute telegraf: Operation not permitted`. Podman's default `CapBnd` has
+  `SETFCAP` (so the entrypoint's `setcap cap_net_raw` succeeds) but lacks `NET_RAW` (so the
+  following exec gets EPERM). Fix: `--cap-add=NET_RAW` or `--entrypoint=telegraf`.
+- **Packaging:** not in Arch repos — AUR only (1.39.3, single maintainer) or a 333 MB container.
+- Cost: ~1.75–2.27 % of a core, 29–37 MB RSS.
+
+### Also relevant: the hand-rolled sampler was more expensive than I assumed
+
+Polling `gpu_busy_percent` is **not** free at the proposed rate. amdgpu caches the SMU metrics
+table ~1 ms, so back-to-back reads are cache *hits* (10.7 µs) while 50 ms-spaced reads are
+*misses* needing a real SMU mailbox round-trip: **~926 µs each** (control: a regular file at the
+same spacing is 55.6 µs). At 20 Hz that is **~1.9 % of one core — ~60x my assumption.**
+
+### ⭐ When Telegraf *does* become the right call
+
+**Exactly one plugin: `inputs.modbus`.** It matches your hardware precisely —
+`transmission_mode = "RTUoverTCP"` and plain TCP, register/request/metric configuration,
+holding and input registers, FLOAT32-IEEE, and the `CDAB` mid-little-endian word order the
+**Eastron SDM230** needs. Hand-writing a Modbus exporter is real work; this is config.
+
+**The trigger:** when you decide to move energy metering off the Node-RED -> HA -> InfluxDB path.
+Today the meters flow through HA, and the HA energy dashboard plus
+`sensor.house_total_consumption_daily` consume that path — Telegraf -> InfluxDB bypasses HA and
+breaks both. So it is a migration project with its own cost, **not a side effect of a GPU fix**.
+Second trigger: three or more odd-protocol sources at once (Modbus + MQTT + SNMP).
+
+**Non-triggers, measured:**
+- **SNMP on the Dream Machine: not enabled.** `nmap -sU -p 161,162` -> `161/udp closed
+  snmp port-unreach`, `162/udp closed snmptrap`. `inputs.snmp` unlocks nothing today.
+- `inputs.ping` -> already covered by blackbox-exporter (55 targets, 2 jobs)
+- `inputs.docker` -> already covered by podman-exporter on both hosts (:9882)
+- smartctl gap on bumblebee -> cheaper as smartctl-exporter, the established pattern on OP
+
+### And the alternative nobody names: Grafana Alloy
+
+The Prometheus-shop answer to "why not Telegraf". Grafana 13.2.1 is already deployed;
+`prometheus.exporter.unix` embeds node_exporter (drm collector included) and
+`prometheus.scrape` sets **per-target intervals** — same data model, no second one. Honestly:
+same container + quadlet cost as Telegraf, and Prometheus has no
+`--web.enable-remote-write-receiver`, so it is not free either. Mentioned for completeness.
+
+⛔ Confirmed closed: **no maintained consumer-AMD fdinfo exporter exists**
+(`ROCm/device-metrics-exporter` is Instinct/K8s; `amd/amd_smi_exporter` is retired). Hence a
+~100-line script rather than a dependency. `amdgpu_top v0.11.5` is already at
+`/usr/bin/amdgpu_top` if you want an interactive look (**must run as root** — non-root silently
+reports `Encode=0`).
+
 ## Decisions I need from you
 
-1. **1a + 1b** — shall I **repurpose** the dead exporter into the 20 Hz sampling exporter? That
-   is the only fix that removes the aliasing, and it reuses the timer that already exists.
-   (Retiring the script instead is the alternative — but then the panel stays as it is.)
-2. **1b** — split VRAM onto a byte axis, and add `max_over_time` as a partial improvement
-   (⛔ not as the fix — measured 0.92 % vs 0.15 %, still zero 99 % of the time)?
-3. **2** — rotate the Tautulli API key, or keep the existing one?
-4. **3** — fix CORS and/or authenticate Alertmanager? And can you run the mobile-data test?
+1. **§1c — deploy the fdinfo counter?** `scripts/optimus-prime/amdgpu-engine-metrics.py` is
+   written, reviewed and dry-run but **not deployed**. It replaces the broken `card0` script on
+   the existing timer: **0 new services**. This is the only fix that actually measures the
+   encoder.
+2. **§1d — which dashboard were you watching?** If it was
+   `AMD GPU - Optimus Prime (RX 6600)`, the byte-axis fix was already done there and only the
+   counter from 1c helps. Either way I need a **Grafana service-account token** (or you paste
+   the JSON) to apply anything.
+3. **§1b — also fix the git copy** of `amdgpu-metrics.sh`, add the missing `OnFailure=` to
+   `amdgpu-metrics.service`, and add the `node_textfile_mtime_seconds` staleness alert? None of
+   these exist today, and their absence is why 4 months of zeros went unnoticed.
+4. **§1e — raise Prometheus retention** from 15 d to 90 d (~836 MB -> ~5 GB)? Needed for any
+   "this quarter" question.
+5. **§2 — rotate the Tautulli API key**, or keep the existing one?
+6. **§3 — fix `web.cors.origin` and/or authenticate Alertmanager?** And can you run the
+   mobile-data test?
+7. **§3d — is the public "Grid Import / Export" Grafana dashboard intentional?** It is
+   anonymously readable *and queryable* right now.

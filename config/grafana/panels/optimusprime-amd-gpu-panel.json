@@ -2,7 +2,7 @@
   "id": 7,
   "type": "timeseries",
   "title": "AMD GPU",
-  "description": "GPU busy % is an INSTANTANEOUS gauge and Prometheus point-samples it every 30s. Plex hardware-transcodes at 6-7x realtime and throttles once the client buffers, so the video engine works in 1-4s bursts at a very low duty cycle: over 30 days the raw gauge read non-zero only 0.15% of the time (peak 29%). The dashed 'raw sample' series is what a single scrape sees; the solid '5m max' series is the burst envelope. Neither fully removes the aliasing - only faster sampling at the source does. VRAM/GTT are plotted in BYTES on the right axis: as a percentage of the 8.5 GB pool they peak at 2.8% and look flat. See docs/homelab-fix-list.md section 1.",
+  "description": "WARNING: gpu_busy_percent does NOT measure the VCN video encoder. Verified 2026-09-03: a saturated hevc_vaapi encode ran at 96.5% encoder duty (DRM fdinfo drm-engine-enc) while this gauge read a mean of 18% and drm-engine-gfx read 0.0% - a 5.36x under-report. It is also quantised to integer 0-100 and point-sampled every 30s, so a real-time 1080p30 transcode (~15% encoder duty) reads ~1. Three compounding faults: wrong engine, quantisation, aliasing. The envelope series below mitigates only the third. The real fix is a monotonic amdgpu_engine_busy_seconds_total{engine=\"enc\"} counter from DRM fdinfo, where rate() is exact at any scrape interval. VRAM/GTT are in BYTES on the right axis - as a percentage of the 8.5 GB pool they peak at 2.8% and look flat. See docs/homelab-fix-list.md section 1.",
   "gridPos": {
     "h": 8,
     "w": 24,
@@ -23,7 +23,7 @@
       {
         "matcher": {
           "id": "byName",
-          "options": "GPU Busy % (5m max)"
+          "options": "GPU Busy % (rate-interval max)"
         },
         "properties": [
           {
@@ -134,8 +134,8 @@
         "uid": "afgw1dyxyshz4b"
       },
       "refId": "A",
-      "expr": "max_over_time(node_drm_gpu_busy_percent{instance=\"optimusprime\",card=\"card1\"}[5m])",
-      "legendFormat": "GPU Busy % (5m max)"
+      "expr": "max_over_time(node_drm_gpu_busy_percent{instance=\"optimusprime\",card=\"card1\"}[$__rate_interval])",
+      "legendFormat": "GPU Busy % (rate-interval max)"
     },
     {
       "datasource": {
