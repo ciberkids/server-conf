@@ -54,13 +54,18 @@ node_drm_memory_vram_size_bytes{card="card1"}    8.573157376e+09
 node_drm_memory_gtt_used_bytes{card="card1"}     2.902016e+07
 ```
 
-**Recommended fix — retire it.** Stop and disable `amdgpu-metrics.timer`, remove
+**Two ways forward — and 1b changes which one I recommend.**
+
+*Retire it:* stop and disable `amdgpu-metrics.timer`, remove
 `/usr/local/bin/amdgpu-metrics.sh` and `/tmp/node_exporter/amdgpu.prom`, delete the two unit
 files and `scripts/optimus-prime/amdgpu-metrics.sh`. `--collector.drm` already covers it.
 
-⚠️ **Your call, not mine** — you asked me to check, not to remove. If you would rather keep a
-custom exporter, do *not* just change `card0`→`card1`; that repeats the bug class. Resolve the
-card by driver instead:
+*⭐ Or repurpose it* — which is what I now recommend, because it is the only real fix for 1b.
+The 15 s timer and textfile plumbing already exist; point them at the right card and have it
+**sample fast** (see 1b fix 1) instead of reading once.
+
+⚠️ **Either way it's your call** — you asked me to check, not to remove. And if you keep it, do
+*not* just change `card0`→`card1`; that repeats the bug class. Resolve the card by driver:
 
 ```bash
 for d in /sys/class/drm/card*/device; do
@@ -94,7 +99,8 @@ So the panel is not wired to the broken exporter of 1a. The zero is real, and he
 | `transcode_throttled` | `1` |
 
 And `/sys/kernel/debug/dri/1/amdgpu_pm_info` said **`VCN: Powered up`** while reporting
-**`GPU Load: 0 %`** and `SCLK 0 MHz`.
+**`GPU Load: 0 %`** and `SCLK 0 MHz` — that is a *throttled* encoder caught mid-pause, not a
+counter blind to VAAPI. The controlled test below settles which. See 1d.
 
 **The counter does work.** A controlled encode proved it — 1080p→HEVC via `hevc_vaapi`,
 1800 frames at **397 fps (6.6× realtime)**:
@@ -123,21 +129,30 @@ At 1 s sampling I saw regular 3–9 % blips; at 30 s scraping, essentially nothi
 all three series are plotted on one **0–100 % axis**, where VRAM at 2.8 % and GTT at 0.63 % are
 flat lines on the floor even when they are moving.
 
-**Fixes, cheapest first:**
+**Fixes — and only one of them actually works:**
 
-1. **Change the panel query to capture bursts instead of point-sampling** — zero risk,
-   Grafana-only, no server change:
-   ```promql
-   max_over_time(node_drm_gpu_busy_percent{instance="optimusprime",card="card1"}[5m])
-   ```
+1. **⭐ The real fix — repurpose the dead script from 1a into a sampling exporter.** It already
+   runs every 15 s with the textfile plumbing in place. Have it poll `gpu_busy_percent` ~20×/s
+   and publish `max` and `mean` for the interval. That is the only option that *creates* the
+   missing samples, so it is the only one that removes the aliasing.
+   **Pick this over retiring the script in 1a** — the cadence and plumbing already exist.
 2. **Plot VRAM in bytes on its own axis**, not as a percentage of 8.5 GB. A 47 MB transcode
    allocation is invisible as a percentage and obvious in bytes.
-3. **Repurpose the dead script from 1a into a real sampling exporter** — it already runs every
-   15 s. Have it poll `gpu_busy_percent` ~20×/s and publish `max` and `mean` for the interval.
-   That produces a genuinely duty-cycle-aware metric, and gives the script a purpose instead of
-   deleting it. (Pick this *or* 1a's retirement, not both.)
-4. **For "is something transcoding" use Tautulli, not the GPU graph** — that is a semantic
-   question the utilisation counter cannot answer. Now available to Hermes, see §2.
+3. **For "is something transcoding" use Tautulli, not the GPU graph** — a semantic question no
+   utilisation counter can answer. Now available to Hermes, see §2.
+
+⛔ **`max_over_time(...[5m])` is NOT the fix, despite looking like it.** It widens the window over
+**stored** samples; it cannot recover load that was never sampled. Measured over 30 days:
+
+| panel query | reads non-zero |
+|---|---|
+| raw gauge | **0.15 %** of the time |
+| `max_over_time(...[5m])` | **0.92 %** — 6× better, still zero 99 % of the time |
+| `max_over_time(...[1h])` | 2.87 % |
+
+It only helps where a burst happened to coincide with a scrape. Worth applying as a one-line
+improvement alongside fix 1, but on its own the panel will still read 0 and you will think
+nothing changed.
 
 ### 1c. 🔴 Latent: the card index is hardcoded in the dashboard too
 
@@ -145,18 +160,33 @@ The `AMD GPU` panel pins `card="card1"` in all three queries. Same fragility cla
 `card0` — a kernel or hardware change renumbers it and the panel silently goes empty. Drop the
 label, or drive it from a Grafana variable.
 
-### 1d. ℹ️ There is no VCN utilisation counter on this GPU — don't go looking
+### 1d. ℹ️ `average_mm_activity` is dead on this silicon — but the graphics counters are not
 
-`gpu_metrics` (v1.3, 120 B) exposes `average_mm_activity`, the multimedia/VCN field. On Navi 23
-the SMU **never populates it** — it read `0 %` throughout the controlled encode that had
-`gpu_busy_percent` at 18 %. `average_gfx_activity` and `average_umc_activity` do work.
+`gpu_metrics` (v1.3, 120 B binary at `/sys/class/drm/card1/device/gpu_metrics`) exposes
+`average_mm_activity`, the multimedia/VCN field. On Navi 23 the SMU **never populates it** — it
+read `0 %` throughout the controlled encode. Don't build a panel on it.
 
-So the only honest transcode signals on this card are:
-- `VCN: Powered up` in `/sys/kernel/debug/dri/1/amdgpu_pm_info` (boolean, needs root)
+**But that does not mean the GPU is unmeasurable during a transcode.** The same encode registered
+on the graphics counters at the same instant:
+
+| counter | during encode | source |
+|---|---|---|
+| `average_mm_activity` | **0 %** ⛔ never populated | `gpu_metrics` offset 20 |
+| `average_gfx_activity` | **21 %** ✅ works | `gpu_metrics` offset 16 |
+| `gpu_busy_percent` | **18 %** ✅ works | sysfs |
+| `average_umc_activity` | works | `gpu_metrics` offset 18 |
+
+🔑 **This refutes the intuition that `gpu_busy_percent` is blind to VAAPI.** It is not — a
+hardware transcode does load the graphics pipe measurably. The problem in 1b is purely
+**duty cycle vs sample rate**, not a blind counter. So the honest transcode signals are:
+
+- `gpu_busy_percent` / `average_gfx_activity` — **if sampled fast enough** (see 1b fix 1)
 - the **VRAM delta** (+47 MB during the encode)
-- `gpu_busy_percent`, if you sample it fast enough (see 1b)
+- `VCN: Powered up` in `/sys/kernel/debug/dri/1/amdgpu_pm_info` (boolean, needs root) — note it
+  appears *alongside* `GPU Load: 0 %`, which is a throttled encoder, not a contradiction
+- Tautulli, for the semantic answer (§2)
 
-Don't add an `average_mm_activity` panel expecting it to work.
+Struct header is `<HBB` = structure_size / format_revision / content_revision.
 
 ---
 
@@ -298,7 +328,10 @@ config change needs a **container restart**, verified with `podman exec` — see
 
 ## Decisions I need from you
 
-1. **1a** — retire the dead `amdgpu` exporter, or repurpose it as the sampling exporter (1b fix 3)?
-2. **1b** — shall I apply the `max_over_time` panel fix and split VRAM onto a byte axis?
+1. **1a + 1b** — shall I **repurpose** the dead exporter into the 20 Hz sampling exporter? That
+   is the only fix that removes the aliasing, and it reuses the timer that already exists.
+   (Retiring the script instead is the alternative — but then the panel stays as it is.)
+2. **1b** — split VRAM onto a byte axis, and add `max_over_time` as a partial improvement
+   (⛔ not as the fix — measured 0.92 % vs 0.15 %, still zero 99 % of the time)?
 3. **2** — rotate the Tautulli API key, or keep the existing one?
 4. **3** — fix CORS and/or authenticate Alertmanager? And can you run the mobile-data test?
