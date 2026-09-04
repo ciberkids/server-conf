@@ -77,9 +77,18 @@ index is empirically stable here. The real lesson is different and worse:
 
 ### 1c. ✅ Recommended fix — a monotonic counter, not faster sampling
 
-🔑 **A monotonic nanosecond counter is immune to aliasing by construction:** `rate()` over any
-window recovers the exact time integral regardless of duty cycle. That removes the entire
-motivation for high-rate sampling — no 20 Hz sampler, no Telegraf (see §4).
+🔑 **A monotonic nanosecond counter is immune to aliasing by construction — but only on the
+READ side.** ⚠️ **Narrowed 2026-09-04:** `rate()` is **interval-independent for reading** (any
+scrape interval recovers the exact time integral) and **interval-dependent for writing** (the
+counter only advances for clients the *writer* observes alive). Measured extremes: a **3.40 s**
+encode and a **12.3 s** encode that each fell entirely between two writes moved the counter by
+**exactly 0.000000000 s — 100 % loss**. So the motivation for high-rate sampling shrinks
+dramatically but does not vanish; it moves from the scrape to the write.
+
+⇒ **Do NOT raise the timer to match the 30 s scrape.** A counter loses nothing by being written
+more often than it is read, so 15 s *halves* tail loss versus 30 s. ⚠️ And the real cadence is
+**~15.5 s, not 15 s** (`OnUnitActiveSec=15s` + `AccuracySec=5s` + runtime), so every tail-loss
+bound quoted at "15 s" is ~3 % optimistic.
 
 `scripts/optimus-prime/amdgpu-engine-metrics.py` is **written, reviewed and dry-run — NOT
 deployed.** It walks `/proc/*/fdinfo/*`, filters on `drm-driver: amdgpu` + the discovered PCI
@@ -96,6 +105,34 @@ amdgpu_drm_clients{card="card1"} 3
 🔑 It **derives card and PCI address from the driver** rather than hardcoding either, and
 **exits non-zero rather than writing a zero** if no amdgpu card is found — because a fake zero
 is indistinguishable from an idle GPU, which is the entire bug it replaces.
+
+**Three hardening changes applied 2026-09-04, each measured:**
+1. ⚡ **~8× faster.** It used to open and regex-scan **every** fdinfo in `/proc` (5,624 files on
+   this host) to find the **17** fds that point at `/dev/dri`. Resolving the fd symlink first
+   measured **0.642–0.707 s → 0.074–0.097 s** wall over 4 alternating runs, with
+   **byte-identical** output on a frozen target 3/3. At the real ~15.5 s cadence that is
+   **~4.3 % of a core → ~0.5 %**.
+2. 🔴 **Explicit root guard.** ⛔ **`amdgpu_drm_clients` CANNOT serve as the canary** —
+   measured with a root-owned encode live: root → `enc 1.021276318`, `clients 4`; non-root →
+   `enc 0.000000000`, `clients 3`. **Three is a perfectly plausible number** (three desktop DRM
+   clients genuinely exist), so the gauge cannot tell "root, GPU idle" from "non-root, blind to
+   every rootful-podman transcode". Verified: the old version silently published
+   `enc 0.000000000` as non-root; the new one exits 1 with a message.
+3. **`atomic_write` refuses non-regular files.** ⚠️ **My own error, on the live host:** I pointed
+   `AMDGPU_OUT` at `/dev/null` during testing, and `os.replace()` **destroyed the device node**,
+   turning it into a 77-byte regular file and breaking every redirect on OP until
+   `mknod -m 666 /dev/null c 1 3` restored it. The guard now refuses to replace anything that is
+   not a regular file. Use `AMDGPU_OUT=-` to test. ✅ Device node restored and functionally
+   verified (`crw-rw-rw- 1 3`, mode 666).
+
+⚠️ **The units are in git too** — `systemd/units/optimusprime/amdgpu-metrics.{service,timer}` and
+`scripts/optimus-prime/amdgpu-metrics.sh`, byte-identical to the deployed copies. So "change one
+`ExecStart=` line" understates it: the change set is unit + script + panel **in git, then
+deployed to the host** ([[feedback_deploy_quadlets_to_server]]).
+
+🔑 **Reading `/proc/*/fdinfo` never touches the GPU** — so there are no power-management or
+clock-gating side effects, unlike `amdgpu_top`'s GRBM performance-counter read. Worth knowing
+before anyone worries about polling cost keeping the card awake.
 
 Panel query once deployed:
 ```promql
@@ -351,11 +388,22 @@ Two things to decide:
 
 To revoke, if unintended: Dashboard -> Share -> Public dashboard -> revoke.
 
-## 4. ✅ "Why don't we use Telegraf?" — answered
+## 4. ✅ "Why don't we use Telegraf?" — answered (⛔ CORRECTED 2026-09-04)
 
-**Short answer: you were right that hand-rolling a sampler was the wrong idea, and Telegraf beats
-a bash sampler outright. But neither should be built, because the problem was never sampling
-rate — it was the wrong metric (§1a).**
+⛔ **The user pushed back and was right twice over:** *"i proposed telegraph for the gpu not for
+the modbus, for the moment modbus work perfectly with node red."*
+1. **Modbus stays on Node-RED.** The `inputs.modbus` material below is parked reference, **not a
+   recommendation** — do not re-propose that migration. Answering a question about the GPU by
+   pivoting to a different use case was a scope drift.
+2. 🔴 **The claim "no fdinfo input plugin ⇒ it contributes nothing" was WRONG in its second
+   half.** First clause true, second false. **`inputs.exec` + `data_format = "prometheus"` carries
+   the metric fine** — verified end-to-end on OP with telegraf 1.39.3 under a live `hevc_vaapi`
+   encode: metric name, `counter` TYPE, both labels and the full 9-decimal value all survive, so
+   `rate()` works normally. The absence of a *specific* plugin never settles capability when a
+   generic escape hatch exists.
+
+**So: Telegraf CAN do it. It just shouldn't, because the transport it would replace is already
+deployed — and after Modbus was ruled out, Telegraf has ZERO live triggers on this host.**
 
 ### On a straight sampler-vs-sampler comparison, Telegraf wins
 
@@ -377,8 +425,17 @@ storage backend — it lands in the same TSDB as node_exporter. Not a valid reas
 
 ### But it is the wrong tool for *this* job
 
-- **Telegraf has no fdinfo input plugin** (checked against the full ~250-entry master listing).
-  On the correct path — a `drm-engine-enc` counter — it contributes nothing.
+- ⛔ **RETRACTED.** Telegraf has no *dedicated* fdinfo input plugin (true), but
+  **`inputs.exec` runs the collector and parses its Prometheus output** — verified on OP under a
+  live encode. Two conditions, both measured and non-negotiable: `metric_version = 2` on
+  `outputs.prometheus_client` (at the v1 default the name is mangled to
+  `prometheus_amdgpu_engine_busy_seconds_total`), and **`--pid=host` AND `SYS_PTRACE` — both,
+  neither alone** (`--pid=host` alone → `Permission denied`; `SYS_PTRACE` alone → wrong PID
+  namespace; without `--pid=host` the container sees **3 PIDs instead of ~900**, finds no amdgpu
+  clients and publishes a plausible zero with `scrape_error` still 0). Plus
+  `Entrypoint=telegraf`, since the default entrypoint dies under rootful podman and
+  `--cap-add=NET_RAW` only fixes the crash while leaving Telegraf as **uid 999**, which cannot
+  read fdinfo and would publish 0.
 - **`inputs.amd_rocm_smi` is dead on arrival, three ways.** `rocm-smi` is not installed;
   **gfx1032 is absent from AMD's official ROCm support matrix** (gfx900/906/908/90a/942/950/
   1030/1100/1101/1200/1201 — no RX 6000-series consumer card anywhere on it); and mechanically
@@ -410,7 +467,55 @@ table ~1 ms, so back-to-back reads are cache *hits* (10.7 µs) while 50 ms-space
 *misses* needing a real SMU mailbox round-trip: **~926 µs each** (control: a regular file at the
 same spacing is 55.6 µs). At 20 Hz that is **~1.9 % of one core — ~60x my assumption.**
 
-### ⭐ When Telegraf *does* become the right call
+### The verdict: repoint the timer you already have
+
+| | textfile (recommended) | Telegraf as collector |
+|---|---|---|
+| new services | **0** | 1 |
+| new containers / images | **0** | 1 container + a **locally-built ~570 MB** image |
+| new packages | **0** | AUR-only (1 maintainer) or the container |
+| new Prometheus scrape jobs | **0** | 1 |
+| new listeners | **0** | `:9273` |
+| privilege grants | **0** (the unit is already root) | `--pid=host` + `SYS_PTRACE` + entrypoint override |
+
+Everything the textfile route needs is already running: `amdgpu-metrics.timer` → a root
+`Type=oneshot`, node_exporter's textfile dir, and the `node-optimusprime` job already scraping
+`:9100`. **New metric names appear inside a job that is already scraped ⇒ zero Prometheus config
+changes.**
+
+🔑 The decisive argument is not privilege or cost — it is **the image**. The official telegraf
+image has no Python and `python3-minimal` is not enough (`import json` → `ModuleNotFoundError`),
+so this needs a **locally-built** image. That falls outside `AutoUpdate=registry` — the property
+every other exporter on OP has — and inside the `podman image prune -a` blast radius, which is
+exactly what took Hermes down 1–5 Aug 2026 ([[project_hermes_image_pruned]]).
+
+⚠️ Second argument: **an `inputs.exec` that fails forever never marks the unit failed.** Measured:
+with `expiration_interval = "20s"` and the source removed, the `amdgpu` series went 5 → 5 → **0**
+→ 0 while the container stayed `Up` and `go_gc_duration_seconds` kept serving. A `Type=oneshot`
+exiting non-zero at least *can* fire `OnFailure=`.
+
+### ⛔ Three of my own arguments, retracted
+
+1. **"The 690 ms `/proc` walk is a hard interval floor."** False — it was self-inflicted. The
+   collector opened and regex-scanned every fdinfo in `/proc` to find the handful that matter.
+   Resolving the fd symlink first and only opening fdinfo when it points at `/dev/dri/*` measured
+   (mine, 4 alternating runs): **0.642–0.707 s → 0.074–0.097 s wall**, CPU 0.51–0.70 s → 0.067–0.091 s
+   — **~8× faster**, and **byte-identical** output on a frozen target 3/3 runs. On this host that
+   is **5,624 fdinfo files versus 17 fds** pointing at `/dev/dri`. At the real ~15.5 s cadence the
+   collector drops from **~4.3 % of a core to ~0.5 %**. Applied.
+2. **"A Telegraf container with `--pid=host --cap-add=SYS_PTRACE` could read every
+   `/proc/<pid>/environ`."** True but **not a marginal cost** — `amdgpu-metrics.service` already
+   runs as host root with the full capability set and can already do all of that. Parity, not new
+   exposure.
+3. **"Prometheus config changes need a container restart."** Overstated. Prometheus reloads
+   `prometheus.yml` **and** `rule_files` on **SIGHUP**, independently of
+   `web.enable-lifecycle=false` — proven on a throwaway container of the same image
+   (`prometheus_config_last_reload_success_timestamp_seconds` advanced,
+   `prometheus_config_last_reload_successful 1`). In production that is
+   `podman kill -s HUP prometheus`, ⚠️ **not yet exercised against the live container.** A genuine
+   restart is still needed for **retention**, which is a process flag SIGHUP cannot pick up.
+
+### 📌 PARKED — not requested: when Telegraf *would* become the right call
 
 **Exactly one plugin: `inputs.modbus`.** It matches your hardware precisely —
 `transmission_mode = "RTUoverTCP"` and plain TCP, register/request/metric configuration,
@@ -444,38 +549,94 @@ same container + quadlet cost as Telegraf, and Prometheus has no
 `/usr/bin/amdgpu_top` if you want an interactive look (**must run as root** — non-root silently
 reports `Encode=0`).
 
+## 5. 🔴 NEW — the Telegram alerting this homelab relies on drops ~1 in 4
+
+Found while comparing failure signals for §1c. **This is not about the GPU** — it undermines
+every `OnFailure=` alert on Optimus Prime.
+
+Verified independently just now:
+
+| | |
+|---|---|
+| `notify-failure@` instances in **`failed`** state right now | **2** (`zigbee2mqtt-mcp`, `zigbee2mqtt`) |
+| journal, last 30 d | **21 errors vs 17 completions** |
+| `After=network-online.target` | ⛔ **absent** |
+| `Wants=` | ⛔ **absent** |
+| `Restart=` / any retry | ⛔ **absent** |
+
+Two instances failed **today at 05:02:58** — **2 min 58 s after the 05:00 `kernel-reboot.timer`
+reboot** — with `telegram-send: Error: Connection timed out`. 🔑 **The unit makes exactly one
+HTTP call, with no network-ready dependency and no retry, at the least reliable moment in the
+host's day, and drops the alert silently on timeout.**
+
+⚠️ This matters beyond itself: [[project_notify_failure_never_worked]] records 25 failures / 0
+deliveries before the Aug-2026 fix. The fix worked, but the mechanism is still **lossy**, and
+several arguments in §1c and §4 leaned on "systemd `OnFailure=` is the reliable signal". On this
+evidence it is roughly **26 % lossy**.
+
+**Suggested fix (not applied):** add `After=network-online.target` + `Wants=network-online.target`
+to `notify-failure@.service`, and either a bounded `Restart=on-failure` with
+`RestartSec=30`/`StartLimitBurst=3`, or route through the Prometheus/Alertmanager path instead —
+which §3 notes is itself unauthenticated, so pick deliberately.
+
+⚠️ **Related trap if you ever add `Restart=` to a notifying unit:** measured on throwaway units,
+`Restart=always` + `OnFailure=` **without a start limit** leaves the unit in `activating` with
+`NRestarts=9` — **never `failed`, so invisible to `systemctl --failed`** — while the `OnFailure`
+sink fires **7 times in 12 s** (a Telegram per `RestartSec`). With
+`StartLimitIntervalSec=30s`/`StartLimitBurst=3` it reaches `failed (start-limit-hit)` and fires a
+bounded 4 times. **A start limit is mandatory, not optional.**
+
 ## Decisions I need from you
 
-1. **§1c — deploy the fdinfo counter?** `scripts/optimus-prime/amdgpu-engine-metrics.py` is
-   written, reviewed and dry-run but **not deployed**. It replaces the broken `card0` script on
-   the existing timer: **0 new services**. This is the only fix that actually measures the
-   encoder.
-   ⛔ **Do this check FIRST, it gates the whole recommendation.** Every `drm-engine-enc` number
-   in this document — mine and the research's — came from an `ffmpeg` *we* started. **Plex
-   Transcoder's fdinfo has never been observed once.** Plex's VAAPI path is ffmpeg-derived so it
-   is very likely identical, but if Plex does not expose `drm-engine-enc` the same way, §1c needs
-   rework. Next time something transcodes:
+⛔ **Zero of the five real defects is a transport question, and all five survive either choice.**
+Transport is one `ExecStart=` line; these are the things actually broken:
+(a) live false zeros in Prometheus, (b) no `OnFailure=` on `amdgpu-metrics.service`, (c) no
+staleness *or sanity* alert, (d) three panels on the watched dashboard reading the
+5.36×-under-reporting gauge, (e) the git copy still says `card0`.
+
+1. ⛔ **RUN THIS FIRST — it gates everything.** No `drm-engine-enc` measurement has **ever** come
+   from Plex Transcoder; every one is our own `ffmpeg` or HandBrake. Your original complaint was
+   Plex-specific. Next time something transcodes:
    ```bash
-   sudo grep -l 'Plex Transcoder' /proc/*/comm      # find the pid
-   sudo grep -H drm-engine /proc/<pid>/fdinfo/*     # must show a rising enc counter
+   sudo grep -l 'Plex Transcoder' /proc/*/comm          # find the pid
+   sudo grep -H drm-engine /proc/<pid>/fdinfo/*         # must show a rising enc counter
    ```
-2. **§1d — the panel I committed is NOT verified.** The four raw queries were checked against
-   Prometheus; the `$__rate_interval` window is a **Grafana macro** and cannot be tested through
-   the API. It resolves to `max(step+scrape, 4*scrape)` — ~120 s at short ranges, which is
-   *narrower* than the fixed `[5m]` it replaced, and ~635 s at 7 d. Overrides are now bound by
-   regexp so a legend-name drift degrades only cosmetics, never an axis. Fallback if it
-   misbehaves: a fixed `[10m]`.
-3. **§1d — which dashboard were you watching?** If it was
-   `AMD GPU - Optimus Prime (RX 6600)`, the byte-axis fix was already done there and only the
-   counter from 1c helps. Either way I need a **Grafana service-account token** (or you paste
-   the JSON) to apply anything.
-4. **§1b — also fix the git copy** of `amdgpu-metrics.sh`, add the missing `OnFailure=` to
-   `amdgpu-metrics.service`, and add the `node_textfile_mtime_seconds` staleness alert? None of
-   these exist today, and their absence is why 4 months of zeros went unnoticed.
-5. **§1e — raise Prometheus retention** from 15 d to 90 d (~836 MB -> ~5 GB)? Needed for any
-   "this quarter" question.
-6. **§2 — rotate the Tautulli API key**, or keep the existing one?
-7. **§3 — fix `web.cors.origin` and/or authenticate Alertmanager?** And can you run the
-   mobile-data test?
-8. **§3d — is the public "Grid Import / Export" Grafana dashboard intentional?** It is
-   anonymously readable *and queryable* right now.
+   **If it fails, the zero-code answer wins:** delete the three fake zeros, answer "is Plex using
+   the GPU" from Tautulli's `transcode_hw_full_pipeline` (already wired into Hermes, §2), and
+   every transport argument above is void.
+2. **Deploy the fdinfo counter?** Hardened and dry-run, **not deployed**. Change set = unit +
+   script + panel in git, then deployed to the host. Includes adding the missing `OnFailure=` and
+   a `StateDirectory=`.
+3. 🔑 **The panel edit is what actually fixes your complaint — and it is blocked on a credential.**
+   **No Grafana panel has referenced `amdgpu_*` since 2026-04-16.** Both GPU dashboards query
+   `node_drm_*`, so the 0 you are looking at is the **sysfs DRM gauge**, and fixing the collector
+   alone will **not** change what you see. I need a **Grafana service-account token** (or you
+   paste the JSON). This is a harder blocker than anything in the transport debate.
+4. **Add the sanity + staleness alert?** ⚠️ It needs the `absent()` half or it is not a safety net:
+   `/etc/tmpfiles.d/node-exporter.conf` is a **`d` line only**, so after the 05:00 reboot the
+   *directory* returns but `amdgpu.prom` does not — and an absent series never satisfies a `>`
+   comparison.
+   ```yaml
+   - alert: AmdgpuMetricsStale
+     expr: absent(node_textfile_mtime_seconds{file=~".*amdgpu.*"})
+        or (time() - node_textfile_mtime_seconds{file=~".*amdgpu.*"} > 120)
+     for: 5m
+   ```
+   ⚠️ Edit `alerts.yml` **in place** (single-file bind mount — rsync swaps the inode), then
+   `podman kill -s HUP prometheus` and verify `prometheus_config_last_reload_successful == 1`.
+   ⛔ **Note what freshness canNOT catch:** it is green *right now* while the file serves three
+   fake zeros. A writer that runs fine and emits garbage is invisible to mtime — that is the
+   failure that actually cost four months, and only the collector's `sys.exit()` addresses it.
+5. **Raise Prometheus retention?** 15 d → 365 d ≈ **20.7 GB** against 3.5 TB free; the 5 new GPU
+   series cost **8.3 MB/year**. ⚠️ Quadlet `Exec=` **replaces** the image CMD rather than
+   appending, and `prometheus.container` has no `Exec=` line today, so all three flags must be
+   given together:
+   `Exec=--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=365d`
+   This one is a genuine restart — retention is a process flag SIGHUP cannot pick up.
+6. **§5 — fix `notify-failure@`?** It is ~26 % lossy and has no network dependency or retry.
+   Independent of the GPU, and it silently weakens every other alert on the host.
+7. **§2 — rotate the Tautulli API key**, or keep it?
+8. **§3 — fix `web.cors.origin` and authenticate Alertmanager?** And can you run the mobile-data
+   test?
+9. **§3d — is the public "Grid Import / Export" Grafana dashboard intentional?** Anonymously
+   readable *and* queryable right now.
