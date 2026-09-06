@@ -337,8 +337,22 @@ Each phase is independently testable and ordered so nothing waits on something u
   deliberately and confirm the poll still picks the job up.
 
 ### Phase 6b — the Warracker branch (after Phase 5, independent of Phase 7)
-1. Mint the Warracker API token in its UI (**owner action**); store under
-   `/etc/containers/secrets/warracker.env`.
+1. ⛔ **NOT EXECUTABLE AS WRITTEN — corrected 2026-09-06.** "Mint the Warracker API token in its
+   UI" cannot be done: **Warracker has no API-token feature.** Verified against the running image —
+   of its **78 API routes** the only auth-related ones are `/auth/oidc-status` and
+   `/validate-token`; nothing issues keys. The "API Token" field in Warracker's Settings is for
+   Warracker **consuming Paperless-ngx** (`settings.paperless_token_desc`: "Your Paperless-ngx API
+   authentication token"), which is what the earlier note mistook for a Warracker token.
+
+   **Replacement:** auth is `POST /api/auth/login` with **username + password** → Bearer JWT.
+   ⭐ **Create a dedicated non-admin `hermes` user** rather than using `ciberkids` (admin). That is
+   genuinely least-privilege *and* it satisfies the read requirement, because
+   `global_view_enabled = true` and `global_view_admin_only = false` (checked in `site_settings`)
+   ⇒ a non-admin can read **all** warranties via `GET /api/admin/warranties`.
+   ⚠️ Trade-off: entries are owned by `hermes`, so the owner's personal `GET /api/warranties` list
+   stays empty — they appear in the **global view**. Warracker holds **0 warranties** today, so
+   choosing the ownership model now costs nothing.
+   Store the credentials in `/etc/containers/secrets/warracker-hermes.env`, never in a quadlet or git.
 2. Add an OliveTin action `warranty_add` taking the **job id** plus the confirmed
    `product_name` / `purchase_date` / `expiration_date` — same job-id discipline as everything else.
 3. Extend the proposal message to four items with a *File only* / *File + Warracker* / *Correct*
@@ -367,6 +381,18 @@ Each phase is independently testable and ordered so nothing waits on something u
 ---
 
 ## 6b. Receipt branch — Warracker (added 2026-08-20)
+
+> 🔴 **BLOCKER 3, found 2026-09-06 — Hermes cannot see an image.** The configured model
+> `deepseek/deepseek-v4-flash-0731` is **text-only**: `modalities.input = ["text"]`,
+> `attachment = false`. So "send Hermes a receipt photo via Telegram and it creates the warranty"
+> **does not work today** — the model never receives the picture.
+> 🔑 **This branch's design already routes around it**, which is the strongest argument for it:
+> **paperless-ngx does the OCR** (ocrmypdf/tesseract, CPU-only), the routing map decides
+> `purchase receipt` + durable-goods, and the filing filename already yields Warracker's fields —
+> so the model only ever handles **text**. Attaching the receipt branch to filing is therefore not
+> just DRY, it is what makes it possible at all with this model.
+> ⚠️ The alternative — switching Hermes to a vision-capable model — reopens the model/cost decision
+> in [[project_hermes_migration]] and is a separate call.
 
 When a document is a **purchase receipt for a durable good**, also offer to create a Warracker
 warranty record with the receipt attached. This folds in the previously separate
