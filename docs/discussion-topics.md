@@ -473,3 +473,56 @@ Possible fixes, none applied yet:
 existing "Turn on/off night lamp" automation (which targets `area_id: devin_s_bedroom` at sunrise)
 never turned it off. Handled with a dedicated entity-targeted automation rather than assigning the
 area, since assigning it would enrol the light in every other area-targeted automation and script.
+
+---
+
+## Hermes' Telegram bot has privacy mode ON, but the rollout runbook needs it OFF
+
+**Added:** 2026-09-07
+
+Noticed while confirming the bot inventory, not asked for. `getMe` on the Hermes bot
+(`8413667800`, `@OpenClawdPersonalAssistantBot`) returns
+**`can_read_all_group_messages: false`** — i.e. BotFather privacy mode is **enabled**.
+
+But `reference_telegram_bot_naming.md`'s own cutover runbook says step 2 is
+`/setprivacy` → **Disable**, *"required so it reads plain group messages"*, citing the two-gate
+finding in `project_hermes_migration`. So as configured today Hermes most likely only sees group
+messages that explicitly @-mention it — which matters for the parked multi-user rollout, where
+Manu answering in the shared chat is a **domain requirement**, not a convenience.
+
+**What to look at when we pick this up:**
+- `project_hermes_multiuser_rollout` + `docs/plans/hermes-multi-user-rollout.md` (`1839e6b`) —
+  does the plan already assume privacy is off?
+- The "two-gate" finding in `project_hermes_migration` — Telegram privacy mode is gate 1,
+  `TELEGRAM_ALLOWED_USERS` is gate 2. Confirm which gate is actually blocking what.
+- Whether this has ever been tested: send a plain (non-@-mention) message in the house group and
+  see if Hermes reacts at all.
+- ⚠️ `/setprivacy` applies to **future** messages and may need the bot removed and re-added to the
+  group to take effect — verify rather than assume.
+- ⛔ Do **not** conflate with access control: `TELEGRAM_ALLOWED_USERS` is fail-closed and is fine.
+
+## Stray / duplicate Telegram automations outside `automations_telegram.yaml`
+
+**Added:** 2026-09-07
+
+Noticed while auditing the HA bot. `available_automation_ids` includes two entries that are not in
+the dedicated `automations/automations_telegram.yaml` file and that I did not audit:
+
+- `automation.telegram_bot_to_notify_nobody_home_and_electronics_on`
+- `automation.telegram_callback_to_remove_keyboard_2` — the `_2` suffix suggests a **duplicate** of
+  `automation.telegram_callback_to_remove_keyboard`, which *is* in that file
+
+Two duplicate callback handlers for `/removekeyboard` would both fire on one button press.
+
+**What to look at when we pick this up:**
+- `grep -n "telegram" /mnt/data/docker_persistent/home_assistant/automations.yaml` — the 10
+  `notify.telegram_bot_8004766574_*` refs live there (8 → the group, 2 → Matteo's DM); the two
+  strays are probably in the same file.
+- Confirm whether `_2` is a genuine duplicate or handles a different `callback_data`. If it is a
+  duplicate, check `mode:` on both — `single` vs `queued` changes whether the double-fire is
+  visible.
+- `automation.telegram_bot_to_notify_nobody_home_and_electronics_on`: check it still references
+  live entities. `project_ha_garage_lametric_bug` shows what dead entity refs cost here — that
+  view had 6 of them, and a template that silently always read "CLOSED".
+- ⚠️ The HA `/config/automation/config` REST endpoint **404s for YAML-defined automations**, so
+  `ha_search` reports `partial: true` and cannot see their bodies. Read the YAML directly.
