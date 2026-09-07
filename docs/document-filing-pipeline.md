@@ -362,6 +362,9 @@ Each phase is independently testable and ordered so nothing waits on something u
   dates correct; a `Regeneriersalz`-style consumable receipt is filed **without** offering Warracker;
   an SBB `ticket receipt` and a life-insurance `Garantie` policy neither trigger the branch.
 
+> 🔴 **Phase 6b step 1 and its "no second extraction" premise were both corrected —
+> see §6b's refutation and **§6c** (owner's n8n + vision-model proposal, 2026-09-07).**
+
 ### Phase 7 — paperless: config, backfill, copy, backup
 🔴 **Order matters here — steps 1 and 2 must precede step 3.**
 1. Fix OCR languages: **`PAPERLESS_OCR_LANGUAGE=deu+eng+ita`** (§7.4). German is currently absent yet
@@ -423,7 +426,27 @@ HOU-24's own trigger terms mix both: `Regeneriersalz` (softener salt — no warr
 `Hochdruckreiniger` (pressure washer — warranty). Part 2 is a judgement call, so it belongs in the
 owner question, not in a rule.
 
-### 🔑 The filing decision already yields the Warracker fields
+### 🔴 REFUTED 2026-09-07 — this holds only for single-item receipts
+
+> Owner: *"the pdf name it is not always deterministic, for instance i go to kaufland and i buy
+> food and a device (that will need to be tracked in warracker), but what it has to work with is a
+> receipt with food and device and it has to decide and extract information."*
+
+The table below is correct for a **dedicated purchase** — which is exactly what the Kärcher
+example is. It breaks on a **mixed basket**:
+
+- the filename pattern names **one** `<Item>`; a Kaufland receipt has ~30 line items and the
+  warranty belongs to exactly one of them
+- `product_name` must be *the device*, not the vendor or "Kaufland shopping"
+- the price needed is the **device's line item**, not the receipt total
+- 🔑 **and a grocery receipt is not archive material at all** — so the *filing* decision never
+  happens, and there is no filename to derive fields from. The premise that filing always comes
+  first is itself wrong for this case.
+
+⇒ **A real per-line-item extraction pass IS required, and this branch cannot be a pure by-product
+of filing.** See §6c for the owner's proposed architecture.
+
+### 🔑 The filing decision yields the Warracker fields — for single-item receipts
 
 HOU-24 filename pattern:
 `'<YYYY-MM-DD purchase date> <Vendor or brand> <Item in English> Receipt.pdf'`
@@ -437,9 +460,9 @@ example: `2024-07-17 Kärcher K 7 Premium Pressure Washer Receipt.pdf`
 | `expiration_date` | ⚠️ **almost never printed on the receipt** — see below | optional |
 | `notes`, `product_url` | free text / left empty | optional |
 
-**So no second extraction pass is needed.** If the filing proposal is correct, the warranty record is
-already written. That is the whole reason to attach this to the filing step rather than run a separate
-receipt pipeline.
+⛔ ~~**So no second extraction pass is needed.**~~ **Only when the receipt covers one item.** For a
+mixed basket a second pass is mandatory (see the refutation above). Attaching to filing remains
+right for *dedicated purchases* and for the OCR it provides; it is **not** sufficient on its own.
 
 ⚠️ **`expiration_date` must be proposed, not extracted.** Warranty duration is rarely on a receipt.
 Swiss statutory *Gewährleistung* is 2 years; manufacturer warranties vary. Propose
@@ -479,6 +502,43 @@ The original receipt design had **three** destinations. Only Warracker is in sco
   reminders (§7.5). Needs a Grocy tool for Hermes first.
 
 Both would attach as additional options on the same single proposal message when built.
+
+## 6c. Owner's proposal 2026-09-07 — n8n + a vision model for extraction
+
+Rather than switching Hermes' model, run extraction in **n8n** against a vision-capable model
+(owner suggested **Gemini Flash**). All of this was verified on the hosts today:
+
+| check | result |
+|---|---|
+| Hermes downloads inbound Telegram media to disk? | ✅ **yes** — `cache_image_from_bytes()` (`gateway/platforms/base.py:854`) returns an **absolute path**; dir is `cache/images` (legacy `image_cache` is a fallback) |
+| …independently of model vision support? | ✅ **yes** — bytes are cached before the model is involved ⇒ **Hermes can courier a file it cannot see** |
+| Hermes ↔ n8n network path | ✅ **same host** (bumblebee) ⇒ localhost handoff, nothing new exposed |
+| n8n up? | ✅ `:5678` → 200; `n8n.public.favarohome.com` → 200 (already used for the Telegram callback) |
+| vision model reachable? | ✅ via the **existing `OPENROUTER_API_KEY`** — 166 Gemini entries incl. `gemini-2.5-flash`; **no new provider account or key** |
+
+🔑 **Strictly better than switching Hermes' main model**: keeps the cheap text-only model and its
+cost profile ([[project_hermes_migration]]) and confines vision to the one step that needs it.
+
+⚠️ **Constraints that must shape the design:**
+- **The image cache is pruned after 24 h** (`cleanup_image_cache(max_age_hours=24)`) ⇒ consume
+  promptly, or copy the file out of the cache first.
+- ⛔ **Do NOT hold pipeline state in n8n `staticData`.** Known live bug: `global.pending` writes
+  are lost when a poll fires seconds after an n8n restart — near-nightly via `:latest` +
+  `AutoUpdate` — and the symptom is a Telegram button that silently does nothing
+  ([[reference_n8n_api]]). Pass state in the payload, or persist it in Warracker.
+- **Line-item extraction is the new requirement.** Ask the model for structured JSON line items,
+  then pick the durable good — not prose.
+- 🔑 **The durable-good decision still belongs to the owner.** HOU-24's own triggers mix
+  `Regeneriersalz` (no warranty) with `Hochdruckreiniger` (warranty). A model *proposing* which
+  line is the device is fine; deciding silently is not. Keep the
+  *File only / File + Warracker / Correct* keyboard.
+- ⚠️ `expiration_date` is still almost never on the receipt ⇒ propose purchase + 2 y (Swiss
+  Gewährleistung), always shown for correction.
+- Warracker auth is **username + password** for a dedicated non-admin `hermes` user — there is no
+  API token to mint (§6b step 1, corrected).
+- ⚠️ **Two extraction paths now exist** (paperless OCR for archive filing; vision for receipts).
+  That is deliberate, not duplication — they serve different documents. Grocery receipts should
+  **not** enter the household archive.
 
 ## 7. Settled decisions (2026-08-20)
 
