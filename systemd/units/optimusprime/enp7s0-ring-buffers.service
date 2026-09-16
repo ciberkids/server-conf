@@ -1,0 +1,22 @@
+[Unit]
+Description=Restore 10G NIC (enp7s0) RX/TX ring buffers to maximum
+Documentation=https://github.com/ciberkids/server-conf
+# The AQC100 comes up at driver defaults (RX 2048) on every boot. At 10G the
+# kernel cannot drain a 2048-entry RX ring fast enough, so the NIC silently
+# drops frames: 2026-09-16 saw 327k per-queue InErrors and 20-43% packet loss
+# to every LAN host, which crash-looped zigbee2mqtt (141 restarts) and made
+# OP's blackbox probes report bumblebee as down.
+#
+# This replaces two udev rules that never fired: both matched KERNEL=="enp7s0"
+# on ACTION=="add", but the interface is still named eth0 at that point
+# (kernel logs "atlantic 0000:07:00.0 enp7s0: renamed from eth0").
+After=sys-subsystem-net-devices-enp7s0.device
+BindsTo=sys-subsystem-net-devices-enp7s0.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/ethtool -G enp7s0 rx 8184 tx 8184
+
+[Install]
+WantedBy=multi-user.target
