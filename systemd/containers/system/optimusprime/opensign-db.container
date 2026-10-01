@@ -6,7 +6,9 @@ Requires=network-online.target
 [Container]
 ContainerName=opensign-db
 Network=opensign.network
-Image=docker.io/library/mongo:latest
+# Pinned to a minor: :latest jumped to 9.0 on 2026-10-01 and 9.0 refuses FCV 8.2 data (exit 62).
+# Patch updates keep FCV, so AutoUpdate stays safe. Major upgrades = setFeatureCompatibilityVersion first.
+Image=docker.io/library/mongo:8.3
 PublishPort=27018:27017
 Volume=/etc/localtime:/etc/localtime:ro
 Volume=/mnt/data/docker_persistent/opensign/data:/data/db:rw
