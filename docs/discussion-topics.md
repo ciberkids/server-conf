@@ -526,3 +526,8 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
   view had 6 of them, and a template that silently always read "CLOSED".
 - ⚠️ The HA `/config/automation/config` REST endpoint **404s for YAML-defined automations**, so
   `ha_search` reports `partial: true` and cannot see their bodies. Read the YAML directly.
+- **OpenSign mongo: upgrade path to 9.0 (2026-10-01).** `:latest`+AutoUpdate pulled mongo 9.0.2 at ~04:27,
+  which refuses on-disk FCV `8.2` (exit 62) ⇒ 5,861 restart loops + an OnFailure Telegram flood. Now pinned to
+  `mongo:8.3` (FCV still 8.2). To go to 9.0 deliberately: `setFeatureCompatibilityVersion: "8.3"` (confirm:true)
+  on 8.3 → swap tag to `9.0`. Backup at `/mnt/data/docker_persistent/opensign/data.bak-20261001-pre9fix` (699M), delete once happy.
+  Other DBs are already major-pinned; `redis:latest` / `valkey:latest` remain (caches, low risk).
