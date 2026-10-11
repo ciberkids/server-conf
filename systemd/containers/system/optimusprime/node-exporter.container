@@ -11,7 +11,9 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/:/host:ro,rslave
 PodmanArgs=--pid=host
 Environment=NODE_ID=optimusprime
-Exec=--path.rootfs=/host --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/) --collector.textfile.directory=/host/tmp/node_exporter --collector.drm
+# systemd collector reads unit states over the host's system D-Bus via the /host bind mount
+Environment=DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
+Exec=--path.rootfs=/host --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/) --collector.textfile.directory=/host/tmp/node_exporter --collector.drm --collector.systemd
 
 AutoUpdate=registry
 
