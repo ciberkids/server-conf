@@ -3,6 +3,8 @@ OnFailure=notify-failure@%n.service
 Description=Immich Server
 Requires=immich-redis.service
 Requires=immich-database.service
+# Requires= alone starts these in parallel; After= makes the server wait for them
+After=immich-redis.service immich-database.service
 
 [Container]
 ContainerName=immich-server
@@ -33,6 +35,9 @@ HealthOnFailure=restart
 [Service]
 Restart=always
 TimeoutStartSec=900
+# Postgres refuses connections (57P03) for a few seconds after start; the 100ms default
+# burned all retries in ~1s and hit the start limit on the 2026-10-13 boot
+RestartSec=10
 
 [Install]
 WantedBy=default.target
