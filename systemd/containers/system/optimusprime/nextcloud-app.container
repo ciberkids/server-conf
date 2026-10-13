@@ -2,6 +2,8 @@
 OnFailure=notify-failure@%n.service
 Description=Nextcloud container
 Requires=nextcloud-db.service
+# Requires= alone starts these in parallel; After= makes the app wait for the database
+After=nextcloud-db.service
 
 [Container]
 ContainerName=nextcloud-app
@@ -25,6 +27,8 @@ HealthOnFailure=restart
 
 [Service]
 Restart=always
+# give the database time to accept connections instead of burning retries at the 100ms default
+RestartSec=10
 
 [Install]
 WantedBy=default.target
