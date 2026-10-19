@@ -896,6 +896,8 @@
 
     # =========================================================
     # 21. OpenCode
+    # Secrets live in /etc/containers/secrets/opencode.env (see opencode.env.template):
+    #   OPENCODE_SERVER_PASSWORD — required since opencode-docker 3.x
     # =========================================================
     - name: Create OpenCode persistent directories
       file:
