@@ -28,6 +28,14 @@ Label=traefik.http.services.ollama.loadbalancer.server.port=11434
 
 [Service]
 Restart=always
+# Bumblebee has 16 GB, shared with Frigate (~3.4 GB). On 2026-10-19 a model load
+# took ollama 1.25 -> 5.4 GB in 4 min (layers spilling off the 1080 Ti to CPU),
+# MemAvailable hit 1 GB and the host livelocked for 17 h (no OOM kill, sshd dead,
+# ping alive). Cap it so a too-big load OOM-kills ollama, not the whole box.
+# The container cgroup is a child of this unit's (--cgroups=split), so this applies.
+MemoryHigh=5G
+MemoryMax=6G
+MemorySwapMax=0
 
 [Install]
 WantedBy=default.target

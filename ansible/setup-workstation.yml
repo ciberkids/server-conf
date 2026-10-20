@@ -128,6 +128,71 @@
         insertbefore: '^include /etc/logrotate.d'
 
     # =========================================================
+    # 4c. Swap (8 G swapfile on /home)
+    #
+    # The installer created NO swap. On 2026-10-19 an ollama model load pushed
+    # MemAvailable to 1 GB; with nothing to swap anonymous pages to, the kernel
+    # thrashed page cache (executables) instead of OOM-killing, and the host
+    # livelocked for 17 h — ping answered, sshd never sent a banner. Swap turns that
+    # cliff into a slowdown. It lives on /home (415 G) not / (75 G, filled in Aug).
+    # Low swappiness: only for spikes, not to page out idle containers.
+    # =========================================================
+    - name: Check for swapfile
+      stat:
+        path: /home/swapfile
+      register: swapfile
+
+    - name: Create swapfile (dd, not fallocate — fallocate'd files can have holes swapon rejects)
+      command: dd if=/dev/zero of=/home/swapfile bs=1M count=8192
+      when: not swapfile.stat.exists
+
+    - name: Restrict swapfile permissions
+      file:
+        path: /home/swapfile
+        mode: "0600"
+        owner: root
+        group: root
+
+    # Without swapfile_t, SELinux denies swapon on a file under /home (home_root_t).
+    - name: Label swapfile swapfile_t (persistent)
+      command: semanage fcontext -a -t swapfile_t /home/swapfile
+      register: swap_fcontext
+      failed_when: swap_fcontext.rc != 0 and 'already defined' not in swap_fcontext.stderr
+      changed_when: swap_fcontext.rc == 0
+
+    - name: Apply swapfile label
+      command: restorecon -v /home/swapfile
+      register: swap_restorecon
+      changed_when: swap_restorecon.stdout != ""
+
+    - name: Format swapfile
+      command: mkswap /home/swapfile
+      when: not swapfile.stat.exists
+
+    - name: Add swapfile to fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^/home/swapfile\s'
+        line: /home/swapfile none swap defaults 0 0
+
+    - name: Enable swap
+      command: swapon /home/swapfile
+      register: swap_on
+      failed_when: swap_on.rc != 0 and 'Device or resource busy' not in swap_on.stderr
+      changed_when: swap_on.rc == 0
+
+    - name: Low swappiness (swap is for spikes only)
+      copy:
+        dest: /etc/sysctl.d/90-swappiness.conf
+        content: "vm.swappiness = 10\n"
+        mode: "0644"
+      register: swappiness
+
+    - name: Apply swappiness
+      command: sysctl -p /etc/sysctl.d/90-swappiness.conf
+      when: swappiness.changed
+
+    # =========================================================
     # 5. NVIDIA driver (580 legacy for GTX 1080 Ti)
     # =========================================================
     - name: Add NVIDIA CUDA repository
