@@ -531,3 +531,20 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
   `mongo:8.3` (FCV still 8.2). To go to 9.0 deliberately: `setFeatureCompatibilityVersion: "8.3"` (confirm:true)
   on 8.3 → swap tag to `9.0`. Backup at `/mnt/data/docker_persistent/opensign/data.bak-20261001-pre9fix` (699M), delete once happy.
   Other DBs are already major-pinned; `redis:latest` / `valkey:latest` remain (caches, low risk).
+- **Health check 2026-10-26: findings to pick up.**
+  - 🔴 **Frigate person clips are NOT reaching Telegram.** `automation.frigate_person_detected_send_clip_to_telegram`
+    fails on every person event with `Can't parse entities: can't find end of the entity starting at byte offset 23`
+    (80 errors in 29 h of HA uptime). Byte 23 is the `_` in `jooan_fixed`/`jooan_ptz`: telegram_bot's default
+    parse mode is Markdown, so the camera/zone names in the caption open an italic run that is never closed.
+    Probably broken ever since the 2026-09-09 `as_timestamp` fix, which only moved the failure one step later.
+    Likely fix: `parse_mode: plain_text` on the `send_video` call. Check the other 9 Telegram notify calls for
+    the same problem, since any entity_id or zone name in a caption will trigger it.
+  - **Correction to the "two `unavailable` automations" item above:** they did not fail schema validation.
+    Their unique_ids (`1732458230839`, `telegramawayelectronics`) are in `core.entity_registry` (last modified
+    2026-09-12) but **no YAML file defines them anymore**, so these are orphaned registry entries left over from
+    the automations.yaml/`automations/` split. Decide whether to restore them or remove the entities.
+  - **HA log noise is back: about 15k warnings/day.** `value_json["orp_max"|"ph_max"|"free_chlorine_max"|"orp_min"]`
+    is missing from an MQTT payload (pool chemistry), with about 480 lines of each every 3 h. Use a `default`/`is defined`
+    guard in the MQTT sensor templates.
+  - Batteries: `main_bedroom_light_remote_matteo` **1 %**, `stairs_down_motion_sensor_top` 16.5 % (26 % in Sept).
+  - Recorder DB is **16.4 GB SQLite** (oldest run 2024-04-16). Check `purge_keep_days`.
