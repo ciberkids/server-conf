@@ -552,3 +552,10 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
     guard in the MQTT sensor templates.
   - Batteries: `main_bedroom_light_remote_matteo` **1 %**, `stairs_down_motion_sensor_top` 16.5 % (26 % in Sept).
   - Recorder DB is **16.4 GB SQLite** (oldest run 2024-04-16). Check `purge_keep_days`.
+- **Frigate clips + `/clip` menu (2026-10-26).** Recording audio was disabled (`ffmpeg.output_args.record: preset-record-generic`)
+  because the AAC transcode of the camera's PCMA audio drifted (2×, offset = recorder uptime), which made every clip claim to be hours
+  long. Decide later whether audio is worth bringing back (go2rtc AAC transcode + `-audio-copy`, needs a multi-hour soak test).
+  New HA automation `automation.telegram_clip_record_a_camera_clip_on_demand` (`/clip` → camera × 2/15/30/60 s).
+  ⚠️ **Side finding:** in HA 2026.10 `telegram_bot.send_message` / `edit_replymarkup` no longer list `chat_id`, which
+  `/status` and the garage-door callback in `automations/automations_telegram.yaml` still use. `/status` last ran 2026-03-17,
+  so it is untested. Likely broken; switch them to `entity_id: notify.telegram_bot_8004766574_<abs(chat_id)>` like `/clip`.
