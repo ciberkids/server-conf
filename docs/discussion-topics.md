@@ -567,3 +567,19 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
   buttons Turn all off / Close garage (only when open) / Leave them. HA now has zero `unavailable` automations.
   ⚠️ `binary_sensor.main_entry_door_contact` reads `unknown`, so the alert can't report the front door until that sensor reports again.
   `/clip` registered in the bot's Telegram command menu via setMyCommands (default scope; `/status` kept).
+- **Follow-ups 2026-10-26 (afternoon).**
+  - **Correction: `chat_id` is NOT broken.** A simulated `/status` ran clean with no warning; HA 2026.10 only hides it from the
+    action editor. No change needed to `/status`.
+  - ⏸️ **Garage Telegram callback: real bug, PARKED until someone is home to test.** It checks `state: close` but the cover state
+    is `closed`, so pressing while closed does nothing yet still replies "Command sent!". It also never answers the callback (spinner).
+    Plan: use `cover.open_cover`/`close_cover`, answer the callback, report the contact state after the move.
+    Open questions for the owner: (1) does Close from the HA app actually work? The cover's `close_cover` = `switch.turn_off`
+    on the Tuya PJ-ZGD01 relay, which always reads `off` (momentary), so it's unverified whether a "false" write pulses it.
+    The nobody-home "Close garage" button depends on this too. (2) Should the Telegram button be allowed to OPEN the door?
+  - ✅ **Pool template noise fixed.** It came from the z2m pool sensor (Tuya BLE-YL01), which never sends `orp_max/orp_min/ph_max/free_chlorine_max`.
+    Disabled those 4 `number.pool_sensor_*` entities (always `unknown`, no references). Verified: a reading at 13:51 with 0 warnings,
+    where each reading used to produce a burst of 8. That was 20,000 of the 20,503 lines in home-assistant.log.
+    ⚠️ The pool readings themselves look like garbage (pH 1.38, free chlorine 6553.5 = 0xFFFF/10, ORP −305, EC 0). The probe is probably
+    dry or out of the water for winter.
+  - **Recorder: 17.3 GB is by design**, since `purge_keep_days: 1825` (5 y). About 700k rows/day. The top writers are
+    `sensor.udm_se_home_memory_utilization` (48k/day) and `cpu_utilization` (42k/day), 13 % of all writes, then the rack Modbus meter (about 8.6k/day × 12 entities).
