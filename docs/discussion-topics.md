@@ -532,13 +532,17 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
   on 8.3 → swap tag to `9.0`. Backup at `/mnt/data/docker_persistent/opensign/data.bak-20261001-pre9fix` (699M), delete once happy.
   Other DBs are already major-pinned; `redis:latest` / `valkey:latest` remain (caches, low risk).
 - **Health check 2026-10-26: findings to pick up.**
-  - 🔴 **Frigate person clips are NOT reaching Telegram.** `automation.frigate_person_detected_send_clip_to_telegram`
+  - ✅ **FIXED 2026-10-26 — Frigate person clips were NOT reaching Telegram.** `automation.frigate_person_detected_send_clip_to_telegram`
     fails on every person event with `Can't parse entities: can't find end of the entity starting at byte offset 23`
     (80 errors in 29 h of HA uptime). Byte 23 is the `_` in `jooan_fixed`/`jooan_ptz`: telegram_bot's default
     parse mode is Markdown, so the camera/zone names in the caption open an italic run that is never closed.
     Probably broken ever since the 2026-09-09 `as_timestamp` fix, which only moved the failure one step later.
-    Likely fix: `parse_mode: plain_text` on the `send_video` call. Check the other 9 Telegram notify calls for
-    the same problem, since any entity_id or zone name in a caption will trigger it.
+    Fixed with `parse_mode: plain_text` on the `send_video` call. Confirmed from the trace: the real caption
+    `Person detected - jooan_fixed in garage_door_main at 06:56:25` has underscores at bytes 23, 39 and 44; 23 and 39
+    pair up as italics and 44 is left open, which is the reported offset. The same caption and clip then
+    sent fine to Matteo's DM (message_id 13948). Audited the other 13 Telegram sends (notify.send_message + telegram_bot.*):
+    none has `_ * \` [` in its static text, and no door/window friendly_name contains them, so none were changed.
+    ⚠️ A friendly_name that gains an underscore would bring this back on `Send telegram when a door opens`.
   - **Correction to the "two `unavailable` automations" item above:** they did not fail schema validation.
     Their unique_ids (`1732458230839`, `telegramawayelectronics`) are in `core.entity_registry` (last modified
     2026-09-12) but **no YAML file defines them anymore**, so these are orphaned registry entries left over from
