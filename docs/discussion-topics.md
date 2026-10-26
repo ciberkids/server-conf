@@ -559,3 +559,11 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
   ⚠️ **Side finding:** in HA 2026.10 `telegram_bot.send_message` / `edit_replymarkup` no longer list `chat_id`, which
   `/status` and the garage-door callback in `automations/automations_telegram.yaml` still use. `/status` last ran 2026-03-17,
   so it is untested. Likely broken; switch them to `entity_id: notify.telegram_bot_8004766574_<abs(chat_id)>` like `/clip`.
+- **Orphaned automations resolved (2026-10-26).** `automation.garage_door_has_changed_status`: entity removed (owner's call;
+  no dashboard/YAML referenced it). `automation.telegram_bot_to_notify_nobody_home_and_electronics_on`: original config was
+  **unrecoverable** (not in any YAML, `.bak`, `_config_backups/`, `.storage` traces or recorder history, which starts
+  2026-06-18 and has it `unavailable` throughout; OP has no file-level backup of HA config at all ⚠️). Rebuilt under the SAME
+  unique_id `telegramawayelectronics` from owner's spec: both persons away 10 min → household group lists lights/TVs on + doors open,
+  buttons Turn all off / Close garage (only when open) / Leave them. HA now has zero `unavailable` automations.
+  ⚠️ `binary_sensor.main_entry_door_contact` reads `unknown`, so the alert can't report the front door until that sensor reports again.
+  `/clip` registered in the bot's Telegram command menu via setMyCommands (default scope; `/status` kept).
