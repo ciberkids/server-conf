@@ -583,3 +583,10 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
     dry or out of the water for winter.
   - **Recorder: 17.3 GB is by design**, since `purge_keep_days: 1825` (5 y). About 700k rows/day. The top writers are
     `sensor.udm_se_home_memory_utilization` (48k/day) and `cpu_utilization` (42k/day), 13 % of all writes, then the rack Modbus meter (about 8.6k/day × 12 entities).
+- **HA history: long-term in InfluxDB, short-term in SQLite (2026-10-27, probed over the VPN).** Decision on hold.
+  - InfluxDB `homeassistant` bucket: retention ∞, live (17k points/10 min), earliest point 2024-04-24 (SQLite's starts 2024-04-16).
+  - It already holds **HA hourly long-term statistics** from the TimescaleDB era, tagged `source=backport` (fields `state`/`sum`):
+    the main meters from 2025-04-15 to about 2026-04-23, solar from 2024-07-31. HA's own statistics only start **2026-06-18 09:00**.
+    ⇒ They can be imported back into HA so the energy dashboard gains about 14 months. The gap from about 04-23 to 06-18 has raw points only.
+  - Grafana has no `GF_SECURITY_ALLOW_EMBEDDING`, so HA dashboards can't show Grafana panels yet.
+  - Options: (1) embed Grafana panels in HA, (2) InfluxDB query sensors, (3) import the old statistics, then cut `purge_keep_days` 1825 → ~90.
