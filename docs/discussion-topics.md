@@ -597,3 +597,15 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
   already streams every change live. The lever is `purge_keep_days`.
   ⚠️ The integration writes through Traefik (`https://influxdb.optimusprime…:443`). Consider `http://192.168.1.10:8086` direct, plus a
   write-rate alert, so a stale Traefik can't leave a silent gap.
+- ✅ **Recorder retention cut to 30 days (2026-10-28).** `purge_keep_days` 1825 → **30**; the 2 UDM CPU/memory sensors are excluded
+  from the recorder (InfluxDB still gets them; their HA long-term statistics stop too). Config now tracked at `config/home-assistant/recorder.yaml`.
+  - Backup first: a `VACUUM INTO` snapshot at `/mnt/data/backups/ha-recorder-20261028/` (17 GB, quick_check ok, plus the old
+    `recorder.yaml`). **Kept; ask before deleting.** It took 70 min because sqlite's single 4 KB reads are seek-bound on the md125 HDD RAID, not because the server was struggling.
+  - Purge 221 min, repack 41 min: **17.57 GB → 4.10 GB**, WAL 11 MB, 0 free pages. Oldest row is now 2026-09-28.
+  - Verified with positive signals: the rack power meter wrote 60 rows per 10 min straight through the repack (the backlog drained, no loss),
+    the newest row was 4 s old, InfluxDB counts match per window, the UDM sensors have 0 rows in SQLite while Influx keeps receiving them,
+    and the log shows 0 recorder errors.
+  - Lesson: a long `sqlite3` read (e.g. `COUNT(*)`) pins a snapshot, so the WAL can't reset (it grew to 878 MB). Stopping it locally does
+    **not** kill the remote process. Monitor a live DB with `stat`, not queries.
+  - Next options (not done): InfluxDB integration direct to `http://192.168.1.10:8086` instead of through Traefik, `max_retries` > 0,
+    an Influx write-rate alert; import the old statistics from `source=backport`; Grafana embedding.

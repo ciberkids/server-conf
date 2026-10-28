@@ -1,0 +1,10 @@
+auto_purge: true
+# 2026-10-28: 30 days (was 1825). Long-term history lives in InfluxDB
+# (bucket "homeassistant", infinite retention); hourly statistics are never purged.
+purge_keep_days: 30
+commit_interval: 5
+exclude:
+  entities:
+    # ~90k rows/day between them (13 % of all writes); still exported to InfluxDB
+    - sensor.udm_se_home_cpu_utilization
+    - sensor.udm_se_home_memory_utilization
