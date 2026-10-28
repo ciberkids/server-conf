@@ -590,3 +590,10 @@ Two duplicate callback handlers for `/removekeyboard` would both fire on one but
     ⇒ They can be imported back into HA so the energy dashboard gains about 14 months. The gap from about 04-23 to 06-18 has raw points only.
   - Grafana has no `GF_SECURITY_ALLOW_EMBEDDING`, so HA dashboards can't show Grafana panels yet.
   - Options: (1) embed Grafana panels in HA, (2) InfluxDB query sensors, (3) import the old statistics, then cut `purge_keep_days` 1825 → ~90.
+- **Recorder vs InfluxDB overlap measured (2026-10-28).** Overlap is essentially total: every entity with real data is in Influx except 1 stale
+  Plex client. Influx has MORE history (live from 2026-03-23, energy backport from 2025-04) in 2.5 GB vs SQLite's 17 GB.
+  ⛔ **Correction:** SQLite is ~4.3 months of data (88.2 M rows since 2026-06-18 plus 1,586 rows from a week in 2024-04), not 5 years.
+  At ~4 GB/month the 1825-day setting heads for ~200 GB. ⇒ A routine SQLite→Influx job is unnecessary: the influxdb integration
+  already streams every change live. The lever is `purge_keep_days`.
+  ⚠️ The integration writes through Traefik (`https://influxdb.optimusprime…:443`). Consider `http://192.168.1.10:8086` direct, plus a
+  write-rate alert, so a stale Traefik can't leave a silent gap.
