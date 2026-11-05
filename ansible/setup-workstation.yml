@@ -534,6 +534,20 @@
         mode: "0644"
       notify: reload systemd
 
+    # netavark adds podman subnets (10.88.0.0/16, 10.89.0.0/24) to firewalld's
+    # trusted zone at RUNTIME only. Any `firewall-cmd --reload` wipes them, e.g.
+    # the cockpit-ws RPM %post scriptlet run by dnf-automatic. Container->host
+    # traffic then falls into the public zone, which rejects aardvark DNS (:53),
+    # so every multi-container .network stack loses name resolution. Paperless
+    # was down 2026-11-05 03:15-09:27 for this reason. This upstream unit listens
+    # for firewalld reloads and re-applies netavark's rules. Do NOT switch to
+    # firewall_driver=firewalld instead: it breaks host-IP access to forwarded ports.
+    - name: Re-apply netavark firewall rules after every firewalld reload
+      systemd:
+        name: netavark-firewalld-reload.service
+        enabled: yes
+        state: started
+
     # =========================================================
     # 9a. logrotate rule for cloud-drive-sync's own log
     #
