@@ -6,7 +6,11 @@ Requires=network-online.target
 [Container]
 ContainerName=paperless-tika
 Network=paperless.network
-Image=docker.io/apache/tika:latest
+# Pinned to the version upstream paperless-ngx ships in docker-compose.postgres-tika.yml.
+# Tika 4.x removed the /tika/form endpoint that Paperless calls, so on :latest
+# (4.2.0, 2026-10-28) every Office and .eml import fails with a 404.
+# Bump only when upstream's compose file does.
+Image=docker.io/apache/tika:3.3.1.0
 Volume=/etc/localtime:/etc/localtime:ro
 
 AutoUpdate=registry
