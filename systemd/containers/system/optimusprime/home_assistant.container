@@ -15,6 +15,11 @@ ShmSize=1g
 Environment=TZ=Europe/Zurich
 
 AutoUpdate=registry
+# Podman's default 10 s stop timeout SIGKILLed HA on every AutoUpdate restart
+# (exit 137, false notify-failure, unclean recorder shutdown). The image itself
+# allows 240 s (S6_SERVICES_GRACETIME=240000). Stay under systemd's 90 s
+# TimeoutStopSec; raise both together if HA ever needs longer.
+StopTimeout=60
 
 Environment="PGID=1000"
 Environment="PUID=1000"
