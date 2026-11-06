@@ -27,7 +27,7 @@ Environment=PAPERLESS_DBUSER=paperless
 Environment=PAPERLESS_TIKA_ENABLED=1
 Environment=PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://paperless-gotenberg:3000
 Environment=PAPERLESS_TIKA_ENDPOINT=http://paperless-tika:9998
-Environment=PAPERLESS_OCR_LANGUAGE=eng+ita
+Environment=PAPERLESS_OCR_LANGUAGE=eng+ita+deu
 Environment=USERMAP_UID=1000
 Environment=USERMAP_GID=1000
 
