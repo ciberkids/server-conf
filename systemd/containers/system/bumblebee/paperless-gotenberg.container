@@ -6,10 +6,13 @@ Requires=network-online.target
 [Container]
 ContainerName=paperless-gotenberg
 Network=paperless.network
-Image=docker.io/gotenberg/gotenberg:8.27
+# Version and flags follow upstream paperless-ngx docker-compose.postgres-tika.yml.
+Image=docker.io/gotenberg/gotenberg:8.38
 Volume=/etc/localtime:/etc/localtime:ro
 
-Exec=gotenberg --chromium-disable-javascript=true --chromium-allow-list=file:///tmp/.*
+# Chromium renders .eml files: no JavaScript, and only local temp files.
+# The ^ anchor matters: unanchored, any URL merely containing file:///tmp/ matched.
+Exec=gotenberg --chromium-disable-javascript=true --chromium-allow-list=^file:///tmp/.*
 
 AutoUpdate=registry
 
