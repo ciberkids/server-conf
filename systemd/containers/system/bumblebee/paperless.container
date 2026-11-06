@@ -33,7 +33,9 @@ Environment=USERMAP_GID=1000
 
 EnvironmentFile=/etc/containers/secrets/paperless.env
 
-HealthCmd=CMD-SHELL curl -sf http://localhost:8000/ || exit 1
+# /accounts/login/ renders from the DB. "/" only 302-redirects, so it stayed
+# "healthy" through the 2026-11-05 outage when paperless-db did not resolve.
+HealthCmd=CMD-SHELL curl -sf http://localhost:8000/accounts/login/ || exit 1
 HealthInterval=30s
 HealthRetries=3
 HealthStartPeriod=120s
