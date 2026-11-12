@@ -512,6 +512,54 @@
         enabled: yes
         state: started
 
+    # NVIDIA GPU metrics for Prometheus: nvidia-smi -> /tmp/node_exporter/nvidia_gpu.prom,
+    # read by node-exporter's textfile collector every 15 s. Feeds the Grafana dashboard
+    # "NVIDIA GPU - Bumblebee (GTX 1080 Ti)". If nvidia-smi fails the script keeps the OLD
+    # file, so node_exporter serves frozen values; the dashboard's Metrics Age tile is the
+    # detector. /tmp/node_exporter itself comes from the tmpfiles rule below (also used by
+    # the podman container metrics), without it the collector has nowhere to write after
+    # a reboot. Same /usr/local/bin + bin_t requirement as notify-failure.sh above.
+    - name: Deploy node_exporter textfile directory rule
+      copy:
+        src: "{{ playbook_dir }}/../systemd/units/bumblebee/node-exporter-tmpdir.conf"
+        dest: /etc/tmpfiles.d/node-exporter-tmpdir.conf
+        mode: "0644"
+        owner: root
+        group: root
+
+    - name: Create node_exporter textfile directory now
+      command: systemd-tmpfiles --create /etc/tmpfiles.d/node-exporter-tmpdir.conf
+      changed_when: false
+
+    - name: Deploy NVIDIA GPU metrics script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/bumblebee/nvidia-gpu-metrics.sh"
+        dest: /usr/local/bin/nvidia-gpu-metrics.sh
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Deploy NVIDIA GPU metrics service
+      copy:
+        src: "{{ playbook_dir }}/../systemd/units/bumblebee/nvidia-gpu-metrics.service"
+        dest: /etc/systemd/system/nvidia-gpu-metrics.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy NVIDIA GPU metrics timer
+      copy:
+        src: "{{ playbook_dir }}/../systemd/units/bumblebee/nvidia-gpu-metrics.timer"
+        dest: /etc/systemd/system/nvidia-gpu-metrics.timer
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable NVIDIA GPU metrics timer
+      systemd:
+        name: nvidia-gpu-metrics.timer
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
     # Quiet the podman REST API access log. Traefik's container-discovery provider
     # polls this API ~9.5 req/s and the packaged unit ships --log-level=info, which
     # logs every request to syslog (~180 MB/day, 92% of a 17 G /var/log/messages in
