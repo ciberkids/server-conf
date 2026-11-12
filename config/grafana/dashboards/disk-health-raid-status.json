@@ -139,24 +139,36 @@
         "type": "prometheus",
         "uid": "afgw1dyxyshz4b"
       },
-      "description": "Shows current state of each md array. Active=healthy.",
+      "description": "node_exporter exposes one 0/1 series per state (active, check, resync, recovering, inactive); exactly one is 1. Encoded as 1=active, 2=check, 3=resync, 4=recovering, 0=none of those (inactive). A monthly scrub (raid-check.timer, 2nd Thursday 10:30) shows as Checking, not a fault.",
       "fieldConfig": {
         "defaults": {
           "mappings": [
             {
               "options": {
-                "1": {
-                  "color": "green",
-                  "text": "Active"
-                }
-              },
-              "type": "value"
-            },
-            {
-              "options": {
                 "0": {
                   "color": "red",
+                  "index": 0,
                   "text": "INACTIVE"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Active"
+                },
+                "2": {
+                  "color": "blue",
+                  "index": 2,
+                  "text": "Checking"
+                },
+                "3": {
+                  "color": "yellow",
+                  "index": 3,
+                  "text": "Resyncing"
+                },
+                "4": {
+                  "color": "orange",
+                  "index": 4,
+                  "text": "Rebuilding"
                 }
               },
               "type": "value"
@@ -190,7 +202,7 @@
       },
       "targets": [
         {
-          "expr": "node_md_state{instance=\"optimusprime\", state=\"active\"}",
+          "expr": "node_md_state{instance=\"optimusprime\", state=\"active\"} + on(device) 2 * node_md_state{instance=\"optimusprime\", state=\"check\"} + on(device) 3 * node_md_state{instance=\"optimusprime\", state=\"resync\"} + on(device) 4 * node_md_state{instance=\"optimusprime\", state=\"recovering\"}",
           "instant": true,
           "legendFormat": "{{device}}",
           "refId": "A"
@@ -204,24 +216,21 @@
         "type": "prometheus",
         "uid": "afgw1dyxyshz4b"
       },
-      "description": "Ratio of synced blocks to total blocks. 1.0 = fully synced.",
+      "description": "blocks_synced counts per MEMBER disk, node_md_blocks is the array's usable size, so the size is divided back to one member: /(raid_disks-1). Correct for 2-disk RAID1 and RAID5 (N-1 data disks). When idle node_exporter reports synced = usable size, hence clamp_max(...,1). Blue = in progress.",
       "fieldConfig": {
         "defaults": {
           "max": 1,
           "min": 0,
           "thresholds": {
+            "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "blue",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 0.5
-              },
-              {
                 "color": "green",
-                "value": 0.99
+                "value": 1
               }
             ]
           },
@@ -237,7 +246,7 @@
       "id": 7,
       "targets": [
         {
-          "expr": "node_md_blocks_synced{instance=\"optimusprime\"} / node_md_blocks{instance=\"optimusprime\"}",
+          "expr": "clamp_max(node_md_blocks_synced{instance=\"optimusprime\"} / (node_md_blocks{instance=\"optimusprime\"} / (node_md_raid_disks{instance=\"optimusprime\"} - 1)), 1)",
           "instant": true,
           "legendFormat": "{{device}}",
           "refId": "A"
@@ -469,7 +478,7 @@
       },
       "targets": [
         {
-          "expr": "smartctl_device_smart_healthy",
+          "expr": "smartctl_device_smart_status",
           "instant": true,
           "legendFormat": "{{device}} ({{model_name}})",
           "refId": "A"
