@@ -62,7 +62,7 @@ every 15 s via `amdgpu-metrics.timer`) reads `/sys/class/drm/card0/...`. **There
 — the RX 6600 is **card1**. `${VRAM_USED:-0}` turns the missing file into a literal,
 plausible-looking `0`.
 
-⚠️ **It has NEVER worked.** Commit `e9ced67` (2026-05-04) introduced it already reading
+⚠️ **It has NEVER worked.** Commit `51ad13d` (2026-05-04) introduced it already reading
 `card0` — ~4 months of three fake zeros. Nothing consumes them, and it is redundant with
 node_exporter's `--collector.drm`.
 

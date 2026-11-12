@@ -16,7 +16,7 @@ technical dependency order.
 | State backup | `/home/matteo/docker_persistent/hermes-backups/hermes-state-pre-v0.20.6-20260830-234620.tar.gz` (114 M, verified readable) |
 | `delegation.max_iterations` | 250 → **50** (reverted an upstream default change) |
 | Dead `MESSAGING_CWD` | removed from `/opt/data/.env`; deprecation warning gone |
-| Garage gap analyser | `scripts/zigbee/garage_gaps.py` (commit `ed71659`) |
+| Garage gap analyser | `scripts/zigbee/garage_gaps.py` (commit `6ffaedc`) |
 
 Config backups from those edits: `config.yaml.bak-maxiter-*`, `.env.bak-msgcwd-*`.
 

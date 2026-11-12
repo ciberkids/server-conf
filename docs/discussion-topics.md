@@ -226,8 +226,8 @@ expect a schema error), then item 2 (physical battery swap). For item 3, `ha_sea
 **Added:** 2026-08-19
 
 > ✅ **Items 1, 2 and 3 were FIXED on 2026-08-19**, together with the separate podman-access-log
-> finding written up in `docs/centralized-logging-proposal.md` §2a. Commits `9523de7` (recovery
-> notifications), `ea50b5e` (podman log level), `4447bcd` (15 blackbox probes), plus a volume-only
+> finding written up in `docs/centralized-logging-proposal.md` §2a. Commits `09408a7` (recovery
+> notifications), `5a4e15e` (podman log level), `3676d2a` (15 blackbox probes), plus a volume-only
 > Nextcloud `trusted_domains` change that has no file in git.
 >
 > ⏳ **Items 4, 5 and 6 remain OPEN** — all three were assessed as Low/informational and were
@@ -491,7 +491,7 @@ messages that explicitly @-mention it — which matters for the parked multi-use
 Manu answering in the shared chat is a **domain requirement**, not a convenience.
 
 **What to look at when we pick this up:**
-- `project_hermes_multiuser_rollout` + `docs/plans/hermes-multi-user-rollout.md` (`1839e6b`) —
+- `project_hermes_multiuser_rollout` + `docs/plans/hermes-multi-user-rollout.md` (`979291f`) —
   does the plan already assume privacy is off?
 - The "two-gate" finding in `project_hermes_migration` — Telegram privacy mode is gate 1,
   `TELEGRAM_ALLOWED_USERS` is gate 2. Confirm which gate is actually blocking what.

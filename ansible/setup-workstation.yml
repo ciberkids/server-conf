@@ -703,7 +703,7 @@
     # daily   podman-prune.sh (06:00)    -> dangling images + stopped containers, guarded.
     #                                       Cleans up after the nightly auto-update. Shared
     #                                       with Optimus Prime: units in systemd/common/,
-    #                                       script in scripts/common/ (commit a6e8da3).
+    #                                       script in scripts/common/ (commit 6d2b927).
     #                                       The old weekly plain `podman system prune -f`
     #                                       units in systemd/system/bumblebee/ are stale:
     #                                       until 2026-11-12 this playbook deployed THOSE,
