@@ -12,7 +12,10 @@ Volume=/etc/localtime:/etc/localtime:ro
 Volume=/home/matteo/docker_persistent/searxng/settings.yml:/etc/searxng/settings.yml:Z
 
 Environment=SEARXNG_LIMITER=false
-Environment=SEARXNG_SECRET=searxng_bumblebee_secret_key_2026
+# SEARXNG_SECRET (signs SearXNG's cookies/tokens) comes from a root-only file that is not
+# in git; settings.yml keeps the 'ultrasecretkey' sentinel, so SearXNG refuses to start
+# if this file is missing. Template: searxng.env.template.
+EnvironmentFile=/etc/containers/secrets/searxng.env
 
 AutoUpdate=registry
 

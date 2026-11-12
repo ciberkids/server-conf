@@ -831,6 +831,13 @@
 
     # =========================================================
     # 10. Secrets directory
+    #
+    # The env files themselves are NOT managed here: they hold secrets and the repo is
+    # public. Each one has a <name>.env.template next to its quadlet in
+    # systemd/containers/system/bumblebee/ (hermes, n8n, opencode, traefik, searxng).
+    # Create them by hand as root:root 0600 before starting the matching service;
+    # SearXNG, for one, refuses to start without searxng.env (settings.yml holds only the
+    # 'ultrasecretkey' sentinel).
     # =========================================================
     - name: Create secrets directory for container env files
       file:
