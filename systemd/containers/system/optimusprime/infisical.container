@@ -27,10 +27,12 @@ EnvironmentFile=/etc/containers/secrets/infisical.env
 
 # Generous start period and NO HealthOnFailure=restart: a health-triggered restart during a
 # slow start could kill a database migration halfway (Jellyfin looped like that 2026-11-11).
+# Measured 2026-11-12: first boot (all migrations, RAID5 HDD) 12.6 min; a normal restart 22 s.
+# The period only matters while migrations run; a healthy check ends it early.
 HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/api/status || exit 1
 HealthInterval=30s
 HealthRetries=5
-HealthStartPeriod=600s
+HealthStartPeriod=1200s
 HealthTimeout=10s
 
 PodmanArgs=--memory=2g

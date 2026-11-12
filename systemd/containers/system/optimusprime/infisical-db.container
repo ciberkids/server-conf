@@ -8,9 +8,12 @@ ContainerName=infisical-db
 Network=infisical.network
 # Major version pinned: a :latest jump to a new major makes Postgres refuse the old data
 # directory (the OpenSign mongo crash-loop of 2026-10-01 was the same class of failure).
-Image=docker.io/library/postgres:14-alpine
+# 16 = the version Infisical says it is "extensively tested with"; supported until 2028-11.
+# (14, what Infisical's compose file ships, reached end of life on 2026-11-12.) The data dir
+# carries the major in its name: a major upgrade needs pg_upgrade or dump/restore into a new dir.
+Image=docker.io/library/postgres:16-alpine
 Volume=/etc/localtime:/etc/localtime:ro
-Volume=/mnt/data/docker_persistent/infisical/postgres:/var/lib/postgresql/data:rw
+Volume=/mnt/data/docker_persistent/infisical/postgres16:/var/lib/postgresql/data:rw
 
 Environment=POSTGRES_DB=infisical
 Environment=POSTGRES_USER=infisical
