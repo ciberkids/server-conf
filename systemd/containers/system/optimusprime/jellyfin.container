@@ -25,7 +25,9 @@ AutoUpdate=registry
 HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8096/health || exit 1
 HealthInterval=30s
 HealthRetries=3
-HealthStartPeriod=120s
+# Startup walks /config/data/metadata on the RAID5 HDDs: 7 min on 2026-11-11, longer while
+# md124 is mid-check. A short start period makes HealthOnFailure=restart kill every attempt.
+HealthStartPeriod=900s
 HealthTimeout=10s
 HealthOnFailure=restart
 
