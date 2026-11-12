@@ -15,7 +15,9 @@ Volume=/mnt/data/docker_persistent/immich/upload:/usr/src/app/upload:rw
 Volume=/mnt/data/Matteo_And_Manu/Pictures:/usr/src/app/external/photos:ro
 Environment=TZ=Europe/Zurich
 Environment="DB_USERNAME=postgres"
-Environment="DB_PASSWORD=immich_db_password"
+# Database password from a root-only file that is not in git (template: immich.env.template).
+# One value under two names: POSTGRES_PASSWORD for the database, DB_PASSWORD for the server.
+EnvironmentFile=/etc/containers/secrets/immich.env
 Environment="DB_DATABASE_NAME=immich"
 Environment="DB_HOSTNAME=localhost"
 Environment="REDIS_HOSTNAME=localhost"

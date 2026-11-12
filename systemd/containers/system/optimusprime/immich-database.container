@@ -11,7 +11,9 @@ Volume=/mnt/data/docker_persistent/immich/db:/var/lib/postgresql/data:rw
 ShmSize=128m
 Environment="POSTGRES_DB=immich"
 Environment="POSTGRES_USER=postgres"
-Environment="POSTGRES_PASSWORD=immich_db_password"
+# Database password from a root-only file that is not in git (template: immich.env.template).
+# One value under two names: POSTGRES_PASSWORD for the database, DB_PASSWORD for the server.
+EnvironmentFile=/etc/containers/secrets/immich.env
 Environment="POSTGRES_INITDB_ARGS=--data-checksums"
 HealthCmd=pg_isready --dbname=immich --username=postgres || exit 1
 
