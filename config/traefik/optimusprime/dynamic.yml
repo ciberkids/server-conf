@@ -3,6 +3,30 @@
 
 http:
   routers:
+    # --- *.optimusprime is LAN/VPN only (2026-11-12) ----------------------------
+    # WAN :443 is forwarded to this Traefik for the *.public names, and one
+    # entrypoint serves every hostname, so this guard keeps *.optimusprime to the
+    # ranges below. It matches any *.optimusprime host requested from a client
+    # OUTSIDE them and answers 403 via deny-all, at a priority above every other
+    # router; allowed clients never match it and fall through to the real routers.
+    # Covers docker-label and file routers alike, including future ones, with no
+    # container restarts. *.public.favarohome.com is a different domain: untouched.
+    # ClientIP() matches the TCP peer address, not X-Forwarded-For, so a header
+    # cannot spoof it. Allowed: LAN, DM VPN client pools (WireGuard .4, OpenVPN .5,
+    # One-Click .10, Teleport .3), podman networks (containers that call Traefik
+    # by hostname, e.g. HA -> InfluxDB, blackbox probes), loopback.
+    # Single-quoted on purpose: in a double-quoted YAML string `\.` is an invalid
+    # escape and the whole file (every @file router) would fail to load.
+    optimusprime-lan-only:
+      rule: 'HostRegexp(`(?i)^(.+\.)?optimusprime\.favarohome\.com\.?$`) && !ClientIP(`192.168.1.0/24`) && !ClientIP(`192.168.3.0/24`) && !ClientIP(`192.168.4.0/24`) && !ClientIP(`192.168.5.0/24`) && !ClientIP(`192.168.10.0/24`) && !ClientIP(`10.88.0.0/16`) && !ClientIP(`10.89.0.0/16`) && !ClientIP(`127.0.0.0/8`)'
+      priority: 100000
+      entryPoints:
+        - websecure
+      middlewares:
+        - deny-all
+      service: noop@internal
+      tls: {}
+
     cockpit:
       rule: "Host(`cockpit.optimusprime.favarohome.com`)"
       entryPoints:
@@ -112,6 +136,14 @@ http:
       service: opensign-server
       tls:
         certResolver: cloudflare
+
+  middlewares:
+    # Rejects every request with 403 (no real client is 127.0.0.2). Used only by
+    # optimusprime-lan-only, whose rule already selected the clients to refuse.
+    deny-all:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.2/32"
 
   services:
     cockpit:
