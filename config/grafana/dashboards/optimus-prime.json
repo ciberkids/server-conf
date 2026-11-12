@@ -1,0 +1,761 @@
+{
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "time() - node_boot_time_seconds{job=\"node-optimusprime\"}",
+          "instant": true,
+          "legendFormat": "Optimus Prime",
+          "refId": "A"
+        }
+      ],
+      "title": "Optimus Prime - Uptime",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "expr": "up",
+          "instant": true,
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Prometheus Scrape Targets",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{job=\"node-optimusprime\",mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU %",
+          "refId": "A"
+        },
+        {
+          "expr": "(1 - node_memory_MemAvailable_bytes{job=\"node-optimusprime\"} / node_memory_MemTotal_bytes{job=\"node-optimusprime\"}) * 100",
+          "legendFormat": "Memory %",
+          "refId": "B"
+        }
+      ],
+      "title": "Optimus Prime - CPU / Memory / Load",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "rate(node_network_receive_bytes_total{job=\"node-optimusprime\",device=\"enp7s0\"}[5m])",
+          "legendFormat": "RX",
+          "refId": "A"
+        },
+        {
+          "expr": "-rate(node_network_transmit_bytes_total{job=\"node-optimusprime\",device=\"enp7s0\"}[5m])",
+          "legendFormat": "TX",
+          "refId": "B"
+        }
+      ],
+      "title": "Optimus Prime - Network Traffic",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "RUNNING"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "podman_container_state{server=\"optimusprime\",name!=\"node-exporter\",name!=\"prometheus\",name!=\"smartctl-exporter\"} == 2",
+          "instant": true,
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Optimus Prime - Container Services",
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "node_drm_gpu_busy_percent{instance=\"optimusprime\",card=\"card1\"}",
+          "legendFormat": "GPU Busy %",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "node_drm_memory_vram_used_bytes{instance=\"optimusprime\",card=\"card1\"} / node_drm_memory_vram_size_bytes{instance=\"optimusprime\",card=\"card1\"} * 100",
+          "legendFormat": "VRAM Used %",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "node_drm_memory_gtt_used_bytes{instance=\"optimusprime\",card=\"card1\"} / node_drm_memory_gtt_size_bytes{instance=\"optimusprime\",card=\"card1\"} * 100",
+          "legendFormat": "GTT Used %",
+          "refId": "C"
+        }
+      ],
+      "title": "AMD GPU",
+      "type": "timeseries"
+    },
+    {
+      "description": "md device resolved from the filesystem mounted at /mnt/data, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 38
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(node_md_disks{job=\"node-optimusprime\",state=\"active\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/data\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")) or vector(0)",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "node_md_disks_required{job=\"node-optimusprime\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/data\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "required ({{device}})",
+          "refId": "B"
+        },
+        {
+          "expr": "node_md_disks{job=\"node-optimusprime\",state=\"failed\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/data\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "failed",
+          "refId": "C"
+        }
+      ],
+      "title": "RAID data (11T, /mnt/data)",
+      "type": "stat"
+    },
+    {
+      "description": "md device resolved from the filesystem mounted at /mnt/MovieAndTvShows, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 38
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(node_md_disks{job=\"node-optimusprime\",state=\"active\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/MovieAndTvShows\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")) or vector(0)",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "node_md_disks_required{job=\"node-optimusprime\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/MovieAndTvShows\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "required ({{device}})",
+          "refId": "B"
+        },
+        {
+          "expr": "node_md_disks{job=\"node-optimusprime\",state=\"failed\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/MovieAndTvShows\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "failed",
+          "refId": "C"
+        }
+      ],
+      "title": "RAID media (33T, /mnt/MovieAndTvShows)",
+      "type": "stat"
+    },
+    {
+      "description": "md device resolved from the filesystem mounted at /mnt/downloads, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 38
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(node_md_disks{job=\"node-optimusprime\",state=\"active\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/downloads\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")) or vector(0)",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "node_md_disks_required{job=\"node-optimusprime\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/downloads\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "required ({{device}})",
+          "refId": "B"
+        },
+        {
+          "expr": "node_md_disks{job=\"node-optimusprime\",state=\"failed\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/mnt/downloads\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "failed",
+          "refId": "C"
+        }
+      ],
+      "title": "RAID dl (1.9T, /mnt/downloads)",
+      "type": "stat"
+    },
+    {
+      "description": "md device resolved from the filesystem mounted at /, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 38
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(node_md_disks{job=\"node-optimusprime\",state=\"active\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")) or vector(0)",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "node_md_disks_required{job=\"node-optimusprime\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "required ({{device}})",
+          "refId": "B"
+        },
+        {
+          "expr": "node_md_disks{job=\"node-optimusprime\",state=\"failed\"} and on(device) label_replace(node_filesystem_size_bytes{job=\"node-optimusprime\",mountpoint=\"/\"}, \"device\", \"$1\", \"device\", \"/dev/(md[0-9]+)\")",
+          "legendFormat": "failed",
+          "refId": "C"
+        }
+      ],
+      "title": "RAID root (457G, /)",
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "displayMode": "color-background"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "displayName",
+                "value": "Power-on time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "SMART status"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "red",
+                        "text": "FAIL"
+                      },
+                      "1": {
+                        "color": "green",
+                        "text": "OK"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 10,
+      "options": {
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "device"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "smartctl_device_smart_status{job=\"smartctl-optimusprime\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{device}}",
+          "refId": "A"
+        },
+        {
+          "expr": "smartctl_device_power_on_seconds{job=\"smartctl-optimusprime\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{device}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Disk SMART Health",
+      "type": "table"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "homelab",
+    "optimusprime"
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Optimus Prime",
+  "uid": "optimusprime-server"
+}
