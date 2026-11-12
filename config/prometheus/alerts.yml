@@ -75,3 +75,27 @@ groups:
         annotations:
           summary: "Disk filling fast: {{ $labels.instance }} {{ $labels.mountpoint }}"
           description: "At the current rate, {{ $labels.mountpoint }} on {{ $labels.instance }} will be FULL within 2 hours"
+
+  - name: backups
+    rules:
+      # Written by infisical-backup.sh (OP) after every VERIFIED dump: daily 03:15 and 20 min
+      # after each boot. A failed run also alerts via OnFailure -> Telegram; these two catch the
+      # silent cases (timer not running, script never reached the end, metric gone).
+      - alert: InfisicalBackupStale
+        expr: time() - infisical_backup_last_success_timestamp_seconds > 30 * 3600
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Infisical backup is stale on {{ $labels.instance }}"
+          description: "The last verified Infisical database dump is {{ $value | humanizeDuration }} old (expected daily at 03:15)"
+
+      # The metric lives on /tmp (tmpfs): it is absent from boot until the OnBootSec=20min run.
+      - alert: InfisicalBackupMissing
+        expr: absent(infisical_backup_last_success_timestamp_seconds{instance="optimusprime"})
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No Infisical backup metric on optimusprime"
+          description: "infisical_backup_last_success_timestamp_seconds has been missing for over an hour: the post-boot or nightly dump did not complete"

@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly Infisical database dump
+
+[Timer]
+# 03:15 sits clear of auto-update (04:12) and the kernel reboot window (05:00).
+OnCalendar=*-*-* 03:15:00
+# Also 20 min after every boot: the success metric lives on /tmp (tmpfs) and disappears on
+# reboot, so this re-creates it (and adds a post-reboot dump) instead of leaving a blind spot.
+OnBootSec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -8,7 +8,8 @@
 #              and not an ExecStartPre (which would mark the unit failed and alert).
 #
 # The check is deliberately STATELESS -- it re-derives everything from uname and
-# /proc/mdstat rather than reading a flag written by auto-update.sh at 04:08. That is
+# /proc/mdstat (plus pacman's lock and running *backup* units) rather than reading a flag
+# written by auto-update.sh at 04:08. That is
 # the whole point of the 2026-08-21 refactor: the old design decided at 04:08 and acted
 # at 05:00, and mdraid-reboot-guard.timer existed only to police that 51-minute gap.
 
@@ -41,5 +42,26 @@ if grep -qE 'resync|recovery|reshape|check|\[.*_' /proc/mdstat; then
     exit 1
 fi
 
-echo "Kernel $RUNNING_KERNEL -> $INSTALLED_MODULES and all arrays healthy; rebooting."
+# Never reboot under a running backup: a dump cut off mid-write is useless and the next
+# nightly run is a day away. Matches every *backup*.service, so backups added later are
+# covered too (2026-11-12: infisical-backup.service, 03:15). A running Type=oneshot unit is
+# in state "activating". A healthy backup takes seconds (infisical-backup: ~4 s), so WAIT up
+# to 30 min before deciding; only a STUCK backup costs a day. kernel-reboot.service is
+# Type=oneshot with TimeoutStartSec=infinity, so this wait cannot time the unit out.
+running_backups() {
+    systemctl list-units --type=service --state=activating,deactivating,reloading \
+        --plain --no-legend '*backup*.service' 2>/dev/null | awk '{print $1}' | paste -sd' '
+}
+for _ in $(seq 1 120); do
+    [ -z "$(running_backups)" ] && break
+    sleep 15
+done
+BUSY=$(running_backups)
+if [ -n "$BUSY" ]; then
+    echo "Backup still running after 30 min ($BUSY); deferring reboot."
+    telegram-send "[optimus-prime] Kernel $RUNNING_KERNEL -> $INSTALLED_MODULES is pending, but a backup is still running after 30 min ($BUSY) — reboot DEFERRED. Will retry at 05:00 tomorrow."
+    exit 1
+fi
+
+echo "Kernel $RUNNING_KERNEL -> $INSTALLED_MODULES, all arrays healthy, no backup running; rebooting."
 exit 0

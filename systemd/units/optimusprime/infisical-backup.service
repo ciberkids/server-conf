@@ -1,0 +1,12 @@
+[Unit]
+Description=Dump the Infisical database to /mnt/data/backups/infisical
+OnFailure=notify-failure@%n.service
+After=infisical-db.service
+RequiresMountsFor=/mnt/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/infisical-backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
