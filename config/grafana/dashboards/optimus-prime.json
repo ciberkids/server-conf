@@ -306,7 +306,7 @@
       "type": "timeseries"
     },
     {
-      "description": "md device resolved from the filesystem mounted at /mnt/data, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "description": "Array needs 4 member disks. 'active' reads OK 4/4, DEGRADED 3/4 (red: no redundancy left; also shown while a replacement disk rebuilds), or DOWN. DOWN / NOT MOUNTED = nothing mounted at this path (array failed to assemble or mount). md device resolved from the mountpoint, not a hardcoded md number (md124..md127 swap across reboots); 'required' shows the md number currently backing it. Required count (4) is static: update the mapping if the array is ever grown or reshaped (until then it shows red, never falsely green).",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -326,6 +326,80 @@
           "unit": "short"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "dark-red",
+                        "index": 0,
+                        "text": "DOWN / NOT MOUNTED"
+                      },
+                      "1": {
+                        "color": "dark-red",
+                        "index": 1,
+                        "text": "DOWN 1/4"
+                      },
+                      "2": {
+                        "color": "dark-red",
+                        "index": 2,
+                        "text": "DOWN 2/4"
+                      },
+                      "3": {
+                        "color": "red",
+                        "index": 3,
+                        "text": "DEGRADED 3/4"
+                      },
+                      "4": {
+                        "color": "green",
+                        "index": 4,
+                        "text": "OK 4/4"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 4
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^required.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5a6170",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -390,7 +464,7 @@
       "type": "stat"
     },
     {
-      "description": "md device resolved from the filesystem mounted at /mnt/MovieAndTvShows, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "description": "Array needs 4 member disks. 'active' reads OK 4/4, DEGRADED 3/4 (red: no redundancy left; also shown while a replacement disk rebuilds), or DOWN. DOWN / NOT MOUNTED = nothing mounted at this path (array failed to assemble or mount). md device resolved from the mountpoint, not a hardcoded md number (md124..md127 swap across reboots); 'required' shows the md number currently backing it. Required count (4) is static: update the mapping if the array is ever grown or reshaped (until then it shows red, never falsely green).",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -410,6 +484,80 @@
           "unit": "short"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "dark-red",
+                        "index": 0,
+                        "text": "DOWN / NOT MOUNTED"
+                      },
+                      "1": {
+                        "color": "dark-red",
+                        "index": 1,
+                        "text": "DOWN 1/4"
+                      },
+                      "2": {
+                        "color": "dark-red",
+                        "index": 2,
+                        "text": "DOWN 2/4"
+                      },
+                      "3": {
+                        "color": "red",
+                        "index": 3,
+                        "text": "DEGRADED 3/4"
+                      },
+                      "4": {
+                        "color": "green",
+                        "index": 4,
+                        "text": "OK 4/4"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 4
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^required.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5a6170",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -474,7 +622,7 @@
       "type": "stat"
     },
     {
-      "description": "md device resolved from the filesystem mounted at /mnt/downloads, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "description": "Array needs 2 member disks. 'active' reads OK 2/2, DEGRADED 1/2 (red: no redundancy left; also shown while a replacement disk rebuilds), or DOWN. DOWN / NOT MOUNTED = nothing mounted at this path (array failed to assemble or mount). md device resolved from the mountpoint, not a hardcoded md number (md124..md127 swap across reboots); 'required' shows the md number currently backing it. Required count (2) is static: update the mapping if the array is ever grown or reshaped (until then it shows red, never falsely green).",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -494,6 +642,70 @@
           "unit": "short"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "dark-red",
+                        "index": 0,
+                        "text": "DOWN / NOT MOUNTED"
+                      },
+                      "1": {
+                        "color": "red",
+                        "index": 1,
+                        "text": "DEGRADED 1/2"
+                      },
+                      "2": {
+                        "color": "green",
+                        "index": 2,
+                        "text": "OK 2/2"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^required.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5a6170",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -558,7 +770,7 @@
       "type": "stat"
     },
     {
-      "description": "md device resolved from the filesystem mounted at /, NOT a hardcoded md number: md124..md127 are assigned at assembly and swap across reboots (seen 2026-10-28). 'active' falls back to 0 (red) when nothing is mounted there, i.e. the array failed to assemble or mount. The legend on 'required' shows the md number currently backing it.",
+      "description": "Array needs 2 member disks. 'active' reads OK 2/2, DEGRADED 1/2 (red: no redundancy left; also shown while a replacement disk rebuilds), or DOWN. DOWN / NOT MOUNTED = nothing mounted at this path (array failed to assemble or mount). md device resolved from the mountpoint, not a hardcoded md number (md124..md127 swap across reboots); 'required' shows the md number currently backing it. Required count (2) is static: update the mapping if the array is ever grown or reshaped (until then it shows red, never falsely green).",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -578,6 +790,70 @@
           "unit": "short"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "dark-red",
+                        "index": 0,
+                        "text": "DOWN / NOT MOUNTED"
+                      },
+                      "1": {
+                        "color": "red",
+                        "index": 1,
+                        "text": "DEGRADED 1/2"
+                      },
+                      "2": {
+                        "color": "green",
+                        "index": 2,
+                        "text": "OK 2/2"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^required.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5a6170",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
