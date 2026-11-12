@@ -557,6 +557,481 @@
       ],
       "title": "GPU & Memory Controller Busy %",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "description": "Hardware video DECODER. Frigate's ffmpeg camera streams decode here. A separate engine from GPU Utilization (CUDA cores: Frigate's ONNX detector + embeddings, ollama), so it can saturate while GPU % is low.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 16
+      },
+      "id": 12,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_decoder_utilization_percent{instance=\"bumblebee\"}",
+          "legendFormat": "NVDEC %",
+          "refId": "A"
+        }
+      ],
+      "title": "Video Decode (NVDEC)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "description": "Hardware video ENCODER (transcoding, e.g. Frigate restream/recording re-encode). Idle at 0 % is normal.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 16
+      },
+      "id": 13,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_encoder_utilization_percent{instance=\"bumblebee\"}",
+          "legendFormat": "NVENC %",
+          "refId": "A"
+        }
+      ],
+      "title": "Video Encode (NVENC)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "description": "0 % while the card is cool is the zero-RPM fan-stop mode: the fans start as temperature rises. 0 % while Temperature is high = a fan problem.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 16
+      },
+      "id": 14,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_fan_speed_percent{instance=\"bumblebee\"}",
+          "legendFormat": "Fan %",
+          "refId": "A"
+        }
+      ],
+      "title": "Fan Speed",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "description": "Shader (SM) clock. Gauge max = boost maximum 1911 MHz (clocks.max.sm). Well below max under load = power/thermal throttling.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "max": 1911,
+          "min": 0,
+          "unit": "suffix: MHz"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 16
+      },
+      "id": 15,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "showThresholdMarkers": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_clock_sm_mhz{instance=\"bumblebee\"}",
+          "legendFormat": "SM clock",
+          "refId": "A"
+        }
+      ],
+      "title": "SM Clock",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "unit": "suffix: MHz"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 4,
+        "x": 16,
+        "y": 16
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_clock_memory_mhz{instance=\"bumblebee\"}",
+          "legendFormat": "Memory clock",
+          "refId": "A"
+        }
+      ],
+      "title": "Memory Clock",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "description": "Clock of the NVENC/NVDEC video engines.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "unit": "suffix: MHz"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 4,
+        "x": 16,
+        "y": 18
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_clock_video_mhz{instance=\"bumblebee\"}",
+          "legendFormat": "Video clock",
+          "refId": "A"
+        }
+      ],
+      "title": "Video Clock",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "description": "Enforced board power limit. Changes only if someone runs nvidia-smi -pl (or the driver lowers it); the Power Draw gauge max assumes 280 W.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 16
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_power_limit_watts{instance=\"bumblebee\"}",
+          "legendFormat": "Power limit",
+          "refId": "A"
+        }
+      ],
+      "title": "Power Limit",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 15,
+            "lineWidth": 2
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 19,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_decoder_utilization_percent{instance=\"bumblebee\"}",
+          "legendFormat": "NVDEC (decode) %",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_encoder_utilization_percent{instance=\"bumblebee\"}",
+          "legendFormat": "NVENC (encode) %",
+          "refId": "B"
+        }
+      ],
+      "title": "Video Encode / Decode Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "afgw1dyxyshz4b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          },
+          "min": 0,
+          "unit": "suffix: MHz"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fan"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 20,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_clock_sm_mhz{instance=\"bumblebee\"}",
+          "legendFormat": "SM clock",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_clock_memory_mhz{instance=\"bumblebee\"}",
+          "legendFormat": "Memory clock",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_clock_video_mhz{instance=\"bumblebee\"}",
+          "legendFormat": "Video clock",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "afgw1dyxyshz4b"
+          },
+          "expr": "nvidia_gpu_fan_speed_percent{instance=\"bumblebee\"}",
+          "legendFormat": "Fan",
+          "refId": "D"
+        }
+      ],
+      "title": "Clocks & Fan Over Time",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
