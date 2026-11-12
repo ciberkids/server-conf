@@ -232,6 +232,51 @@
         mode: "0644"
 
     # =========================================================
+    # 5a. Unattended updates (dnf-automatic)
+    #
+    # dnf-automatic-install.timer installs updates every night at 03:00 (drop-in) and
+    # automatic.conf has reboot = when-needed, so the host reboots itself after kernel
+    # or core-library updates ("shutdown -r +5"). Every bumblebee service is down for a
+    # minute or two around 03:05 on those nights; that is by design. apply_updates=no in
+    # automatic.conf does not matter: the -install timer variant forces installation.
+    # Captured from the live host 2026-11-12, where all of this had been set up by hand.
+    # =========================================================
+    - name: Install dnf-automatic
+      dnf:
+        name: dnf-automatic
+        state: present
+
+    - name: Deploy dnf-automatic configuration
+      copy:
+        src: "{{ playbook_dir }}/../config/dnf/automatic.conf"
+        dest: /etc/dnf/automatic.conf
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Create dnf-automatic-install timer drop-in directory
+      file:
+        path: /etc/systemd/system/dnf-automatic-install.timer.d
+        state: directory
+        mode: "0755"
+
+    - name: Run dnf-automatic-install at 03:00
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/dnf-automatic-install-time.conf"
+        dest: /etc/systemd/system/dnf-automatic-install.timer.d/time.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable unattended update timer
+      systemd:
+        name: dnf-automatic-install.timer
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
     # 6. NFS mounts
     # =========================================================
     - name: Create NFS mount directories
@@ -449,6 +494,15 @@
         daemon_reload: yes
         enabled: yes
 
+    # The service's ExecStart; without it the nightly auto-update fails with 203/EXEC.
+    - name: Deploy podman auto-update notification script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/bumblebee/podman-update-notify.sh"
+        dest: /usr/local/bin/podman-update-notify.sh
+        mode: "0755"
+        owner: root
+        group: root
+
     - name: Deploy podman auto-update notification service
       copy:
         src: "{{ quadlets_src }}/podman-auto-update-notify.service"
@@ -560,6 +614,36 @@
         enabled: yes
         state: started
 
+    # Per-container running state (podman_container_running{name,server}) written to the
+    # same textfile directory every 60 s. Deployed because it is live, but as of
+    # 2026-11-12 NO dashboard or alert rule queries it: the dashboards use
+    # podman-exporter's podman_container_state. Candidate for removal. The script writes
+    # the .prom file in place (not via temp + mv), so a scrape can catch it half-written.
+    - name: Deploy podman container metrics script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/bumblebee/update-podman-metrics.sh"
+        dest: /usr/local/bin/update-podman-metrics.sh
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Deploy podman container metrics service and timer
+      copy:
+        src: "{{ playbook_dir }}/../systemd/units/bumblebee/{{ item }}"
+        dest: "/etc/systemd/system/{{ item }}"
+        mode: "0644"
+      loop:
+        - update-podman-metrics.service
+        - update-podman-metrics.timer
+      notify: reload systemd
+
+    - name: Enable podman container metrics timer
+      systemd:
+        name: update-podman-metrics.timer
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
     # Quiet the podman REST API access log. Traefik's container-discovery provider
     # polls this API ~9.5 req/s and the packaged unit ships --log-level=info, which
     # logs every request to syslog (~180 MB/day, 92% of a 17 G /var/log/messages in
@@ -616,8 +700,14 @@
     # =========================================================
     # 9b. Image pruning (two cadences, deliberately)
     #
-    # weekly  `podman system prune -f`   -> dangling images + stopped containers. Cleans up
-    #                                       after the nightly auto-update (~8 G/week).
+    # daily   podman-prune.sh (06:00)    -> dangling images + stopped containers, guarded.
+    #                                       Cleans up after the nightly auto-update. Shared
+    #                                       with Optimus Prime: units in systemd/common/,
+    #                                       script in scripts/common/ (commit a6e8da3).
+    #                                       The old weekly plain `podman system prune -f`
+    #                                       units in systemd/system/bumblebee/ are stale:
+    #                                       until 2026-11-12 this playbook deployed THOSE,
+    #                                       so a run silently downgraded the live prune.
     # monthly `podman image prune -a -f` -> tagged-but-unused images. system prune never
     #                                       touches these, which let ~5 G of GitLab CI
     #                                       images accumulate (oldest 13 months) by Jul 2026.
@@ -635,9 +725,17 @@
     # image looks unused. Both fixed in the .timer files. Hermes remains the only
     # locally-built image here — pushing it to ghcr.io would remove the class of risk.
     # =========================================================
-    - name: Deploy podman prune units
+    - name: Deploy podman prune script
       copy:
-        src: "{{ playbook_dir }}/../systemd/system/bumblebee/{{ item }}"
+        src: "{{ playbook_dir }}/../scripts/common/podman-prune.sh"
+        dest: /usr/local/bin/podman-prune.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy daily podman prune units (shared with Optimus Prime)
+      copy:
+        src: "{{ playbook_dir }}/../systemd/common/{{ item }}"
         dest: "/etc/systemd/system/{{ item }}"
         owner: root
         group: root
@@ -645,6 +743,16 @@
       loop:
         - podman-prune.service
         - podman-prune.timer
+      notify: reload systemd
+
+    - name: Deploy monthly podman image prune units
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/{{ item }}"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
         - podman-image-prune.service
         - podman-image-prune.timer
       notify: reload systemd
@@ -781,6 +889,32 @@
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: "0600"
+
+    # Traefik's docker provider, gitlab-runner and podman-exporter all talk to the rootful
+    # podman API socket (/run/podman/podman.sock). It is off by default on AlmaLinux and
+    # was enabled by hand; without it Traefik discovers no containers at all.
+    - name: Enable the podman API socket
+      systemd:
+        name: podman.socket
+        enabled: yes
+        state: started
+
+    # traefik.yml (static) and dynamic.yml (file-provider routes: cockpit) are SINGLE-FILE
+    # bind mounts. copy writes a temp file and renames it, i.e. a new inode, and a running
+    # container keeps reading the OLD inode, so a changed file only takes effect after a
+    # Traefik restart: hence the handler. Neither file holds secrets (the Cloudflare
+    # token is in /etc/containers/secrets/traefik.env).
+    - name: Deploy Traefik static and dynamic configuration
+      copy:
+        src: "{{ playbook_dir }}/../config/traefik/bumblebee/{{ item }}"
+        dest: "/home/{{ target_user }}/docker_persistent/traefik/{{ item }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0644"
+      loop:
+        - traefik.yml
+        - dynamic.yml
+      notify: restart traefik
 
     - name: Deploy Traefik quadlet
       copy:
@@ -1178,10 +1312,134 @@
         enabled: yes
         state: started
 
+    # =========================================================
+    # 26. Frigate NVR (GPU: NVDEC camera decode + ONNX detector)
+    #
+    # /etc/containers/frigate/config/config.yml is NOT in git: it holds the camera RTSP
+    # credentials. Restore it (plus frigate.db if history matters) before first start;
+    # without it Frigate would come up with a default config, so it is only started when
+    # the file exists. Recordings go to /mnt/data/frigate on Optimus Prime's NFS export
+    # (section 6). Needs the NVIDIA driver and CDI spec (section 5).
+    # =========================================================
+    - name: Create Frigate config directory
+      file:
+        path: /etc/containers/frigate/config
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy Frigate quadlet
+      copy:
+        src: "{{ quadlets_src }}/frigate.container"
+        dest: /etc/containers/systemd/frigate.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Check for the Frigate config
+      stat:
+        path: /etc/containers/frigate/config/config.yml
+      register: frigate_config
+
+    - name: Enable and start Frigate
+      systemd:
+        name: frigate.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+      when: frigate_config.stat.exists
+
+    - name: Report that Frigate needs its config restored
+      debug:
+        msg: >-
+          Frigate NOT started: restore /etc/containers/frigate/config/config.yml
+          (camera credentials, not in git), then start frigate.service.
+      when: not frigate_config.stat.exists
+
+    # =========================================================
+    # 27. GitLab Runner (CI jobs via the host podman socket)
+    #
+    # config/config.toml is NOT in git: it holds the runner authentication token.
+    # Restore it or re-register (`podman exec -it gitlab-runner gitlab-runner register`).
+    # Without it the runner starts and idles. runner-cache-cleanup deletes CI cache
+    # entries older than 14 days from the runner-*-cache-* volumes, daily.
+    # =========================================================
+    - name: Create GitLab Runner config directory
+      file:
+        path: "/home/{{ target_user }}/docker_persistent/gitlab-runner/config"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Deploy GitLab Runner quadlet
+      copy:
+        src: "{{ quadlets_src }}/gitlab-runner.container"
+        dest: /etc/containers/systemd/gitlab-runner.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start GitLab Runner
+      systemd:
+        name: gitlab-runner.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    - name: Deploy runner cache cleanup script
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/runner-cache-cleanup.sh"
+        dest: /usr/local/bin/runner-cache-cleanup.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy runner cache cleanup service and timer
+      copy:
+        src: "{{ playbook_dir }}/../systemd/system/bumblebee/{{ item }}"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - runner-cache-cleanup.service
+        - runner-cache-cleanup.timer
+      notify: reload systemd
+
+    - name: Enable runner cache cleanup timer
+      systemd:
+        name: runner-cache-cleanup.timer
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
+    # =========================================================
+    # 28. Podman exporter (Prometheus job podman-bumblebee, :9882)
+    # Its firewall port is opened in section 11.
+    # =========================================================
+    - name: Deploy podman exporter quadlet
+      copy:
+        src: "{{ quadlets_src }}/podman-exporter.container"
+        dest: /etc/containers/systemd/podman-exporter.container
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start podman exporter
+      systemd:
+        name: podman-exporter.service
+        daemon_reload: yes
+        enabled: yes
+        state: started
+
   handlers:
     - name: reload systemd
       systemd:
         daemon_reload: yes
+    # Handlers run in definition order, so this follows the daemon reload.
+    - name: restart traefik
+      systemd:
+        name: traefik.service
+        state: restarted
     - name: reboot required
       debug:
         msg: "NVIDIA driver installed - a reboot is required for the driver to load. Run 'reboot' when ready."
