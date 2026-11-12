@@ -3,13 +3,19 @@
 import json
 import re
 import os
+import sys
 import urllib.request
 import time
 
-JELLYFIN_URL = "http://localhost:8096"
-API_TOKEN = "***REMOVED***"
+JELLYFIN_URL = os.environ.get("JELLYFIN_URL", "http://localhost:8096")
+# Token lives outside git, in ~/.config/homelab-secrets/jellyfin.env on Optimus Prime.
+# Load it first:  set -a; . ~/.config/homelab-secrets/jellyfin.env; set +a
+API_TOKEN = os.environ.get("JELLYFIN_TOKEN") or sys.exit(
+    "JELLYFIN_TOKEN not set: set -a; . ~/.config/homelab-secrets/jellyfin.env; set +a")
+# Jellyfin 12.4 accepts API keys only in the Authorization header;
+# X-Emby-Token and ?api_key= are rejected with 401.
 HEADERS = {
-    "X-Emby-Token": API_TOKEN,
+    "Authorization": f'MediaBrowser Token="{API_TOKEN}"',
     "Content-Type": "application/json",
 }
 

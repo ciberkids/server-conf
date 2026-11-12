@@ -2,11 +2,17 @@
 """Create .nfo files for Jellyfin movies in saga/anime/sd folders."""
 import json
 import os
+import sys
 import urllib.request
 
-URL = "http://localhost:8096"
-TOKEN = "***REMOVED***"
-HEADERS = {"X-Emby-Token": TOKEN}
+URL = os.environ.get("JELLYFIN_URL", "http://localhost:8096")
+# Token lives outside git, in ~/.config/homelab-secrets/jellyfin.env on Optimus Prime.
+# Load it first:  set -a; . ~/.config/homelab-secrets/jellyfin.env; set +a
+TOKEN = os.environ.get("JELLYFIN_TOKEN") or sys.exit(
+    "JELLYFIN_TOKEN not set: set -a; . ~/.config/homelab-secrets/jellyfin.env; set +a")
+# Jellyfin 12.4 accepts API keys only in the Authorization header;
+# X-Emby-Token and ?api_key= are rejected with 401.
+HEADERS = {"Authorization": f'MediaBrowser Token="{TOKEN}"'}
 
 # Map container paths to host paths
 # Inside container: /data/movies -> host: /mnt/MovieAndTvShows/Movies
