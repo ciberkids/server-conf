@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 import json, urllib.request
+import os, sys
+
+# Credentials live outside git, in ~/.config/homelab-secrets/grafana.env on the workstation
+# (service-account token "automation/claude-code"). Load it first:
+#   set -a; . ~/.config/homelab-secrets/grafana.env; set +a
+GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000")
+GRAFANA_TOKEN = os.environ.get("GRAFANA_TOKEN") or sys.exit(
+    "GRAFANA_TOKEN not set: set -a; . ~/.config/homelab-secrets/grafana.env; set +a")
 
 years = [
     {"year": "2026", "start": "2026-01-01T00:00:00Z", "stop": "2027-01-01T00:00:00Z", "color": "green"},
@@ -101,9 +109,9 @@ d = {
 
 data = json.dumps(d).encode()
 req = urllib.request.Request(
-    "http://localhost:3000/api/dashboards/db",
+    f"{GRAFANA_URL}/api/dashboards/db",
     data=data,
-    headers={"Content-Type": "application/json", "Authorization": "Basic YWRtaW46YWRtaW4="},
+    headers={"Content-Type": "application/json", "Authorization": f"Bearer {GRAFANA_TOKEN}"},
     method="POST"
 )
 resp = urllib.request.urlopen(req)
