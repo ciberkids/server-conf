@@ -1,0 +1,45 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Infisical secrets manager
+Requires=network-online.target
+Wants=infisical-db.service infisical-redis.service
+After=infisical-db.service infisical-redis.service
+
+[Container]
+ContainerName=infisical
+Network=infisical.network
+# PINNED on purpose: Infisical migrates its database on every start. Upgrade deliberately by
+# bumping the tag after reading the release notes (AutoUpdate is a no-op on a fixed tag).
+Image=docker.io/infisical/infisical:v0.167.8
+# 8080 on the host is Traefik's API. Routed by Traefik's file provider (dynamic.yml), because
+# Traefik cannot reach the 10.89.x network; LAN/VPN-only via the optimusprime-lan-only guard.
+PublishPort=8095:8080
+Volume=/etc/localtime:/etc/localtime:ro
+
+Environment=NODE_ENV=production
+Environment=TZ=Europe/Zurich
+Environment=SITE_URL=https://infisical.optimusprime.favarohome.com
+Environment=TELEMETRY_ENABLED=false
+# ENCRYPTION_KEY, AUTH_SECRET, DB_CONNECTION_URI, REDIS_URL. Bootstrap secrets: this file is
+# managed BY HAND, never by an Infisical agent. ENCRYPTION_KEY + AUTH_SECRET are also kept in
+# the owner's LastPass; without ENCRYPTION_KEY a database backup cannot be decrypted.
+EnvironmentFile=/etc/containers/secrets/infisical.env
+
+# Generous start period and NO HealthOnFailure=restart: a health-triggered restart during a
+# slow start could kill a database migration halfway (Jellyfin looped like that 2026-11-11).
+HealthCmd=CMD-SHELL curl -sf -o /dev/null http://localhost:8080/api/status || exit 1
+HealthInterval=30s
+HealthRetries=5
+HealthStartPeriod=600s
+HealthTimeout=10s
+
+PodmanArgs=--memory=2g
+Label=traefik.enable=false
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

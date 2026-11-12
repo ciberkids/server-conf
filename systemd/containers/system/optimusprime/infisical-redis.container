@@ -1,0 +1,27 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Infisical Redis (job queues and cache)
+Requires=network-online.target
+
+[Container]
+ContainerName=infisical-redis
+Network=infisical.network
+# Major pinned for the same reason as the database. Only reachable on the infisical network.
+Image=docker.io/library/redis:7-alpine
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/infisical/redis:/data:rw
+
+HealthCmd=redis-cli ping
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=5
+HealthStartPeriod=15s
+HealthOnFailure=restart
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

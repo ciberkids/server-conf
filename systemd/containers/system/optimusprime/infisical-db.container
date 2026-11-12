@@ -1,0 +1,33 @@
+[Unit]
+OnFailure=notify-failure@%n.service
+Description=Infisical PostgreSQL database
+Requires=network-online.target
+
+[Container]
+ContainerName=infisical-db
+Network=infisical.network
+# Major version pinned: a :latest jump to a new major makes Postgres refuse the old data
+# directory (the OpenSign mongo crash-loop of 2026-10-01 was the same class of failure).
+Image=docker.io/library/postgres:14-alpine
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/mnt/data/docker_persistent/infisical/postgres:/var/lib/postgresql/data:rw
+
+Environment=POSTGRES_DB=infisical
+Environment=POSTGRES_USER=infisical
+# POSTGRES_PASSWORD only; the app's keys live in infisical.env, which this container never sees.
+EnvironmentFile=/etc/containers/secrets/infisical-db.env
+
+HealthCmd=pg_isready -U infisical -d infisical
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=5
+HealthStartPeriod=30s
+HealthOnFailure=restart
+
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

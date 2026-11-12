@@ -137,6 +137,16 @@ http:
       tls:
         certResolver: cloudflare
 
+    # Secrets manager: LAN/VPN only (optimusprime-lan-only guard above). Never add a
+    # *.public name for it.
+    infisical:
+      rule: "Host(`infisical.optimusprime.favarohome.com`)"
+      entryPoints:
+        - websecure
+      service: infisical
+      tls:
+        certResolver: cloudflare
+
   middlewares:
     # Rejects every request with 403 (no real client is 127.0.0.2). Used only by
     # optimusprime-lan-only, whose rule already selected the clients to refuse.
@@ -202,6 +212,11 @@ http:
       loadBalancer:
         servers:
           - url: "http://192.168.1.10:8081"
+
+    infisical:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.10:8095"
 
   serversTransports:
     insecureTransport:

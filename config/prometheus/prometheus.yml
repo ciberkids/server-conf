@@ -80,6 +80,8 @@ scrape_configs:
           - https://immich.optimusprime.favarohome.com
           - https://opensign-api.optimusprime.favarohome.com
           - https://prowlarr.optimusprime.favarohome.com
+          # added 2026-11-12: secrets manager; /api/status is its own health endpoint
+          - https://infisical.optimusprime.favarohome.com/api/status
           # Bumblebee
           - https://heimdall.bumblebee.favarohome.com
           - https://n8n.bumblebee.favarohome.com
