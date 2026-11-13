@@ -1,0 +1,39 @@
+# herdr-workspace: herdr server + Claude Code, ROOTLESS, as user matteo on Bumblebee.
+# Image: ghcr.io/ciberkids/herdr-workspace (github.com/ciberkids/herdr-workspace),
+# built FROM Docker's docker/sandbox-templates:claude-code (Ubuntu 26.04, glibc 2.43).
+#
+# Deploy: ~/.config/containers/systemd/herdr-workspace.container (matteo), lingering ON,
+#         systemctl --user daemon-reload && systemctl --user start herdr-workspace
+# Attach: ssh -t bumblebee herdr   (~/.local/bin/herdr = podman exec wrapper)
+#
+# Boundary: the container sees ONLY /home/projects, the forge SSH keys (read-only, no
+# id_rsa: it cannot SSH back into Bumblebee/Optimus Prime) and its own home volume. No
+# podman socket, no host network: Chrome's DevTools port is invisible to Hermes.
+[Unit]
+Description=herdr workspace (herdr server + Claude Code)
+
+[Container]
+Image=ghcr.io/ciberkids/herdr-workspace:latest
+ContainerName=herdr-workspace
+HostName=herdr
+AutoUpdate=registry
+# container uid 1000 (agent) == host matteo, so files in /home/projects stay matteo's
+UserNS=keep-id:uid=1000,gid=1000
+# Persistent home: Claude login, herdr session + plugins, rustup. Seeded from the
+# image on first creation only; the tools in it update themselves.
+Volume=herdr-workspace-home:/home/agent
+Volume=/home/projects:/home/projects:z
+Volume=/home/matteo/docker_persistent/herdr-workspace/ssh:/home/agent/.ssh:ro,Z
+Environment=TZ=Europe/Zurich
+# Chrome + headless nvim/LSPs per tab + several Claude sessions; ollama is capped at
+# 6G on this 15.6G host (OOM livelock 2026-10-19), so keep this bounded too.
+PodmanArgs=--memory=4g
+
+[Service]
+# herdr server exits 0 on `herdr server stop` / after updates: always come back.
+Restart=always
+RestartSec=5
+TimeoutStopSec=40
+
+[Install]
+WantedBy=default.target
