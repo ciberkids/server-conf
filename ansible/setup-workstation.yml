@@ -14,6 +14,14 @@
       - { dir: github/ciberkids, key: id_github }
       - { dir: gitlab/ciberkids, key: gitlab_ciberkids }
       - { dir: gitlab/work, key: gitlab_work }
+    # Reviewed herdr plugins, pinned to commits (third-party code running as the user;
+    # bump a pin only after re-reviewing). herdr-nvim, herdr-agent-usage and
+    # herdr-web-browser are NOT here: they need glibc >= 2.38, Rust >= 1.95 or
+    # Neovim >= 0.10, which EL9 does not have.
+    herdr_plugins_pinned:
+      - { repo: smarzban/herdr-file-viewer, ref: d17a068ee753daf5ba205bafd59c130b81b8c6c0 }
+      - { repo: alexarthurs/herdr-sidebar/plugins/herdr-sidebar, ref: 081ed133f3faa377438b51ce435fe8a87c439593 }
+      - { repo: speardragon/herdr-plugin-manager, ref: 8ed222ab7efe735b3ef5e037e7ee81d6d7650e4e }
     quadlets_src: "{{ playbook_dir }}/../systemd/containers/system/bumblebee"
     nfs_mounts:
       - src: "{{ nfs_server }}:/mnt/downloads"
@@ -499,6 +507,35 @@
         enabled: yes
         state: started
         daemon_reload: yes
+      become: yes
+      become_user: "{{ target_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[target_user][1] }}"
+
+    # Same as the workstation's config, except toast delivery = terminal (headless host).
+    - name: Deploy herdr config
+      copy:
+        src: "{{ playbook_dir }}/../config/herdr/config.toml"
+        dest: "/home/{{ target_user }}/.config/herdr/config.toml"
+        mode: "0644"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    - name: List installed herdr plugins
+      command: "/home/{{ target_user }}/.local/bin/herdr plugin list --json"
+      register: herdr_plugins
+      changed_when: false
+      become: yes
+      become_user: "{{ target_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[target_user][1] }}"
+
+    - name: Install the reviewed herdr plugins at their pinned commits
+      command: "/home/{{ target_user }}/.local/bin/herdr plugin install {{ item.repo }} --ref {{ item.ref }} -y"
+      loop: "{{ herdr_plugins_pinned }}"
+      when: >-
+        item.ref not in ((herdr_plugins.stdout | from_json).result.plugins
+        | map(attribute='source.resolved_commit') | list)
       become: yes
       become_user: "{{ target_user }}"
       environment:
