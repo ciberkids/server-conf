@@ -6,6 +6,14 @@
     target_user: matteo
     nfs_server: "{{ nfs_server | default('192.168.1.10') }}"
     ssh_key_source: "{{ ssh_key_source | default('/mnt/downloads/ssh/optimus-prime') }}"
+    # Git forge keys are read from the CONTROLLER's ~/.ssh (the workstation running
+    # ansible), never staged on the /mnt/downloads NFS share: that export is
+    # all_squash to uid 1000 for the whole LAN, so file modes there protect nothing.
+    controller_ssh_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+    git_forge_keys:
+      - { dir: github/ciberkids, key: id_github }
+      - { dir: gitlab/ciberkids, key: gitlab_ciberkids }
+      - { dir: gitlab/work, key: gitlab_work }
     quadlets_src: "{{ playbook_dir }}/../systemd/containers/system/bumblebee"
     nfs_mounts:
       - src: "{{ nfs_server }}:/mnt/downloads"
@@ -330,33 +338,40 @@
         key: "{{ lookup('file', ssh_key_source + '/optimusprime_id_rsa.pub') }}"
         state: present
 
-    - name: Create GitHub ciberkids SSH key directory
+    # Clone over SSH from GitHub (ciberkids) and GitLab (personal @matteofavaro,
+    # work @matteohexagon) with the same per-account aliases as the workstation:
+    #   git clone git@github.com-personal:ciberkids/<repo>.git
+    #   git clone git@gitlab.com-personal:<group>/<repo>.git
+    #   git clone git@gitlab.com-work:<group>/<repo>.git
+    - name: Create Git forge SSH key directories
       file:
-        path: "/home/{{ target_user }}/.ssh/github/ciberkids"
+        path: "/home/{{ target_user }}/.ssh/{{ item }}"
         state: directory
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: "0700"
+      loop: [github, github/ciberkids, gitlab, gitlab/ciberkids, gitlab/work]
 
-    - name: Copy GitHub ciberkids private key
+    - name: Copy Git forge private keys from the controller
       copy:
-        src: "{{ ssh_key_source }}/github/ciberkids/id_github"
-        dest: "/home/{{ target_user }}/.ssh/github/ciberkids/id_github"
+        src: "{{ controller_ssh_dir }}/{{ item.dir }}/{{ item.key }}"
+        dest: "/home/{{ target_user }}/.ssh/{{ item.dir }}/{{ item.key }}"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: "0600"
-        remote_src: yes
+      loop: "{{ git_forge_keys }}"
+      no_log: true
 
-    - name: Copy GitHub ciberkids public key
+    - name: Copy Git forge public keys from the controller
       copy:
-        src: "{{ ssh_key_source }}/github/ciberkids/id_github.pub"
-        dest: "/home/{{ target_user }}/.ssh/github/ciberkids/id_github.pub"
+        src: "{{ controller_ssh_dir }}/{{ item.dir }}/{{ item.key }}.pub"
+        dest: "/home/{{ target_user }}/.ssh/{{ item.dir }}/{{ item.key }}.pub"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: "0644"
-        remote_src: yes
+      loop: "{{ git_forge_keys }}"
 
-    - name: Write SSH config with github.com-personal alias
+    - name: Write SSH config with the Git forge aliases
       copy:
         content: |
           Host github.com-personal
@@ -364,17 +379,34 @@
               User git
               IdentityFile ~/.ssh/github/ciberkids/id_github
               IdentitiesOnly yes
+
+          Host gitlab.com-personal
+              HostName gitlab.com
+              User git
+              IdentityFile ~/.ssh/gitlab/ciberkids/gitlab_ciberkids
+              IdentitiesOnly yes
+
+          Host gitlab.com-work
+              HostName gitlab.com
+              User git
+              IdentityFile ~/.ssh/gitlab/work/gitlab_work
+              IdentitiesOnly yes
         dest: "/home/{{ target_user }}/.ssh/config"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: "0600"
 
-    - name: Add GitHub to known_hosts
+    # Host keys come from the controller's own known_hosts (already trusted there),
+    # not from a fresh ssh-keyscan on the target, so a spoofed scan can't be pinned.
+    - name: Add GitHub and GitLab host keys to known_hosts
       known_hosts:
-        name: github.com
-        key: "{{ lookup('pipe', 'ssh-keyscan github.com') }}"
+        name: "{{ item }}"
+        key: "{{ lookup('pipe', 'ssh-keygen -F ' + item + ' | grep -v \"^#\" | head -1') }}"
         path: "/home/{{ target_user }}/.ssh/known_hosts"
         state: present
+      loop: [github.com, gitlab.com]
+      become: yes
+      become_user: "{{ target_user }}"
 
     # =========================================================
     # 7b. Projects directory
@@ -430,6 +462,47 @@
         creates: "/home/{{ target_user }}/.claude/hooks/herdr-agent-state.sh"
       become: yes
       become_user: "{{ target_user }}"
+
+    # herdr runs as a systemd USER service (its socket and panes belong to the user).
+    # Lingering starts the user manager at boot and keeps it after logout, so the
+    # herdr server survives the nightly dnf-automatic reboots and SSH disconnects.
+    - name: Enable lingering for {{ target_user }}
+      command: "loginctl enable-linger {{ target_user }}"
+      args:
+        creates: "/var/lib/systemd/linger/{{ target_user }}"
+
+    - name: Look up {{ target_user }}'s uid (for the user manager's runtime dir)
+      getent:
+        database: passwd
+        key: "{{ target_user }}"
+
+    - name: Create the user systemd unit directory
+      file:
+        path: "/home/{{ target_user }}/.config/systemd/user"
+        state: directory
+        mode: "0755"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    - name: Deploy herdr user service
+      copy:
+        src: "{{ playbook_dir }}/../systemd/user/bumblebee/herdr.service"
+        dest: "/home/{{ target_user }}/.config/systemd/user/herdr.service"
+        mode: "0644"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    - name: Enable and start herdr user service
+      systemd:
+        name: herdr.service
+        scope: user
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      become: yes
+      become_user: "{{ target_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[target_user][1] }}"
 
     # =========================================================
     # 8. Fastfetch for all users on login
