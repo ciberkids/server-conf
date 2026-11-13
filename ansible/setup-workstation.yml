@@ -399,6 +399,39 @@
         - { name: "user.email", value: "matteo.favaro@hexagon.com" }
 
     # =========================================================
+    # 7c. AI coding tools for {{ target_user }} (Claude Code + herdr)
+    # =========================================================
+    # Both vendor installers verify a SHA-256 from their own manifest and install
+    # into ~/.local/bin without root. Both tools update themselves (claude
+    # auto-updates, `herdr update`), so these tasks only bootstrap a fresh host.
+    # Claude Code still needs an interactive /login after install.
+    - name: Install Claude Code (native installer)
+      shell: set -o pipefail && curl -fsSL https://claude.ai/install.sh | bash
+      args:
+        executable: /bin/bash
+        creates: "/home/{{ target_user }}/.local/bin/claude"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    - name: Install herdr (terminal multiplexer for coding agents)
+      shell: set -o pipefail && curl -fsSL https://herdr.dev/install.sh | sh
+      args:
+        executable: /bin/bash
+        creates: "/home/{{ target_user }}/.local/bin/herdr"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    # Adds a SessionStart hook to ~/.claude/settings.json that reports the Claude
+    # session id to herdr's local unix socket (no-op outside herdr panes), so
+    # herdr can resume Claude sessions after its server restarts.
+    - name: Install herdr's Claude Code integration
+      command: "/home/{{ target_user }}/.local/bin/herdr integration install claude"
+      args:
+        creates: "/home/{{ target_user }}/.claude/hooks/herdr-agent-state.sh"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    # =========================================================
     # 8. Fastfetch for all users on login
     # =========================================================
     - name: Enable fastfetch on login for all users
