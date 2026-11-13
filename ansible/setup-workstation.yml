@@ -431,13 +431,42 @@
         - { name: "user.email", value: "matteo.favaro@hexagon.com" }
 
     # =========================================================
-    # 7c. herdr workspace: herdr server + Claude Code in a ROOTLESS container
+    # 7c. AI coding tools for {{ target_user }} (Claude Code + herdr)
     # =========================================================
-    # Image ghcr.io/ciberkids/herdr-workspace (github.com/ciberkids/herdr-workspace):
-    # an Ubuntu 26.04 userland (glibc 2.43, Neovim, Rust, signed Chrome), because EL9's
-    # glibc 2.34 cannot run the herdr plugins. Attach with `ssh -t bumblebee herdr`.
-    # Claude Code needs one interactive /login inside it (any herdr pane -> claude).
-    - name: Enable lingering for {{ target_user }} (rootless quadlets start at boot)
+    # Both vendor installers verify a SHA-256 from their own manifest and install
+    # into ~/.local/bin without root. Both tools update themselves (claude
+    # auto-updates, `herdr update`), so these tasks only bootstrap a fresh host.
+    # Claude Code still needs an interactive /login after install.
+    - name: Install Claude Code (native installer)
+      shell: set -o pipefail && curl -fsSL https://claude.ai/install.sh | bash
+      args:
+        executable: /bin/bash
+        creates: "/home/{{ target_user }}/.local/bin/claude"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    - name: Install herdr (terminal multiplexer for coding agents)
+      shell: set -o pipefail && curl -fsSL https://herdr.dev/install.sh | sh
+      args:
+        executable: /bin/bash
+        creates: "/home/{{ target_user }}/.local/bin/herdr"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    # Adds a SessionStart hook to ~/.claude/settings.json that reports the Claude
+    # session id to herdr's local unix socket (no-op outside herdr panes), so
+    # herdr can resume Claude sessions after its server restarts.
+    - name: Install herdr's Claude Code integration
+      command: "/home/{{ target_user }}/.local/bin/herdr integration install claude"
+      args:
+        creates: "/home/{{ target_user }}/.claude/hooks/herdr-agent-state.sh"
+      become: yes
+      become_user: "{{ target_user }}"
+
+    # herdr runs as a systemd USER service (its socket and panes belong to the user).
+    # Lingering starts the user manager at boot and keeps it after logout, so the
+    # herdr server survives the nightly dnf-automatic reboots and SSH disconnects.
+    - name: Enable lingering for {{ target_user }}
       command: "loginctl enable-linger {{ target_user }}"
       args:
         creates: "/var/lib/systemd/linger/{{ target_user }}"
@@ -447,134 +476,29 @@
         database: passwd
         key: "{{ target_user }}"
 
-    - name: Create herdr-workspace directories
+    - name: Create the user systemd unit directory
       file:
-        path: "/home/{{ target_user }}/{{ item.path }}"
+        path: "/home/{{ target_user }}/.config/systemd/user"
         state: directory
-        mode: "{{ item.mode }}"
-      loop:
-        - { path: docker_persistent/herdr-workspace, mode: "0700" }
-        - { path: docker_persistent/herdr-workspace/ssh, mode: "0700" }
-        - { path: docker_persistent/herdr-workspace/ssh/github, mode: "0700" }
-        - { path: docker_persistent/herdr-workspace/ssh/github/ciberkids, mode: "0700" }
-        - { path: docker_persistent/herdr-workspace/ssh/gitlab, mode: "0700" }
-        - { path: docker_persistent/herdr-workspace/ssh/gitlab/ciberkids, mode: "0700" }
-        - { path: docker_persistent/herdr-workspace/ssh/gitlab/work, mode: "0700" }
-        - { path: .config/containers/systemd, mode: "0755" }
-        - { path: .local/bin, mode: "0755" }
-      become: yes
-      become_user: "{{ target_user }}"
-
-    # The container gets ONLY the forge keys, never ~/.ssh: id_rsa there logs in to
-    # Bumblebee and Optimus Prime, and relabelling ~/.ssh for SELinux could break sshd.
-    - name: Copy forge private keys into the container's SSH directory
-      copy:
-        src: "{{ controller_ssh_dir }}/{{ item.dir }}/{{ item.key }}"
-        dest: "/home/{{ target_user }}/docker_persistent/herdr-workspace/ssh/{{ item.dir }}/{{ item.key }}"
-        mode: "0600"
-      loop: "{{ git_forge_keys }}"
-      no_log: true
-      become: yes
-      become_user: "{{ target_user }}"
-
-    - name: Copy forge public keys into the container's SSH directory
-      copy:
-        src: "{{ controller_ssh_dir }}/{{ item.dir }}/{{ item.key }}.pub"
-        dest: "/home/{{ target_user }}/docker_persistent/herdr-workspace/ssh/{{ item.dir }}/{{ item.key }}.pub"
-        mode: "0644"
-      loop: "{{ git_forge_keys }}"
-      become: yes
-      become_user: "{{ target_user }}"
-
-    - name: Copy the forge aliases (SSH config) into the container's SSH directory
-      copy:
-        src: "/home/{{ target_user }}/.ssh/config"
-        dest: "/home/{{ target_user }}/docker_persistent/herdr-workspace/ssh/config"
-        remote_src: yes
-        mode: "0600"
-      become: yes
-      become_user: "{{ target_user }}"
-
-    - name: Pin GitHub and GitLab host keys for the container
-      known_hosts:
-        name: "{{ item }}"
-        key: "{{ lookup('pipe', 'ssh-keygen -F ' + item + ' | grep -v \"^#\" | head -1') }}"
-        path: "/home/{{ target_user }}/docker_persistent/herdr-workspace/ssh/known_hosts"
-        state: present
-      loop: [github.com, gitlab.com]
-      become: yes
-      become_user: "{{ target_user }}"
-
-    - name: Deploy herdr-workspace quadlet (rootless)
-      copy:
-        src: "{{ playbook_dir }}/../systemd/containers/user/bumblebee/herdr-workspace.container"
-        dest: "/home/{{ target_user }}/.config/containers/systemd/herdr-workspace.container"
-        mode: "0644"
-      become: yes
-      become_user: "{{ target_user }}"
-
-    - name: Deploy the herdr attach wrapper (podman exec into the container)
-      copy:
-        src: "{{ playbook_dir }}/../scripts/bumblebee/herdr-workspace-attach.sh"
-        dest: "/home/{{ target_user }}/.local/bin/herdr"
         mode: "0755"
       become: yes
       become_user: "{{ target_user }}"
 
-    - name: Start herdr-workspace
-      systemd:
-        name: herdr-workspace.service
-        scope: user
-        state: started
-        daemon_reload: yes
+    - name: Deploy herdr user service
+      copy:
+        src: "{{ playbook_dir }}/../systemd/user/bumblebee/herdr.service"
+        dest: "/home/{{ target_user }}/.config/systemd/user/herdr.service"
+        mode: "0644"
       become: yes
       become_user: "{{ target_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[target_user][1] }}"
 
-    # AutoUpdate=registry in the quadlet: pulls the weekly image rebuilds (restarts the
-    # container, ending running agent sessions; herdr restores the layout).
-    - name: Enable podman auto-update for {{ target_user }}
+    - name: Enable and start herdr user service
       systemd:
-        name: podman-auto-update.timer
+        name: herdr.service
         scope: user
         enabled: yes
         state: started
-      become: yes
-      become_user: "{{ target_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[target_user][1] }}"
-
-    - name: Wait for the herdr server inside the container
-      command: podman exec herdr-workspace herdr status server
-      register: herdr_up
-      until: herdr_up.rc == 0
-      retries: 30
-      delay: 10
-      changed_when: false
-      become: yes
-      become_user: "{{ target_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[target_user][1] }}"
-
-    - name: Install the herdr config into the container
-      command: >-
-        podman exec -i herdr-workspace sh -c
-        'mkdir -p ~/.config/herdr && cat > ~/.config/herdr/config.toml && herdr server reload-config >/dev/null'
-      args:
-        stdin: "{{ lookup('file', playbook_dir + '/../config/herdr/config.toml') }}"
-      become: yes
-      become_user: "{{ target_user }}"
-      environment:
-        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts.getent_passwd[target_user][1] }}"
-
-    # Reviewed plugins at pinned commits + their safe config (see the script header).
-    - name: Install the reviewed herdr plugins inside the container
-      command: podman exec -i herdr-workspace bash -s
-      args:
-        stdin: "{{ lookup('file', playbook_dir + '/../scripts/bumblebee/herdr-workspace-setup.sh') }}"
-      register: herdr_setup
-      changed_when: "'install ' in herdr_setup.stdout"
+        daemon_reload: yes
       become: yes
       become_user: "{{ target_user }}"
       environment:
